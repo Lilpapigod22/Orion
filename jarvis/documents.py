@@ -11,7 +11,7 @@
     [нова страница]
 
 Всеки ред е отделен абзац — така писмата и молбите запазват вида си.
-Файловете отиват в Документи\\Митко (или в папката, която сър каже), а списъкът с
+Файловете отиват в Документи\\Орион (или в папката, която сър каже), а списъкът с
 последните документи е в memory/documents.json — за „отвори го“, „добави към него“.
 """
 import json
@@ -147,7 +147,7 @@ def word_count(markdown: str) -> int:
 
 # --- Къде се записва ------------------------------------------------------------------------
 def default_folder() -> Path:
-    return folders.known().get("документи", Path.home() / "Documents") / "Митко"
+    return folders.known().get("документи", Path.home() / "Documents") / "Орион"
 
 
 def target_path(title: str, ext: str, location: str = "") -> Path:
@@ -171,7 +171,7 @@ _recent_lock = threading.Lock()
 
 
 def recent() -> list[Path]:
-    """Документите, които Митко е създал — последният е първи. Само съществуващите."""
+    """Документите, които Орион е създал — последният е първи. Само съществуващите."""
     try:
         items = json.loads(RECENT_FILE.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -277,7 +277,7 @@ def to_docx(blocks: list[Block], path: Path, title: str = "") -> None:
     normal.paragraph_format.line_spacing = 1.15
     _docx_blocks(doc, blocks)
     doc.core_properties.title = title
-    doc.core_properties.author = "Митко"
+    doc.core_properties.author = "Орион"
     doc.save(path)
 
 
@@ -299,7 +299,7 @@ def to_pdf(blocks: list[Block], path: Path, title: str = "") -> None:
     pdf.set_margins(22, 20, 22)
     pdf.set_auto_page_break(True, margin=20)
     pdf.set_title(title)
-    pdf.set_author("Митко")
+    pdf.set_author("Орион")
     for style, file in (("", "arial.ttf"), ("B", "arialbd.ttf"), ("I", "ariali.ttf"), ("BI", "arialbi.ttf")):
         pdf.add_font("Main", style, str(FONTS / file))
     pdf.add_page()
@@ -547,7 +547,7 @@ def to_xlsx(sheets: list[tuple[str, list[list[str]]]], path: Path, title: str = 
         ws.freeze_panes = "A2"
         ws.auto_filter.ref = ws.dimensions
     workbook.properties.title = title
-    workbook.properties.creator = "Митко"
+    workbook.properties.creator = "Орион"
     workbook.save(path)
     remember(path)
 
@@ -649,7 +649,7 @@ def to_pptx(title: str, subtitle: str, slides: list[Slide], path: Path) -> None:
         if item.notes:
             slide.notes_slide.notes_text_frame.text = item.notes
     prs.core_properties.title = title
-    prs.core_properties.author = "Митко"
+    prs.core_properties.author = "Орион"
     prs.save(path)
     remember(path)
 

@@ -90,7 +90,7 @@ def make_qr_code(text: str) -> str:
         text: Какво да съдържа кодът — адрес, текст или телефон.
     """
     import qrcode
-    folder = folders.known().get("снимки", Path.home() / "Pictures") / "Митко"
+    folder = folders.known().get("снимки", Path.home() / "Pictures") / "Орион"
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"qr-{datetime.now():%Y%m%d-%H%M%S}.png"
     qrcode.make(text).save(path)

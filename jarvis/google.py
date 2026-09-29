@@ -3,7 +3,7 @@
 
 Скриптът (integrations/google_bridge.gs) работи като уеб приложение в Google Apps Script
 и приема само заявки с тайния ключ от google_settings.json. Така не е нужен проект в
-Google Cloud, а достъпът не изтича. Настройка: „Митко, свържи Google“ (виж README.md).
+Google Cloud, а достъпът не изтича. Настройка: „Орион, свържи Google“ (виж README.md).
 """
 import json
 import re
@@ -17,7 +17,7 @@ SETTINGS_FILE = BASE_DIR / "google_settings.json"   # таен ключ + адр
 BRIDGE_CODE = BASE_DIR / "integrations" / "google_bridge.gs"
 URL_RE = re.compile(r"https://script\.google\.com/(?:a/macros/[\w.\-]+|macros)/s/[\w\-]+/exec")
 
-NOT_CONNECTED = ("Google още не е свързан, сър. Кажете „Митко, свържи Google“ и ще Ви покажа "
+NOT_CONNECTED = ("Google още не е свързан, сър. Кажете „Орион, свържи Google“ и ще Ви покажа "
                  "как — отнема около пет минути.")
 
 
@@ -76,7 +76,7 @@ def call(action: str, **params):
         if "Tasks is not defined" in error:
             error = "в скрипта липсва услугата „Google Tasks API“ (Services → + → Google Tasks API)"
         elif error == "грешен ключ":
-            error = "ключът не съвпада — копирайте кода на моста наново с „Митко, свържи Google“"
+            error = "ключът не съвпада — копирайте кода на моста наново с „Орион, свържи Google“"
         raise GoogleError(f"Google върна грешка: {error}.")
     return data.get("result")
 
@@ -89,7 +89,7 @@ def connect(url: str) -> dict:
                           "(трябва да завършва на /exec).")
     settings = _settings()
     if not settings.get("secret"):
-        raise GoogleError("Първо кажете „Митко, свържи Google“, за да създам ключа и кода.")
+        raise GoogleError("Първо кажете „Орион, свържи Google“, за да създам ключа и кода.")
     previous = settings.get("url")
     settings["url"] = match.group(0)
     _save(settings)

@@ -90,7 +90,7 @@ class Listener:
             print(f"[Слушане] Google не отговаря: {e}")
         thread.join(timeout=10)
         whisper_text = heard.get("whisper")
-        # Google не чу реч — вярваме му: Whisper понякога „чува“ думи в шума (дори „Митко“ от подсказката).
+        # Google не чу реч — вярваме му: Whisper понякога „чува“ думи в шума (дори „Орион“ от подсказката).
         if not google and not google_error:
             return None
         text = speech.choose(google, whisper_text)

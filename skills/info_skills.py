@@ -9,7 +9,7 @@ import webbrowser
 
 from jarvis import jarvis_tool
 
-USER_AGENT = "Mitko/1.0 (personal voice assistant)"  # само латиница: HTTP заглавията не приемат кирилица
+USER_AGENT = "Orion/1.0 (personal voice assistant)"  # само латиница: HTTP заглавията не приемат кирилица
 
 
 def _get_json(url: str) -> dict:

@@ -67,7 +67,7 @@ def _vocabulary() -> str:
         game_names = ", ".join(g.name for g in games.installed()[:12])
     except Exception:  # noqa: BLE001
         game_names = ""
-    return (f"Митко, пусни {game_names or 'Steam'}. Отвори Chrome, Steam, Discord, Spotify и YouTube. "
+    return (f"Орион, пусни {game_names or 'Steam'}. Отвори Chrome, Steam, Discord, Spotify и YouTube. "
             "Попитай Claude. Какво е времето във Варна, София, Пловдив и Бургас? Колко е часът в Ню Йорк? "
             "Анализирай биткойна и евро долар. Напомни ми утре. Напиши молба в Word, таблица в Excel, "
             "презентация в PowerPoint и PDF. Включи Bluetooth и Wi-Fi, яркостта на 50.")
@@ -95,7 +95,7 @@ def available() -> bool:
 
 def words(pcm16: bytes) -> list[tuple[str, float, float]]:
     """Думите в кратък запис — (дума, начало, край в секунди). Бързо (без подсказка и с beam 1):
-    за прекъсването с глас, докато Митко говори. Без подсказка, защото Whisper „чува“ думите
+    за прекъсването с глас, докато Орион говори. Без подсказка, защото Whisper „чува“ думите
     от подсказката в шума."""
     if _model is None:
         return []

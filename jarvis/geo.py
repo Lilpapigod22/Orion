@@ -9,7 +9,7 @@ import urllib.request
 from dataclasses import dataclass
 from functools import lru_cache
 
-USER_AGENT = "Mitko/1.0 (personal voice assistant)"
+USER_AGENT = "Orion/1.0 (personal voice assistant)"
 
 # Код на времето (WMO) -> описание.
 WEATHER_CODES = {

@@ -128,7 +128,7 @@ def system_status() -> str:
 
 
 # --- Затваряне на програми ---------------------------------------------------------------------
-# Процеси, които не бива да се затварят с глас: без тях Windows или самият Митко спира.
+# Процеси, които не бива да се затварят с глас: без тях Windows или самият Орион спира.
 _PROTECTED = {"explorer", "svchost", "csrss", "winlogon", "wininit", "services", "lsass", "dwm", "system",
               "smss", "ollama", "ollama app", "python", "pythonw", "msedgewebview2", "taskmgr", "conhost"}
 _PROCESS_NAMES = {"calc": "calculatorapp", "mspaint": "mspaint", "winword": "winword"}
@@ -233,9 +233,9 @@ def _pictures_dir() -> Path:
 
 @jarvis_tool
 def take_screenshot() -> str:
-    """Прави снимка на целия екран и я запазва в папка „Снимки\\Митко“."""
+    """Прави снимка на целия екран и я запазва в папка „Снимки\\Орион“."""
     from PIL import ImageGrab
-    folder = _pictures_dir() / "Митко"
+    folder = _pictures_dir() / "Орион"
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"екран-{datetime.now():%Y%m%d-%H%M%S}.png"
     ImageGrab.grab(all_screens=True).save(path)

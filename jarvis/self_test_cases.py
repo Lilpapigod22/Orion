@@ -2,8 +2,8 @@
 Готовите тестове на тест режима (виж jarvis/self_test.py).
 
 SKILL_CASES — всяко умение се пуска с примерни данни в пясъчник и резултатът се проверява.
-ASKS        — молби, както ги казва сър; проверява се дали Митко избира правилното умение.
-Новите молби, които Митко измисля сам, се пазят в memory/self_tests.json.
+ASKS        — молби, както ги казва сър; проверява се дали Орион избира правилното умение.
+Новите молби, които Орион измисля сам, се пазят в memory/self_tests.json.
 """
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,7 +24,7 @@ class Ask:
     phrase: str
     expect: tuple[str, ...]      # кои умения е правилно да извика; () — разговор, без действие
     answer: str | None = None    # регулярен израз, който отговорът трябва да съдържа
-    source: str = "готов"        # "готов" или "мой" (измислен от Митко)
+    source: str = "готов"        # "готов" или "мой" (измислен от Орион)
 
 
 # --- Подготовка в пясъчника -------------------------------------------------------------------
@@ -36,7 +36,7 @@ def _one_file(box: Path) -> None:
     shutil.rmtree(box / "в", ignore_errors=True)  # папката, в която се копира и мести
     (box / "в").mkdir(parents=True)
     path = box / "бележка.txt"
-    path.write_text("Тестов документ за Митко.", encoding="utf-8")
+    path.write_text("Тестов документ за Орион.", encoding="utf-8")
     folders.last_found[:] = [path]
 
 
@@ -48,7 +48,7 @@ def _picture(box: Path) -> None:
         font = ImageFont.truetype(r"C:\Windows\Fonts\arial.ttf", 64)
     except OSError:
         font = ImageFont.load_default()
-    ImageDraw.Draw(image).text((40, 60), "МИТКО 42", fill="black", font=font)
+    ImageDraw.Draw(image).text((40, 60), "ОРИОН 42", fill="black", font=font)
     image.save(box / "снимка.png")
 
 
@@ -94,14 +94,14 @@ SKILL_CASES = [
     C("weather_week", {"city": "София"}), C("weather_hourly", {"city": "Пловдив"}),
     C("will_it_rain", {"day": "утре"}), C("air_quality", {"city": "София"}), C("uv_index"),
     # Бележки и списъци
-    C("save_note", {"text": "Тест от Митко", "title": "тест"}), C("list_notes", {}, r"(?i)тест"),
+    C("save_note", {"text": "Тест от Орион", "title": "тест"}), C("list_notes", {}, r"(?i)тест"),
     C("read_note", {"search": "тест"}, r"(?i)тест"),
     C("add_to_list", {"items": "мляко, хляб и яйца"}), C("show_list", {}, r"(?i)мляко"),
     C("remove_from_list", {"items": "хляб"}), C("all_lists"), C("clear_list"),
     C("delete_note", {"search": "тест"}),
     # Компютър (само четене; клипбордът се връща след теста)
-    C("system_status"), C("copy_to_clipboard", {"text": "Тест от Митко"}),
-    C("read_clipboard", {}, r"Тест от Митко"), C("find_files", {"query": "бележка"}),
+    C("system_status"), C("copy_to_clipboard", {"text": "Тест от Орион"}),
+    C("read_clipboard", {}, r"Тест от Орион"), C("find_files", {"query": "бележка"}),
     C("list_open_windows"), C("running_programs"), C("resource_hogs"),
     C("installed_programs", {"search": "Windows"}), C("windows_version", {}, r"Windows"),
     C("device_settings"), C("audio_outputs"),
@@ -110,7 +110,7 @@ SKILL_CASES = [
     C("website_status", {"url": "abv.bg"}), C("local_network_info"), C("wifi_info"),
     C("port_in_use", {"port": 11434}), C("dns_lookup", {"domain": "google.com"}), C("docker_containers"),
     # Файлове (в пясъчника)
-    C("create_folder", {"name": "Митко тест", "location": "{box}"}), C("folder_size", {"location": "{box}"}),
+    C("create_folder", {"name": "Орион тест", "location": "{box}"}), C("folder_size", {"location": "{box}"}),
     C("read_document", {"number": 1}, r"Тестов документ", setup=_one_file),
     C("rename_file", {"number": 1, "new_name": "документ"}, setup=_one_file),
     C("copy_file_to", {"number": 1, "destination": "{box}/в"}, setup=_one_file),
@@ -130,8 +130,8 @@ SKILL_CASES = [
     # Инструменти
     C("generate_password", {"length": 20}), C("random_number", {"minimum": 1, "maximum": 6}, r"[1-6]"),
     C("flip_coin"), C("roll_dice", {"count": 2}), C("pick_random", {"options": "пица, суши или бургер"}),
-    C("count_text", {"text": "Здравей, свят! Как си?"}, r"4"), C("encode_base64", {"text": "Митко"}, r"0JzQuNGC0LrQvg"),
-    C("decode_base64", {"data": "0JzQuNGC0LrQvg=="}, r"Митко"), C("hash_text", {"text": "abc"}, r"ba7816bf"),
+    C("count_text", {"text": "Здравей, свят! Как си?"}, r"4"), C("encode_base64", {"text": "Орион"}, r"0JzQuNGC0LrQvg"),
+    C("decode_base64", {"data": "0JzQuNGC0LrQvg=="}, r"Орион"), C("hash_text", {"text": "abc"}, r"ba7816bf"),
     C("convert_number_base", {"number": "255", "to_base": 16}, r"(?i)ff"),
     C("roman_numeral", {"value": "2026"}, r"MMXXVI"), C("roman_numeral", {"value": "XIV"}, r"14"),
     C("convert_timestamp", {"value": "1790000000"}, r"20\d\d"), C("number_stats", {"numbers": "12, 15, 9, 22"}, r"14[.,]5"),
@@ -202,7 +202,7 @@ ASKS = [
     A("Намали звука", ("change_volume", "set_volume")),
     A("Изключи блутута", ("set_bluetooth",)),
     A("Направи ми таблица в Excel с месечните ми разходи", ("create_spreadsheet",)),
-    A("Как се казваш?", (), r"Митко"),
+    A("Как се казваш?", (), r"Орион"),
     A("Направи ми 3 рийла от https://www.youtube.com/watch?v=aqz-KE-bpKQ", ("make_youtube_reels",)),
     A("Готови ли са рийловете?", ("reels_status", "show_reels")),
 ]

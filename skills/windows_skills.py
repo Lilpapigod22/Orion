@@ -226,7 +226,7 @@ def type_text(text: str) -> str:
     Args:
         text: Текстът за писане.
     """
-    vision.minimize_window()  # Митко се прибира, фокусът се връща в програмата на сър
+    vision.minimize_window()  # Орион се прибира, фокусът се връща в програмата на сър
     time.sleep(0.6)
     send_text(text)
     return f"Написах {len(text)} знака (прибрах се долу, за да не преча)."

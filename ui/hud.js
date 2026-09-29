@@ -1,5 +1,5 @@
 /* ==========================================================================
-   М.И.Т.К.О. HUD — логика на интерфейса.
+   О.Р.И.О.Н. HUD — логика на интерфейса.
 
    Python -> JS:  window.hud.<функция>(...)          (виж app.py -> Jarvis.hud)
    JS -> Python:  window.pywebview.api.<метод>(...)  (виж app.py -> HudApi)
@@ -16,7 +16,7 @@ window.addEventListener('unhandledrejection', (e) => api()?.report_error(String(
 const STATE_LABELS = {
   boot: 'Инициализация',
   idle: 'В готовност',
-  standby: 'Очаквам „Митко“',
+  standby: 'Очаквам „Орион“',
   calibrating: 'Калибрирам микрофона',
   listening: 'Слушам',
   thinking: 'Обработвам',
@@ -93,7 +93,7 @@ const reactor = {
     this.sweep += ((this.mode.sweep || 0) - this.sweep) * ease(4);
     this.drawIn = Math.min(1, this.drawIn + dt / 1.6);
 
-    // Нивото на „енергия“ идва от гласа, когато Митко говори; иначе — спокойно дишане.
+    // Нивото на „енергия“ идва от гласа, когато Орион говори; иначе — спокойно дишане.
     let targetLevel;
     if (voice.analyser && voice.playing) {
       voice.analyser.getByteFrequencyData(voice.bins);
@@ -164,7 +164,7 @@ const reactor = {
       ctx.stroke();
     }
 
-    // 4. Радарно сканиране, докато Митко слуша (кехлибарено).
+    // 4. Радарно сканиране, докато Орион слуша (кехлибарено).
     if (this.sweep > 0.02 && ctx.createConicGradient) {
       const grad = ctx.createConicGradient(this.rot[3], 0, 0);
       grad.addColorStop(0, rgba(0.32 * this.sweep));
@@ -297,7 +297,7 @@ voice.el.addEventListener('error', () => voice.finish());
 const log = $('log');
 const subtitle = $('subtitle');
 const WHO = {
-  user: 'Сър', jarvis: 'Митко', tool: '▸ умение', evolve: '▸ развитие', system: 'Система', guide: '▸ подсказка',
+  user: 'Сър', jarvis: 'Орион', tool: '▸ умение', evolve: '▸ развитие', system: 'Система', guide: '▸ подсказка',
   claude: '▸ Claude', chart: '▸ пазар', test: '▸ тест', reels: '▸ рийлове',
 };
 
@@ -543,7 +543,7 @@ const hud = {
     else this.setState('offline');
   },
 
-  // Какво мисли и прави Митко — показва се в 3D мрежата (mind.js).
+  // Какво мисли и прави Орион — показва се в 3D мрежата (mind.js).
   toolStart(name, args, module, label) { mind.taskStart(name, args, module, label); },
   toolDone(name, result, ok) { mind.taskDone(name, result, ok); },
   thought(text) { mind.think(text); },
@@ -601,7 +601,7 @@ const hud = {
       count(lessons, 'поука', 'поуки')].join(' · ');
   },
 
-  // Код, написан от Митко: показва го и чака решение. При поправка — само разликата.
+  // Код, написан от Орион: показва го и чака решение. При поправка — само разликата.
   showApproval({ kind, title, reason, code, diff, warnings, tools, attempts }) {
     $('approval-kind').textContent = kind === 'create'
       ? `Ново умение · проверено от опит ${attempts}`
@@ -698,7 +698,7 @@ function talk() {
   api()?.listen();
 }
 
-// Решение за кода, написан от Митко. Прозорецът се скрива веднага; Python продължава.
+// Решение за кода, написан от Орион. Прозорецът се скрива веднага; Python продължава.
 function decide(approved) {
   if (voice.playing) voice.stop();
   $('approval').hidden = true;

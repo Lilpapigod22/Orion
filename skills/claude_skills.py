@@ -1,7 +1,7 @@
 """
 Claude на този компютър — два начина:
 
-- ask_claude: Митко пита Claude през Claude Code (командния ред) и чете отговора. Claude има само
+- ask_claude: Орион пита Claude през Claude Code (командния ред) и чете отговора. Claude има само
   търсене в интернет — не може да пипа файлове и да пуска команди.
 - send_to_claude_app: отваря приложението Claude с готов въпрос. Изпраща го сър (Enter) —
   приложението иска това нарочно, за да не се пращат въпроси зад гърба му.
@@ -15,7 +15,7 @@ from pathlib import Path
 from jarvis import jarvis_tool
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-WORKDIR = BASE_DIR / "memory" / "claude"  # празна папка — Claude няма достъп до файловете на Митко
+WORKDIR = BASE_DIR / "memory" / "claude"  # празна папка — Claude няма достъп до файловете на Орион
 TIMEOUT = 240
 # Пълният последен отговор — приложението го показва в журнала (app.py).
 last_answer: str | None = None

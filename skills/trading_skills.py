@@ -91,7 +91,7 @@ def convert_crypto(amount: float, coin: str, currency: str = "EUR") -> str:
 
 @jarvis_tool
 def set_price_alert(asset: str, price: float) -> str:
-    """Известие при цена: Митко казва, когато актив надмине или падне под дадена цена.
+    """Известие при цена: Орион казва, когато актив надмине или падне под дадена цена.
 
     Args:
         asset: Активът, напр. "биткойн" или "евро долар".

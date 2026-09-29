@@ -1,7 +1,7 @@
 """
-М.И.Т.К.О. — приложение с прозорец.
+О.Р.И.О.Н. — приложение с прозорец.
 
-    python app.py                     # стартира Митко
+    python app.py                     # стартира Орион
     python app.py --install-shortcut  # създава икони на работния плот и в Start менюто
     python app.py --mute              # без глас (напр. за тестове)
     python app.py --no-mic            # без микрофон (за тестове)
@@ -12,7 +12,7 @@
                                                                    ├─ Listener   (слушане)
                                                                    └─ NeuralVoice (говорене)
 Всички въпроси минават през една опашка и се обработват един по един,
-така Митко никога не говори и не слуша едновременно.
+така Орион никога не говори и не слуша едновременно.
 """
 import os
 import sys
@@ -50,7 +50,7 @@ class TimedLog:
 # При двоен клик на иконата (pythonw) няма конзола -> съобщенията отиват в logs/jarvis.log.
 if sys.stdout is None or sys.stderr is None:
     sys.stdout = sys.stderr = TimedLog(BASE_DIR / "logs" / "jarvis.log")
-    print(f"===== Старт на Митко · {datetime.now():%d.%m.%Y} =====")
+    print(f"===== Старт на Орион · {datetime.now():%d.%m.%Y} =====")
 else:
     sys.stdout.reconfigure(errors="replace")
 
@@ -138,15 +138,15 @@ class Jarvis:
         self.tasks: queue.Queue = queue.Queue()
         self._pending = 0                      # задачи в опашката + текущата
         self._pending_lock = threading.Lock()
-        # Държи се, докато Митко отговаря — тест режимът пуска тестовете в пясъчник само без нея,
+        # Държи се, докато Орион отговаря — тест режимът пуска тестовете в пясъчник само без нея,
         # така тест и истинска молба никога не вървят едновременно.
         self.work_lock = threading.Lock()
-        self.last_activity = 0.0               # кога сър за последно е казал нещо на Митко
+        self.last_activity = 0.0               # кога сър за последно е казал нещо на Орион
         self.tester = self_test.SelfTester(self)
         self.speech_done = threading.Event()
         self.mic_lock = threading.Lock()
         self.listener = None
-        self.followup_until = 0.0              # до кога не е нужно да се казва „Митко“
+        self.followup_until = 0.0              # до кога не е нужно да се казва „Орион“
         self._followups_left = 0               # колко реплики още се изслушват автоматично
         self._wake_thread: threading.Thread | None = None
         self._booted = False
@@ -158,7 +158,7 @@ class Jarvis:
         self.start_maximized = False
         self._speech_gen = 0                   # сменя се в началото и края на всеки говор
         self._mic_errors = 0
-        self._last_wake_hint = 0.0             # кога за последно подсказахме „кажете Митко“
+        self._last_wake_hint = 0.0             # кога за последно подсказахме „кажете Орион“
         self._wake_re = re.compile(
             r"\b(" + "|".join(map(re.escape, config.WAKE_WORDS)) + r")\b[\s,.!?]*", re.IGNORECASE
         )
@@ -204,7 +204,7 @@ class Jarvis:
 
     def _boot(self) -> None:
         line = lambda *a: self.hud("bootLine", *a)  # noqa: E731
-        line("core", "Ядро на личността", "ok", "М.И.Т.К.О.")
+        line("core", "Ядро на личността", "ok", "О.Р.И.О.Н.")
 
         if not registry.names():
             registry.load_skills(config.SKILLS_DIR)
@@ -240,7 +240,7 @@ class Jarvis:
         # Самоусъвършенстване: кодът се пише със същия модел, одобрява се в прозореца.
         forge.configure(brain.client, brain.model, config.LLM_REASONING_EFFORT)
         vision.configure(brain.client, brain.model)
-        # „Погледни екрана“: прозорецът на Митко се скрива за миг, за да не закрива това, което гледате.
+        # „Погледни екрана“: прозорецът на Орион се скрива за миг, за да не закрива това, което гледате.
         vision.hide_window = lambda: self.window and self.window.hide()
         vision.show_window = lambda: self.window and self.window.show()
         vision.minimize_window = lambda: self.window and self.window.minimize()
@@ -265,7 +265,7 @@ class Jarvis:
 
         hour = datetime.now().hour
         greeting = "Добро утро" if 5 <= hour < 12 else "Добър ден" if hour < 18 else "Добър вечер"
-        # Поздравът завършва с въпрос, затова след него Митко изслушва една реплика без „Митко“.
+        # Поздравът завършва с въпрос, затова след него Орион изслушва една реплика без „Орион“.
         # Само една: иначе телевизорът във фона би „разговарял“ с него още от старта.
         if self.mic_ok:
             self._followups_left = 1
@@ -323,7 +323,7 @@ class Jarvis:
 
     # --- Тест режим (jarvis/self_test.py) ---------------------------------------------------
     def set_test_mode(self, enabled: bool) -> str:
-        """Включва/изключва самопроверката. Връща какво да каже Митко."""
+        """Включва/изключва самопроверката. Връща какво да каже Орион."""
         if not enabled:
             was_running = self.tester.running
             self.tester.stop()
@@ -339,7 +339,7 @@ class Jarvis:
                 "и ще поправя каквото намеря. Докато говорите с мен, тестовете чакат.")
 
     def test_idle(self) -> bool:
-        """Тестовете вървят само когато сър не говори с Митко и нищо не чака отговор."""
+        """Тестовете вървят само когато сър не говори с Орион и нищо не чака отговор."""
         approval_open = self._approval_event is not None and not self._approval_event.is_set()
         now = time.time()
         return (self.ready and not self.busy and self.tasks.empty() and not approval_open
@@ -422,7 +422,7 @@ class Jarvis:
             answer = f"Моля за момент търпение, сър. {self.boot_problem}"
         else:
             answer = self._think(text)
-        print(f"[Митко] {answer}")
+        print(f"[Орион] {answer}")
         self._push_reminders()  # може да е сложил или махнал напомняне
         self._speak(answer)
         if reflex and reflex.action == "close" and self.window:
@@ -493,7 +493,7 @@ class Jarvis:
 
     # --- Напомняния ---------------------------------------------------------------------------
     def _reminder_loop(self) -> None:
-        """Казва напомнянията, когато им дойде времето. Пропуснатите (докато Митко е бил
+        """Казва напомнянията, когато им дойде времето. Пропуснатите (докато Орион е бил
         затворен) се казват веднага при старт."""
         self.greeted.wait()
         last_alert_check = 0.0
@@ -668,7 +668,7 @@ class Jarvis:
         if not acquired:
             return MIC_BUSY
         try:
-            if self.busy:  # Митко вече отговаря — не слушаме докато говори.
+            if self.busy:  # Орион вече отговаря — не слушаме докато говори.
                 return None
             listener = self._get_listener()
             if listener is None:
@@ -703,7 +703,7 @@ class Jarvis:
         if self.busy:
             return
         self._followups_left = config.FOLLOWUP_TURNS
-        # Следващата фраза се приема без „Митко“, дори ако я хване слушането на „Винаги слушай“.
+        # Следващата фраза се приема без „Орион“, дори ако я хване слушането на „Винаги слушай“.
         self.followup_until = time.time() + config.LISTEN_TIMEOUT
         if self.always_listen and self._wake_thread and self._wake_thread.is_alive():
             self.hud("setState", "listening")
@@ -717,10 +717,10 @@ class Jarvis:
             self.ask(text, "voice")
 
     def _continue_conversation(self) -> None:
-        """След гласов въпрос Митко изслушва и следващата ви реплика — като истински разговор.
+        """След гласов въпрос Орион изслушва и следващата ви реплика — като истински разговор.
         Най-много FOLLOWUP_TURNS пъти подред, за да не „разговаря“ безкрайно с фонов звук."""
         if self._followups_left <= 0:
-            self.followup_until = 0.0  # Разговорът свърши — отново е нужно „Митко“.
+            self.followup_until = 0.0  # Разговорът свърши — отново е нужно „Орион“.
             return
         self._followups_left -= 1
         self.followup_until = time.time() + config.FOLLOWUP_SECONDS
@@ -736,7 +736,7 @@ class Jarvis:
         self._set_idle_state()
 
     def _wake_loop(self) -> None:
-        """Режим „Винаги слушай“: реагира на фрази, които съдържат „Митко“."""
+        """Режим „Винаги слушай“: реагира на фрази, които съдържат „Орион“."""
         errors = 0
         while self.always_listen:
             if self.busy:
@@ -764,11 +764,11 @@ class Jarvis:
             has_wake_word = bool(self._wake_re.search(text))
             if not (direct or has_wake_word) or not (self.always_listen or direct):
                 # Разговорът не е към JARVIS (или слушането е изключено междувременно).
-                print(f"[Пропуснато — без „Митко“] {text}")
+                print(f"[Пропуснато — без „Орион“] {text}")
                 if self.always_listen and time.time() - self._last_wake_hint > 90:
                     self._last_wake_hint = time.time()
-                    self.hud("addLog", "guide", f"Чух „{text}“, но без „Митко“. Започнете с "
-                                                 f"„Митко, …“ или натиснете F2 и говорете.")
+                    self.hud("addLog", "guide", f"Чух „{text}“, но без „Орион“. Започнете с "
+                                                 f"„Орион, …“ или натиснете F2 и говорете.")
                 continue
             if has_wake_word:
                 self._followups_left = config.FOLLOWUP_TURNS
@@ -890,21 +890,23 @@ def install_shortcuts() -> None:
         "J_DIR": str(BASE_DIR),
         "J_ICON": str(ICON),
         # Кирилицата минава през променливи на средата — в текста на командата PowerShell я губи.
-        "J_NAME": "Митко.lnk",
+        "J_NAME": "Орион.lnk",
+        "J_OLD": "Митко.lnk",  # предишното име — иконата му се маха
     }
     script = r"""
 $shell = New-Object -ComObject WScript.Shell
 $folders = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))
 foreach ($folder in $folders) {
-    Remove-Item -LiteralPath (Join-Path $folder 'JARVIS.lnk') -ErrorAction SilentlyContinue  # старото име
+    Remove-Item -LiteralPath (Join-Path $folder 'JARVIS.lnk') -ErrorAction SilentlyContinue  # старите имена
+    Remove-Item -LiteralPath (Join-Path $folder $env:J_OLD) -ErrorAction SilentlyContinue
     # WScript.Shell не записва файлове с кирилица в името — първо латиница, после преименуване.
-    $tmp = Join-Path $folder 'Mitko-shortcut.lnk'
+    $tmp = Join-Path $folder 'Orion-shortcut.lnk'
     $link = $shell.CreateShortcut($tmp)
     $link.TargetPath = $env:J_TARGET
     $link.Arguments = '"' + $env:J_APP + '"'
     $link.WorkingDirectory = $env:J_DIR
     $link.IconLocation = $env:J_ICON
-    $link.Description = 'M.I.T.K.O.'
+    $link.Description = 'O.R.I.O.N. - personal AI assistant'
     $link.Save()
     $final = Join-Path $folder $env:J_NAME
     Move-Item -Force -LiteralPath $tmp -Destination $final
@@ -934,7 +936,7 @@ def window_size() -> tuple[int, int, bool]:
 
 
 def already_running() -> bool:
-    """Позволява само един Митко (иначе два прозореца биха се борили за микрофона)."""
+    """Позволява само един Орион (иначе два прозореца биха се борили за микрофона)."""
     if os.name != "nt":
         return False
     import ctypes
@@ -943,7 +945,7 @@ def already_running() -> bool:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="М.И.Т.К.О.")
+    parser = argparse.ArgumentParser(description="О.Р.И.О.Н.")
     parser.add_argument("--install-shortcut", action="store_true", help="създава икони на работния плот и в Start")
     parser.add_argument("--mute", action="store_true", help="без глас")
     parser.add_argument("--no-mic", action="store_true", help="без микрофон")
@@ -956,7 +958,7 @@ def main() -> None:
 
     if already_running():
         import ctypes
-        ctypes.windll.user32.MessageBoxW(None, "Митко вече работи, сър.", "М.И.Т.К.О.", 0x40)
+        ctypes.windll.user32.MessageBoxW(None, "Орион вече работи, сър.", "О.Р.И.О.Н.", 0x40)
         return
 
     if os.name == "nt":  # Собствена икона в лентата на задачите (вместо тази на Python).
@@ -966,7 +968,7 @@ def main() -> None:
     app = Jarvis(muted=args.mute, use_mic=not args.no_mic)
     width, height, app.start_maximized = window_size()
     app.window = webview.create_window(
-        "М.И.Т.К.О.",
+        "О.Р.И.О.Н.",
         str(BASE_DIR / "ui" / "index.html"),
         js_api=HudApi(app),
         width=width, height=height, min_size=(880, 600), maximized=app.start_maximized,

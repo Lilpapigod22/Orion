@@ -76,7 +76,7 @@ def define_word(word: str) -> str:
         try:
             request = urllib.request.Request(
                 "https://en.wiktionary.org/api/rest_v1/page/definition/" + urllib.parse.quote(word.strip()),
-                headers={"User-Agent": "Mitko/1.0"})
+                headers={"User-Agent": "Orion/1.0"})
             with urllib.request.urlopen(request, timeout=12) as response:
                 entries = json.load(response).get("en", [])
             meanings = [f"{e['partOfSpeech']}: " + re.sub(r"<[^>]+>", "", e["definitions"][0]["definition"])
