@@ -1,0 +1,568 @@
+/* ==========================================================================
+   М.И.Т.К.О. HUD
+   Холографско синьо = Митко. Кехлибарено = вашият глас. Червено = неизправност.
+   ========================================================================== */
+
+/* --- Шрифтове (локални, с кирилица) ------------------------------------------ */
+@font-face { font-family: "Jura"; font-weight: 500; font-display: swap; src: url(fonts/jura-cyrillic-500.woff2) format("woff2"); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "Jura"; font-weight: 500; font-display: swap; src: url(fonts/jura-latin-500.woff2) format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2122, U+2212; }
+@font-face { font-family: "Jura"; font-weight: 600; font-display: swap; src: url(fonts/jura-cyrillic-600.woff2) format("woff2"); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "Jura"; font-weight: 600; font-display: swap; src: url(fonts/jura-latin-600.woff2) format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2122, U+2212; }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 300; font-display: swap; src: url(fonts/ibm-plex-sans-cyrillic-300.woff2) format("woff2"); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 300; font-display: swap; src: url(fonts/ibm-plex-sans-latin-300.woff2) format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2122, U+2212; }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-display: swap; src: url(fonts/ibm-plex-sans-cyrillic-400.woff2) format("woff2"); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-display: swap; src: url(fonts/ibm-plex-sans-latin-400.woff2) format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2122, U+2212; }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 500; font-display: swap; src: url(fonts/ibm-plex-sans-cyrillic-500.woff2) format("woff2"); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 500; font-display: swap; src: url(fonts/ibm-plex-sans-latin-500.woff2) format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2122, U+2212; }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-display: swap; src: url(fonts/jetbrains-mono-cyrillic-400.woff2) format("woff2"); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-display: swap; src: url(fonts/jetbrains-mono-latin-400.woff2) format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2122, U+2212; }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500; font-display: swap; src: url(fonts/jetbrains-mono-cyrillic-500.woff2) format("woff2"); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500; font-display: swap; src: url(fonts/jetbrains-mono-latin-500.woff2) format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2122, U+2212; }
+
+/* --- Токени ------------------------------------------------------------------ */
+:root {
+  --void: #04090F;
+  --hull: #07121C;
+  --line: rgba(127, 219, 255, 0.13);
+  --line-strong: rgba(127, 219, 255, 0.30);
+  --holo: #7FDBFF;
+  --glow: #D8F6FF;
+  --text: #BCD9E8;
+  --muted: #5B8196;
+  --amber: #FFB547;
+  --amber-text: #F1DDB8;
+  --alert: #FF5A4E;
+  --test: #8CE3B0;
+  --test-text: #CFEFDB;
+
+  --f-display: "Jura", "Segoe UI", sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", Consolas, monospace;
+
+  --accent: var(--holo);  /* сменя се според състоянието */
+  color-scheme: dark;
+}
+
+body[data-state="listening"],
+body[data-state="standby"],
+body[data-state="calibrating"] { --accent: var(--amber); }
+body[data-state="offline"] { --accent: var(--alert); }
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr) auto;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 55% 65% at 30% 46%, rgba(127, 219, 255, 0.085), transparent 70%),
+    var(--void);
+  color: var(--text);
+  font: 400 15px/1.5 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  box-shadow: inset 0 0 0 1px var(--line);  /* ръб на прозореца без рамка */
+}
+
+/* Холографска мрежа, избледняваща от реактора навън. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(127, 219, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(127, 219, 255, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: -1px -1px;
+  mask-image: radial-gradient(ellipse 50% 60% at 30% 46%, #000 0%, transparent 100%);
+}
+
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--holo); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* --- Горна лента --------------------------------------------------------------- */
+.topbar {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 1;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  font: 600 14px/1 var(--f-display);
+  letter-spacing: 0.42em;
+  color: var(--glow);
+}
+
+.drag-fill { flex: 1; }
+
+.telemetry {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding-right: 18px;
+  font: 400 11px/1 var(--f-mono);
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.status { display: inline-flex; align-items: center; gap: 8px; color: var(--text); text-transform: uppercase; letter-spacing: 0.14em; }
+.dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  transition: background-color 0.4s, box-shadow 0.4s;
+}
+body[data-state="boot"] .dot { animation: blink 1s steps(2, jump-none) infinite; }
+
+#tele-clock { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.winctl { display: flex; }
+.winctl button {
+  width: 46px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  transition: background-color 0.15s, color 0.15s;
+}
+.winctl svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.2; }
+.winctl button:hover { background: rgba(127, 219, 255, 0.08); color: var(--glow); }
+.winctl #btn-close:hover { background: var(--alert); color: #fff; }
+
+/* --- Сцена с реактора -------------------------------------------------------------- */
+.deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr);
+  min-height: 0;
+}
+
+/* 3D мрежата заема цялата сцена; надписът и субтитрите стоят долу, върху нея. */
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 28px 22px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+#mind {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+#mind:active { cursor: grabbing; }
+
+/* Невидим бутон върху ядрото — за клавиатурата (Enter/интервал = говорете). Мишката кликва
+   направо в мрежата, затова бутонът не хваща кликове. */
+.core-hit {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  pointer-events: none;
+}
+.core-hit:focus-visible { outline-offset: 8px; }
+
+.state-label, .subtitle, .boot { position: relative; pointer-events: none; }
+
+.state-label {
+  margin: 4px 0 0;
+  font: 500 12px/1 var(--f-display);
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--accent);
+  transition: color 0.4s;
+}
+
+.subtitle {
+  margin: 0;
+  max-width: 36ch;
+  min-height: calc(3 * 1.5em);
+  font: 300 20px/1.5 var(--f-body);
+  color: var(--glow);
+  text-align: center;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: opacity 0.3s;
+}
+.subtitle.is-user { color: var(--amber-text); }
+.subtitle.is-user::before { content: "„"; }
+.subtitle.is-user::after { content: "“"; }
+.subtitle.is-fading { opacity: 0; }
+
+/* Проверка на системите при старт — заема мястото на субтитрите. */
+.boot {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: min(380px, 90%);
+  font: 400 11.5px/1 var(--f-mono);
+  color: var(--muted);
+  transition: opacity 0.6s;
+}
+.boot li {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--line);
+  animation: boot-in 0.35s ease-out both;
+}
+.boot .detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.boot .mark { letter-spacing: 0.12em; }
+.boot .is-ok .mark { color: var(--holo); }
+.boot .is-run .mark { color: var(--amber); animation: blink 0.9s steps(2, jump-none) infinite; }
+.boot .is-fail .mark, .boot .is-fail .detail { color: var(--alert); white-space: normal; }
+
+body:not(.booted) .subtitle { display: none; }
+body.booted .boot { opacity: 0; pointer-events: none; position: absolute; }
+
+/* --- Одобрение на код, написан от Митко -------------------------------------------------- */
+body[data-state="approval"] { --accent: var(--amber); }
+
+.approval {
+  position: absolute;
+  inset: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 24px;
+  border: 1px solid rgba(255, 181, 71, 0.45);
+  border-radius: 4px;
+  background: rgba(4, 9, 15, 0.94);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 0 0 1px rgba(4, 9, 15, 0.8), 0 18px 60px rgba(0, 0, 0, 0.55);
+  animation: entry-in 0.3s ease-out both;
+  z-index: 2;
+}
+.approval[hidden] { display: none; }
+
+.approval-kind {
+  margin: 0;
+  font: 500 10.5px/1 var(--f-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.approval-title {
+  margin: 0;
+  font: 600 22px/1.2 var(--f-display);
+  letter-spacing: 0.04em;
+  color: var(--glow);
+  overflow-wrap: anywhere;
+}
+.approval-reason { margin: 0; color: var(--text); font-size: 14.5px; line-height: 1.5; }
+.approval-reason::before { content: "„"; color: var(--muted); }
+.approval-reason::after { content: "“"; color: var(--muted); }
+
+.approval-warnings { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.approval-warnings li {
+  padding: 4px 9px;
+  border: 1px solid rgba(255, 181, 71, 0.4);
+  border-radius: 2px;
+  font: 400 11px/1.3 var(--f-mono);
+  color: var(--amber-text);
+}
+
+.approval-code {
+  flex: 1;
+  min-height: 120px;
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: rgba(7, 18, 28, 0.9);
+  font: 400 12px/1.55 var(--f-mono);
+  color: var(--text);
+  white-space: pre;
+  tab-size: 4;
+  user-select: text;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.approval-warnings[hidden] { display: none; }
+.approval-code .line { display: block; }
+.approval-code .add { color: var(--glow); background: rgba(127, 219, 255, 0.1); }
+.approval-code .del { color: #FFB3AC; background: rgba(255, 90, 78, 0.12); text-decoration: line-through; text-decoration-color: rgba(255, 90, 78, 0.5); }
+.approval-code .hunk { color: var(--muted); }
+
+.approval-actions { display: flex; justify-content: flex-end; gap: 10px; }
+/* Писмо за изпращане: чете се като текст, не като код. */
+.approval--confirm .approval-code { flex: 0 1 auto; font: 400 14px/1.6 var(--f-body); white-space: pre-wrap; }
+.approval-actions button {
+  padding: 11px 20px;
+  border-radius: 2px;
+  font: 600 11.5px/1 var(--f-display);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-reject { border: 1px solid var(--line-strong); background: transparent; color: var(--text); }
+.btn-reject:hover { border-color: var(--alert); color: var(--alert); }
+.btn-accept { border: 1px solid var(--amber); background: var(--amber); color: var(--void); }
+.btn-accept:hover { background: #FFC874; }
+
+/* --- Журнал ---------------------------------------------------------------------------- */
+.journal {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  background: linear-gradient(90deg, rgba(7, 18, 28, 0.55), rgba(7, 18, 28, 0.9));
+}
+
+.journal-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 24px 12px;
+  font: 400 10.5px/1 var(--f-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.log {
+  flex: 1;
+  margin: 0;
+  padding: 4px 24px 24px;
+  list-style: none;
+  overflow-y: auto;
+  user-select: text;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.log-empty {
+  margin-top: 28px;
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 30ch;
+}
+
+.entry {
+  display: grid;
+  grid-template-columns: 3.4em minmax(0, 1fr);
+  column-gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(127, 219, 255, 0.06);
+  animation: entry-in 0.3s ease-out both;
+}
+.entry time {
+  grid-row: span 2;
+  padding-top: 2px;
+  font: 400 10.5px/1.4 var(--f-mono);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.entry b {
+  font: 500 10.5px/1.4 var(--f-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.entry p { margin: 3px 0 0; font-size: 14.5px; line-height: 1.55; overflow-wrap: anywhere; }
+
+.entry--jarvis b { color: var(--holo); }
+.entry--jarvis p { color: var(--text); }
+.entry--user b { color: var(--amber); }
+.entry--user p { color: var(--amber-text); }
+.entry--tool, .entry--reels { padding: 6px 0; }
+.entry--tool b { color: var(--muted); }
+.entry--tool p { font: 400 12px/1.5 var(--f-mono); color: var(--muted); }
+/* Рийлове от YouTube — дълга работа във фонов режим, напредъкът се чете лесно. */
+.entry--reels b { color: var(--holo); }
+.entry--reels p { font: 400 12px/1.5 var(--f-mono); color: var(--text); }
+.entry--system b, .entry--system p { color: var(--alert); }
+/* Подсказки и стъпки за настройка — не са грешки. */
+.entry--guide b { color: var(--amber); }
+.entry--guide p { color: var(--amber-text); }
+/* Отговорът на Claude — дълъг текст, чете се спокойно. */
+.entry--claude b { color: #D97757; }
+.entry--claude p { white-space: pre-wrap; font-size: 13.5px; color: var(--text); }
+
+/* Графика на пазарния анализ. */
+.entry--chart p { display: grid; gap: 4px; }
+.chart-title { font: 600 13px/1.3 var(--f-display); letter-spacing: 0.04em; color: var(--glow); }
+.chart-meta { font: 400 11px/1.3 var(--f-mono); color: var(--muted); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 400 11px/1.4 var(--f-mono); color: var(--text); }
+.chart-legend span, .chart-tip span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend i, .chart-tip i { width: 14px; height: 2px; border-radius: 1px; }
+.chart-legend i.dashed { background: repeating-linear-gradient(90deg, currentColor 0 5px, transparent 5px 8px); }
+.chart-box { position: relative; display: block; margin-top: 4px; }
+.chart-box canvas { display: block; width: 100%; height: 180px; cursor: crosshair; }
+.chart-tip {
+  position: absolute; top: 6px; display: grid; gap: 2px; padding: 6px 8px;
+  background: rgba(4, 9, 15, 0.92); border: 1px solid var(--line-strong); border-radius: 3px;
+  font: 400 11px/1.4 var(--f-mono); color: var(--text); pointer-events: none; white-space: nowrap;
+}
+.chart-tip[hidden] { display: none; }
+/* Самоусъвършенстване: JARVIS пише код, учи поуки. Кехлибарено — действие, което засяга вас. */
+.entry--evolve { padding: 6px 0; }
+.entry--evolve b { color: var(--amber); }
+.entry--evolve p { font: 400 12px/1.5 var(--f-mono); color: var(--amber-text); }
+/* Тест режим: самопроверка — зелено, за да не се бърка с действията (кехлибарено). */
+.entry--test { padding: 6px 0; }
+.entry--test b { color: var(--test); }
+.entry--test p { font: 400 12px/1.5 var(--f-mono); color: var(--test-text); }
+.tele-test {
+  padding: 4px 8px;
+  border: 1px solid rgba(140, 227, 176, 0.45);
+  border-radius: 3px;
+  color: var(--test);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.tele-test[hidden] { display: none; }
+.tele-reels { color: var(--holo); border-color: var(--line-strong); }
+
+/* --- Конзола ----------------------------------------------------------------------------- */
+.console {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+  background: rgba(4, 9, 15, 0.92);
+  position: relative;
+}
+
+.mic {
+  width: 46px; height: 46px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--holo);
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+.mic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+.mic:hover { background: rgba(127, 219, 255, 0.08); }
+body[data-state="listening"] .mic {
+  border-color: var(--amber);
+  color: var(--amber);
+  animation: mic-pulse 1.4s ease-out infinite;
+}
+
+.command {
+  display: flex;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: rgba(7, 18, 28, 0.7);
+  transition: border-color 0.2s;
+}
+.command:focus-within { border-color: var(--holo); }
+.command input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--glow);
+  caret-color: var(--holo);
+  user-select: text;
+}
+.command input:focus { outline: none; }
+.command input::placeholder { color: var(--muted); }
+.command button {
+  padding: 0 20px;
+  border: 0;
+  background: var(--holo);
+  color: var(--void);
+  font: 600 11.5px/1 var(--f-display);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  transition: background-color 0.15s;
+}
+.command button:hover { background: var(--glow); }
+
+.switches { display: flex; gap: 18px; }
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font: 400 10.5px/1 var(--f-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+}
+.switch input {
+  appearance: none;
+  margin: 0;
+  width: 28px; height: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.switch input::before {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.2s, background-color 0.2s;
+}
+.switch input:checked { background: rgba(127, 219, 255, 0.16); border-color: var(--holo); }
+.switch input:checked::before { transform: translateX(12px); background: var(--holo); }
+.switch--wake input:checked { background: rgba(255, 181, 71, 0.16); border-color: var(--amber); }
+.switch--wake input:checked::before { background: var(--amber); }
+.switch--test input:checked { background: rgba(140, 227, 176, 0.16); border-color: var(--test); }
+.switch--test input:checked::before { background: var(--test); }
+.switch input:checked + span { color: var(--text); }
+
+/* --- Анимации ------------------------------------------------------------------------------ */
+@keyframes blink { 50% { opacity: 0.25; } }
+@keyframes boot-in { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes entry-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes mic-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 181, 71, 0.35); }
+  100% { box-shadow: 0 0 0 12px rgba(255, 181, 71, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* --- Тесен прозорец ------------------------------------------------------------------------ */
+@media (max-width: 1000px) {
+  .telemetry #tele-model { display: none; }
+  .switches { flex-direction: column; gap: 10px; align-items: flex-start; }
+}
+@media (max-width: 760px) {
+  .deck { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .journal { border-left: 0; border-top: 1px solid var(--line); }
+  .console { grid-template-columns: auto minmax(0, 1fr); padding: 12px 16px; }
+  .switches { grid-column: 1 / -1; flex-direction: row; }
+}

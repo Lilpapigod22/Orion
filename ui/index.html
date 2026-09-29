@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>М.И.Т.К.О.</title>
+  <link rel="stylesheet" href="hud.css">
+</head>
+<body data-state="boot">
+  <header class="topbar">
+    <div class="brand pywebview-drag-region">М.И.Т.К.О.</div>
+    <div class="drag-fill pywebview-drag-region"></div>
+    <div class="telemetry pywebview-drag-region" aria-label="Състояние на системата">
+      <span class="status pywebview-drag-region"><i class="dot"></i><span id="status-text">Инициализация</span></span>
+      <span id="tele-test" class="tele-test pywebview-drag-region" hidden></span>
+      <span id="tele-reels" class="tele-test tele-reels pywebview-drag-region" hidden></span>
+      <span id="tele-model" class="pywebview-drag-region">ядро · —</span>
+      <span id="tele-clock" class="pywebview-drag-region">--:--:--</span>
+    </div>
+    <div class="winctl">
+      <button type="button" id="btn-min" aria-label="Минимизирай" title="Минимизирай">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5h8"/></svg>
+      </button>
+      <button type="button" id="btn-max" aria-label="Цял екран" title="Цял екран">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2.5" y="2.5" width="7" height="7"/></svg>
+      </button>
+      <button type="button" id="btn-close" aria-label="Затвори Митко" title="Затвори">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="deck">
+    <section class="stage" aria-label="Митко">
+      <!-- 3D мрежата: ядрото в центъра, балончета-способности, мислите му (ui/mind.js). -->
+      <canvas id="mind" aria-hidden="true"></canvas>
+      <button type="button" class="core-hit" id="reactor-btn" aria-label="Говорете с Митко (F2)"></button>
+      <p class="state-label" id="state-label">Инициализация</p>
+      <p class="subtitle" id="subtitle" aria-live="polite"></p>
+      <ol class="boot" id="boot" aria-label="Проверка на системите"></ol>
+
+      <!-- Митко показва тук код, който е написал сам, и чака вашето решение. -->
+      <div class="approval" id="approval" role="dialog" aria-labelledby="approval-title" hidden>
+        <p class="approval-kind" id="approval-kind"></p>
+        <h2 class="approval-title" id="approval-title"></h2>
+        <p class="approval-reason" id="approval-reason"></p>
+        <ul class="approval-warnings" id="approval-warnings"></ul>
+        <pre class="approval-code" id="approval-code" tabindex="0"></pre>
+        <div class="approval-actions">
+          <button type="button" class="btn-reject" id="approval-reject">Откажи</button>
+          <button type="button" class="btn-accept" id="approval-accept">Одобри и включи</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="journal" aria-label="Журнал на разговора">
+      <div class="journal-head">
+        <span>Журнал</span>
+        <span id="session-start"></span>
+      </div>
+      <ol class="log" id="log" aria-live="polite">
+        <li class="log-empty">Разговорът ще се появи тук. Напишете въпрос отдолу или натиснете F2 и говорете.</li>
+      </ol>
+    </aside>
+  </main>
+
+  <footer class="console">
+    <button type="button" class="mic" id="btn-mic" aria-label="Говорете (F2)" title="Говорете (F2)">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="9" y="3" width="6" height="11" rx="3"/>
+        <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>
+      </svg>
+    </button>
+    <form class="command" id="command" autocomplete="off">
+      <label class="sr-only" for="command-input">Съобщение до Митко</label>
+      <input id="command-input" type="text" placeholder="Напишете на Митко или натиснете F2, за да говорите" spellcheck="false">
+      <button type="submit">Изпрати</button>
+    </form>
+    <div class="switches">
+      <label class="switch switch--wake" title="Митко слуша постоянно и отговаря, когато чуе името си">
+        <input type="checkbox" id="sw-wake"><span>Винаги слушай</span>
+      </label>
+      <label class="switch" title="Отговорите се четат на глас">
+        <input type="checkbox" id="sw-voice" checked><span>Глас</span>
+      </label>
+      <label class="switch switch--test" title="Митко сам проверява уменията си и дали Ви разбира, и поправя грешките си. Докато говорите с него, тестовете чакат.">
+        <input type="checkbox" id="sw-test"><span>Тест режим</span>
+      </label>
+    </div>
+  </footer>
+
+  <audio id="voice" preload="auto"></audio>
+  <script src="hud.js"></script>
+  <script src="mind.js"></script>
+</body>
+</html>
