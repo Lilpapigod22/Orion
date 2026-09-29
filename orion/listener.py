@@ -74,7 +74,7 @@ class Listener:
                 return None
 
     def recognize(self, audio: sr.AudioData) -> str | None:
-        """Превръща записа в текст: Google и Whisper едновременно, после по-добрият (jarvis/speech.py).
+        """Превръща записа в текст: Google и Whisper едновременно, после по-добрият (orion/speech.py).
         None, ако не е разпозната реч."""
         pcm = audio.get_raw_data(convert_rate=16000, convert_width=2)
         heard: dict[str, str | None] = {}

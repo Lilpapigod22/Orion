@@ -1,17 +1,17 @@
 """
-Умение за „обучение с глас“: JARVIS записва нещата, които му кажете да запомни,
+Умение за „обучение с глас“: Орион записва нещата, които му кажете да запомни,
 във файл в папка `knowledge/`. Базата знания го засича автоматично, така че
 информацията е достъпна веднага — и остава и след рестарт (дългосрочна памет).
 """
 from datetime import datetime
 
 import config
-from jarvis import jarvis_tool
+from orion import orion_tool
 
 NOTES_FILE = config.KNOWLEDGE_DIR / "запомнени_бележки.md"
 
 
-@jarvis_tool
+@orion_tool
 def remember(fact: str) -> str:
     """Запомня трайно факт или бележка, когато сър каже „запомни, че...“.
 

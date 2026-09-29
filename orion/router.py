@@ -77,7 +77,7 @@ GROUPS = {
 }
 
 
-# Думи, които Орион е научил сам в тест режим (jarvis/self_test.py): молба с такава дума не е
+# Думи, които Орион е научил сам в тест режим (orion/self_test.py): молба с такава дума не е
 # разбрана, защото групата ѝ е била скрита. Пазят се отделно, за да се виждат и махат лесно.
 LEARNED_FILE = Path(__file__).resolve().parent.parent / "memory" / "learned_routes.json"
 _learned: dict = {"mtime": None, "words": {}}

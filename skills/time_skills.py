@@ -6,8 +6,8 @@ import math
 import time
 from datetime import date, datetime, timedelta
 
-from jarvis import clock, geo, jarvis_tool, when
-from jarvis.reminders import book
+from orion import clock, geo, orion_tool, when
+from orion.reminders import book
 
 
 def _day(text: str) -> date:
@@ -25,7 +25,7 @@ def _days(n: int) -> str:
     return "1 ден" if n == 1 else f"{n} дни"
 
 
-@jarvis_tool
+@orion_tool
 def date_after_days(days: int, from_date: str = "") -> str:
     """Коя дата ще е след (или беше преди) N дни. За „коя дата е след 100 дни“.
 
@@ -37,7 +37,7 @@ def date_after_days(days: int, from_date: str = "") -> str:
     return f"{_days(abs(days))} {'след' if days >= 0 else 'преди'} {_full(start)} е {_full(start + timedelta(days=days))}"
 
 
-@jarvis_tool
+@orion_tool
 def days_between(first_date: str, second_date: str = "") -> str:
     """Колко дни (и седмици) има между две дати.
 
@@ -51,7 +51,7 @@ def days_between(first_date: str, second_date: str = "") -> str:
             f"({days // 7} седмици и {_days(days % 7)}).")
 
 
-@jarvis_tool
+@orion_tool
 def weekday_of_date(date_text: str) -> str:
     """В кой ден от седмицата е (или беше) дадена дата. За „какъв ден е 25 декември“.
 
@@ -61,7 +61,7 @@ def weekday_of_date(date_text: str) -> str:
     return _full(_day(date_text)).capitalize()
 
 
-@jarvis_tool
+@orion_tool
 def age_from_birthday(birthday: str) -> str:
     """На колко години е човек и колко остава до рождения му ден.
 
@@ -79,7 +79,7 @@ def age_from_birthday(birthday: str) -> str:
             + ("днес е! Честит рожден ден." if left == 0 else f"след {_days(left)}."))
 
 
-@jarvis_tool
+@orion_tool
 def sunrise_sunset(city: str = "") -> str:
     """Използвай това умение, за да научиш точния час на изгрев и залез на слънцето както и
     продължението на деня днес или в избран дата. Примерни молби: „В колко часа залязва слънцето
@@ -96,7 +96,7 @@ def sunrise_sunset(city: str = "") -> str:
             f"денят е {int(length // 3600)} ч. и {int(length % 3600 // 60)} мин.")
 
 
-@jarvis_tool
+@orion_tool
 def moon_phase(date_text: str = "") -> str:
     """Фазата на Луната (пълнолуние, нова луна…) за днес или за дата."""
     d = _day(date_text)
@@ -117,7 +117,7 @@ def _holidays(year: int) -> list[dict]:
     return geo.get_json(f"https://date.nager.at/api/v3/PublicHolidays/{year}/BG")
 
 
-@jarvis_tool
+@orion_tool
 def bulgarian_holidays(year: int = 0) -> str:
     """Официалните почивни дни и празници в България за година.
 
@@ -130,7 +130,7 @@ def bulgarian_holidays(year: int = 0) -> str:
         f"{date.fromisoformat(h['date']):%d.%m} — {h['localName']}" for h in items) + "."
 
 
-@jarvis_tool
+@orion_tool
 def next_holiday() -> str:
     """Кой е следващият официален празник (почивен ден) в България и след колко дни."""
     today = date.today()
@@ -171,7 +171,7 @@ NAME_DAYS = {
 }
 
 
-@jarvis_tool
+@orion_tool
 def name_day(name: str) -> str:
     """Умението "name_day" предоставя информация за имен дените на конкретни хора, като проверява дали
     съответната дата е празник или не. Използва се, когато искате да научите кога има имен ден за
@@ -191,7 +191,7 @@ def name_day(name: str) -> str:
     return f"Не намирам имен ден за „{name}“ в календара ми (подвижните празници около Великден не са в него)."
 
 
-@jarvis_tool
+@orion_tool
 def todays_name_days() -> str:
     """Кой има имен ден днес (и следващият голям имен ден)."""
     today = date.today()
@@ -205,14 +205,14 @@ def todays_name_days() -> str:
 _stopwatch: dict[str, float] = {}
 
 
-@jarvis_tool
+@orion_tool
 def stopwatch_start() -> str:
     """Пуска хронометър (засича колко време минава)."""
     _stopwatch["start"] = time.monotonic()
     return "Хронометърът тръгна."
 
 
-@jarvis_tool
+@orion_tool
 def stopwatch_stop() -> str:
     """Спира хронометъра и казва колко време е минало."""
     start = _stopwatch.pop("start", None)
@@ -222,7 +222,7 @@ def stopwatch_stop() -> str:
     return f"Минаха {int(seconds // 60)} минути и {seconds % 60:.1f} секунди."
 
 
-@jarvis_tool
+@orion_tool
 def pomodoro(minutes: int = 25) -> str:
     """Пуска помодоро: работа без прекъсване (25 минути), после Орион казва кога е почивката.
 
@@ -233,7 +233,7 @@ def pomodoro(minutes: int = 25) -> str:
     return f"Помодорото започна — {minutes} минути съсредоточена работа. Ще Ви кажа, когато свърши."
 
 
-@jarvis_tool
+@orion_tool
 def repeating_reminder(what: str, every_minutes: int, times: int = 8) -> str:
     """Напомняне, което се повтаря — напр. на всеки час да пиете вода или да станете от стола.
 

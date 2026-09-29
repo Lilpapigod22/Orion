@@ -16,10 +16,10 @@ from openai import OpenAI
 from . import clock, router
 from .knowledge import KnowledgeBase
 from .memory import ConversationMemory
-from .tools import JarvisTools
+from .tools import OrionTools
 
 
-# Вътрешна бележка, когато JARVIS се върти в кръг — кара го да спре и да помисли,
+# Вътрешна бележка, когато Орион се върти в кръг — кара го да спре и да помисли,
 # вместо да повтаря едно и също.
 REFLECTION = (
     "[Вътрешна бележка за Орион — не е от сър] Умението „{tool}“ не се справя или повтаряш "
@@ -44,7 +44,7 @@ ACTION_CLAIM_RE = re.compile(
 LOOKUP_CLAIM_RE = re.compile(
     r"(?<!да )\b(проверявам|проверих|търся|потърсих)\b|\b(?:ще|нека)\s+(?:проверя|потърся)\b", re.IGNORECASE)
 CLAIM_RE = re.compile(f"{ACTION_CLAIM_RE.pattern}|{LOOKUP_CLAIM_RE.pattern}", re.IGNORECASE)
-# Умения, които само четат. Всички останали (и новите, написани от JARVIS) се броят за действия.
+# Умения, които само четат. Всички останали (и новите, написани от Орион) се броят за действия.
 READ_ONLY_TOOLS = {
     "get_current_time", "calculate", "get_weather", "days_until_date", "calendar_events", "check_email",
     "read_email", "tasks_list", "list_reminders", "search_web", "read_webpage", "list_lessons", "recent_errors",
@@ -61,7 +61,7 @@ FAKE_ACTION = (
     "че не можеш да го направиш. Не е нужно да записваш поука за това."
 )
 # Молби, за които почти винаги трябва умение: (дума в молбата, кои умения, проста проверка,
-# която JARVIS прави сам, ако моделът не я направи и след бележка). USER_TEXT = молбата на сър.
+# която Орион прави сам, ако моделът не я направи и след бележка). USER_TEXT = молбата на сър.
 USER_TEXT = object()
 INTENT_TOOLS = [
     # Думите са тесни нарочно: „пощенски код“ и „математическа задача“ не са за пощата и задачите.
@@ -109,7 +109,7 @@ MISSED_TOOL = (
 class Brain:
     def __init__(
         self,
-        tools: JarvisTools,
+        tools: OrionTools,
         knowledge: KnowledgeBase,
         memory: ConversationMemory,
         *,
@@ -130,7 +130,7 @@ class Brain:
         # За сложни въпроси („защо“, „обясни“, „сравни“…) — по-задълбочено мислене.
         self.deep_reasoning_effort = deep_reasoning_effort or reasoning_effort
         # Вика се след всеки отговор с (въпрос, предишен отговор, използвани умения);
-        # връща научена поука или None (виж jarvis/self_improve.py -> Reflector).
+        # връща научена поука или None (виж orion/self_improve.py -> Reflector).
         self.after_turn = after_turn
         self.model = model
         self.persona = persona
@@ -142,7 +142,7 @@ class Brain:
         # Допълнителни правила, които се четат наново при всеки въпрос (напр. научените поуки).
         self.extra_prompt = extra_prompt
         self._on_result: Callable[[str, str], None] | None = None  # задава се от think()
-        # Думи за проба при подбора на умения (само тест режимът — виж jarvis/router.py).
+        # Думи за проба при подбора на умения (само тест режимът — виж orion/router.py).
         self.route_extra: dict[str, list[str]] | None = None
 
     def _system_prompt(self, user_text: str) -> str:
@@ -183,7 +183,7 @@ class Brain:
 
     @staticmethod
     def _default_call(user_text: str) -> tuple[str, str] | None:
-        """(умение, аргументи) за проста проверка, която JARVIS прави сам, ако моделът не я направи."""
+        """(умение, аргументи) за проста проверка, която Орион прави сам, ако моделът не я направи."""
         for pattern, _, default in INTENT_TOOLS:
             if default and pattern.search(user_text):
                 name, arguments = default
@@ -271,7 +271,7 @@ class Brain:
                     messages += [{"role": "assistant", "content": content}, {"role": "user", "content": note}]
                     continue
                 if note and not used and not forced:
-                    # И след бележката — без умение. Простите проверки (поща, задачи…) JARVIS прави сам.
+                    # И след бележката — без умение. Простите проверки (поща, задачи…) Орион прави сам.
                     forced = True
                     call = self._default_call(user_text)
                     if call:
@@ -300,7 +300,7 @@ class Brain:
         # „подражава“ на стари отговори без умения и започва да си измисля резултатите.
         self.memory.add_turn(user_text, answer, steps)
 
-        # Рефлексия: ако сър е направил забележка, JARVIS извлича поука за следващите разговори.
+        # Рефлексия: ако сър е направил забележка, Орион извлича поука за следващите разговори.
         if self.after_turn:
             tools_used = [name for name, _ in seen_calls]
             lesson = self.after_turn(user_text, previous_answer, tools_used)

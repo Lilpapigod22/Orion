@@ -1,10 +1,10 @@
 """
 Автоматична подготовка на локалния модел в Ollama.
 
-При старт JARVIS сам:
+При старт Орион сам:
 1. стартира Ollama, ако не работи;
 2. изтегля модела, ако липсва (с прогрес);
-3. създава производен модел с по-голям контекст ("jarvis-<модел>");
+3. създава производен модел с по-голям контекст ("orion-<модел>");
 4. зарежда го във видеопаметта, за да е бърз първият отговор.
 """
 import json
@@ -30,7 +30,7 @@ class OllamaManager:
         # Приложението ползва OpenAI-съвместимия адрес (.../v1); тук ни трябва основният.
         self.api = base_url.rstrip("/").removesuffix("/v1")
         self.base_model = model if ":" in model else f"{model}:latest"
-        self.model = f"jarvis-{self.base_model}" if context else self.base_model
+        self.model = f"orion-{self.base_model}" if context else self.base_model
         self.context = context
         self.keep_alive = keep_alive
 

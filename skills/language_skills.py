@@ -6,7 +6,7 @@ import re
 import urllib.parse
 import urllib.request
 
-from jarvis import jarvis_tool, web
+from orion import orion_tool, web
 
 LANGUAGES = {
     "английски": "en", "български": "bg", "немски": "de", "френски": "fr", "испански": "es", "италиански": "it",
@@ -39,7 +39,7 @@ def _code(language: str) -> str:
     raise ValueError(f"не познавам езика „{language}“")
 
 
-@jarvis_tool
+@orion_tool
 def translate_text(text: str, to_language: str = "английски") -> str:
     """Умението превежда текст на друг език, предлагайки по-точни резултати от превода по памет чрез
     Google Translate. Използва се при молби за превода на конкретни фрази или съобщения, например:
@@ -54,7 +54,7 @@ def translate_text(text: str, to_language: str = "английски") -> str:
     return f"Превод от {_NAMES.get(source, source)} на {to_language}: {translated}"
 
 
-@jarvis_tool
+@orion_tool
 def detect_language(text: str) -> str:
     """На какъв език е даден текст.
 
@@ -65,7 +65,7 @@ def detect_language(text: str) -> str:
     return f"Текстът е на {_NAMES.get(source, source)}" + (f". На български: {translated}" if source != "bg" else ".")
 
 
-@jarvis_tool
+@orion_tool
 def define_word(word: str) -> str:
     """Значението на дума — българска или чужда.
 

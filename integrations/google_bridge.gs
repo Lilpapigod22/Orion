@@ -4,7 +4,7 @@
  * Работи в собствения ви Google акаунт като уеб приложение. Орион му изпраща заявки с таен
  * ключ; без ключа мостът не връща нищо. Инструкции: README.md -> „Връзка с Google“.
  */
-var SECRET = '__JARVIS_SECRET__';
+var SECRET = '__ORION_SECRET__';
 
 function doGet() {
   return ContentService.createTextOutput('Мостът на Орион работи. Поставете адреса на тази страница в Орион.');

@@ -13,14 +13,14 @@ from datetime import datetime
 from pathlib import Path
 from statistics import mean, median, pstdev
 
-from jarvis import folders, jarvis_tool
+from orion import folders, orion_tool
 
 
 def _numbers(text: str) -> list[float]:
     return [float(n.replace(",", ".")) for n in re.findall(r"-?\d+(?:[.,]\d+)?", text)]
 
 
-@jarvis_tool
+@orion_tool
 def generate_password(length: int = 16, symbols: bool = True) -> str:
     """Създава силна случайна парола и я копира в клипборда (не я казва на глас).
 
@@ -39,7 +39,7 @@ def generate_password(length: int = 16, symbols: bool = True) -> str:
     return f"Създадох парола от {length} знака и я копирах — поставете я с Ctrl+V. (Не я казвай на глас.)"
 
 
-@jarvis_tool
+@orion_tool
 def random_number(minimum: int = 1, maximum: int = 100) -> str:
     """Случайно число в интервал. За „кажи случайно число от 1 до 10“.
 
@@ -51,13 +51,13 @@ def random_number(minimum: int = 1, maximum: int = 100) -> str:
     return f"Случайното число е {random.SystemRandom().randint(low, high)}."
 
 
-@jarvis_tool
+@orion_tool
 def flip_coin() -> str:
     """Хвърля монета — ези или тура."""
     return f"Падна се {'ези' if secrets.randbelow(2) else 'тура'}."
 
 
-@jarvis_tool
+@orion_tool
 def roll_dice(count: int = 1, sides: int = 6) -> str:
     """Хвърля зар (или няколко). За „хвърли зар“, „хвърли два зара“.
 
@@ -69,7 +69,7 @@ def roll_dice(count: int = 1, sides: int = 6) -> str:
     return f"Хвърлих: {', '.join(map(str, rolls))}" + (f" — общо {sum(rolls)}." if len(rolls) > 1 else ".")
 
 
-@jarvis_tool
+@orion_tool
 def pick_random(options: str) -> str:
     """Избира случайно от няколко възможности. За „избери между пица, суши и бургер“.
 
@@ -82,7 +82,7 @@ def pick_random(options: str) -> str:
     return f"Избирам: {secrets.choice(choices)}."
 
 
-@jarvis_tool
+@orion_tool
 def make_qr_code(text: str) -> str:
     """Прави QR код (за линк, Wi-Fi, текст) и го отваря, за да го сканирате с телефона.
 
@@ -98,7 +98,7 @@ def make_qr_code(text: str) -> str:
     return f"Направих QR кода и го отворих (запазен в {path.parent.name})."
 
 
-@jarvis_tool
+@orion_tool
 def count_text(text: str) -> str:
     """Брои думите, знаците и изреченията в текст.
 
@@ -110,7 +110,7 @@ def count_text(text: str) -> str:
     return f"{len(words)} думи, {len(text)} знака ({len(text.replace(' ', ''))} без интервалите), {len(sentences)} изречения."
 
 
-@jarvis_tool
+@orion_tool
 def encode_base64(text: str) -> str:
     """Кодира текст в Base64.
 
@@ -120,7 +120,7 @@ def encode_base64(text: str) -> str:
     return base64.b64encode(text.encode("utf-8")).decode("ascii")
 
 
-@jarvis_tool
+@orion_tool
 def decode_base64(data: str) -> str:
     """Декодира Base64 обратно в текст.
 
@@ -130,7 +130,7 @@ def decode_base64(data: str) -> str:
     return base64.b64decode(data.strip() + "=" * (-len(data.strip()) % 4)).decode("utf-8", errors="replace")
 
 
-@jarvis_tool
+@orion_tool
 def hash_text(text: str, algorithm: str = "sha256") -> str:
     """Хеш (отпечатък) на текст: sha256, sha1 или md5.
 
@@ -144,7 +144,7 @@ def hash_text(text: str, algorithm: str = "sha256") -> str:
     return f"{name}: {hashlib.new(name, text.encode('utf-8')).hexdigest()}"
 
 
-@jarvis_tool
+@orion_tool
 def convert_number_base(number: str, to_base: int = 2) -> str:
     """Превръща число между бройни системи: десетична, двоична (2), осмична (8), шестнадесетична (16).
 
@@ -163,7 +163,7 @@ _ROMAN = [(1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"), (90, "X
           (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I")]
 
 
-@jarvis_tool
+@orion_tool
 def roman_numeral(value: str) -> str:
     """Превръща между арабски и римски числа: 2026 -> MMXXVI, XIV -> 14.
 
@@ -188,7 +188,7 @@ def roman_numeral(value: str) -> str:
     return f"{text} = {total}"
 
 
-@jarvis_tool
+@orion_tool
 def convert_timestamp(value: str) -> str:
     """Unix време (секунди от 1970) към дата и обратно: 1790000000 -> дата, „25.09.2026 12:00“ -> число.
 
@@ -203,7 +203,7 @@ def convert_timestamp(value: str) -> str:
     return f"{text} = {int(moment.timestamp())}"
 
 
-@jarvis_tool
+@orion_tool
 def number_stats(numbers: str) -> str:
     """Статистика за поредица от числа: сума, средно, медиана, минимум, максимум, отклонение.
 
@@ -217,7 +217,7 @@ def number_stats(numbers: str) -> str:
             f"най-малко {min(values):g}, най-голямо {max(values):g}, стандартно отклонение {pstdev(values):.4g}.")
 
 
-@jarvis_tool
+@orion_tool
 def percent_change(old_value: float, new_value: float) -> str:
     """С колко процента се е променило нещо: от стара към нова стойност (цени, заплати, тегло…).
 
@@ -231,7 +231,7 @@ def percent_change(old_value: float, new_value: float) -> str:
     return f"От {old_value:g} на {new_value:g}: {'+' if change >= 0 else ''}{change:.2f}% ({new_value - old_value:+g})."
 
 
-@jarvis_tool
+@orion_tool
 def split_bill(total: float, people: int, tip_percent: float = 0) -> str:
     """Разделя сметка между хора, с бакшиш по желание. За „разделѝ 120 лева на 4 с 10% бакшиш“.
 

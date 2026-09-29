@@ -5,7 +5,7 @@
 и заспиване, скорост на мишката, тапет, звуков изход, разширения и скрити файлове.
 
 Всяка промяна показва прозорче „стара стойност → нова“ и чака бутона „Промени“
-(jarvis/confirm.py). Старата стойност се пази: „върни настройката“ я възстановява.
+(orion/confirm.py). Старата стойност се пази: „върни настройката“ я възстановява.
 Само четенето (какви са настройките) не иска разрешение.
 """
 import base64
@@ -18,7 +18,7 @@ from ctypes import wintypes
 from pathlib import Path
 from typing import Callable
 
-from jarvis import confirm, folders, jarvis_tool
+from orion import confirm, folders, orion_tool
 
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 user32 = ctypes.windll.user32
@@ -136,7 +136,7 @@ def _brightness_to(level: int) -> str:
                    lambda: _set_brightness_everywhere(level), lambda: _set_brightness_everywhere(now))
 
 
-@jarvis_tool
+@orion_tool
 def set_brightness(level: int) -> str:
     """Яркостта на екрана (монитора) на точна стойност — „яркостта на 50“. Сър потвърждава с бутон.
 
@@ -146,7 +146,7 @@ def set_brightness(level: int) -> str:
     return _brightness_to(level)
 
 
-@jarvis_tool
+@orion_tool
 def change_brightness(amount: int) -> str:
     """По-ярко или по-тъмно: „увеличи яркостта“ (+20), „намали яркостта“, „по-тъмно“ (-20).
     Сър потвърждава с бутон.
@@ -208,7 +208,7 @@ def _set_radio(kind: str, on: bool) -> str:
     return _change(name, _on_off(old), _on_off(on), lambda: apply(on), lambda: apply(old))
 
 
-@jarvis_tool
+@orion_tool
 def set_bluetooth(on: bool = True) -> str:
     """Включва или изключва Bluetooth. Сър потвърждава с бутон.
 
@@ -218,7 +218,7 @@ def set_bluetooth(on: bool = True) -> str:
     return _set_radio("Bluetooth", on)
 
 
-@jarvis_tool
+@orion_tool
 def set_wifi(on: bool = True) -> str:
     """Включва или изключва Wi-Fi (безжичния интернет). Сър потвърждава с бутон.
 
@@ -253,7 +253,7 @@ def _theme(dark: bool) -> None:
                 "ImmersiveColorSet")
 
 
-@jarvis_tool
+@orion_tool
 def toggle_dark_mode(dark: bool = True) -> str:
     """Тъмен или светъл режим на Windows. Сър потвърждава с бутон.
 
@@ -265,7 +265,7 @@ def toggle_dark_mode(dark: bool = True) -> str:
     return _change("Темата на Windows", label(is_dark), label(dark), lambda: _theme(dark), lambda: _theme(is_dark))
 
 
-@jarvis_tool
+@orion_tool
 def set_transparency(on: bool = True) -> str:
     """Прозрачните ефекти на Windows (лентата на задачите, менюто Start). Сър потвърждава с бутон.
 
@@ -309,7 +309,7 @@ def _plans() -> list[tuple[str, str, bool]]:
     return [(guid, label, active) for guid, (label, active) in plans.items()]
 
 
-@jarvis_tool
+@orion_tool
 def set_power_plan(plan: str) -> str:
     """Режимът на захранване: „балансиран“, „висока производителност“ (за игри), „пестене на енергия“,
     „максимална производителност“ или името на друг план на компютъра. Сър потвърждава с бутон.
@@ -346,7 +346,7 @@ def _set_idle(kind: str, minutes: int) -> None:
         _powercfg("/change", f"{kind}-timeout-{power}", str(minutes))
 
 
-@jarvis_tool
+@orion_tool
 def set_screen_timeout(minutes: int) -> str:
     """След колко минути без работа да се изключва екранът (0 — никога). Сър потвърждава с бутон.
 
@@ -359,7 +359,7 @@ def set_screen_timeout(minutes: int) -> str:
                    lambda: _set_idle("monitor", minutes), lambda: _set_idle("monitor", old or 0))
 
 
-@jarvis_tool
+@orion_tool
 def set_sleep_timeout(minutes: int) -> str:
     """След колко минути без работа компютърът да заспива (0 — никога). Сър потвърждава с бутон.
 
@@ -383,7 +383,7 @@ def _apply_mouse_speed(speed: int) -> None:
     user32.SystemParametersInfoW(0x0071, 0, ctypes.c_void_p(speed), 0x01 | 0x02)  # SPI_SETMOUSESPEED, запази
 
 
-@jarvis_tool
+@orion_tool
 def set_mouse_speed(speed: int) -> str:
     """Скоростта на показалеца на мишката: от 1 (най-бавно) до 20 (най-бързо); в Windows обичайно е 10.
     Сър потвърждава с бутон.
@@ -407,7 +407,7 @@ def _apply_wallpaper(path: str) -> None:
         raise OSError("Windows не прие снимката за тапет")
 
 
-@jarvis_tool
+@orion_tool
 def set_wallpaper(number: int = 1, path: str = "") -> str:
     """Слага снимка за фон (тапет) на работния плот: файл от последния списък (след търсене на файлове)
     или пълен път. Сър потвърждава с бутон.
@@ -455,7 +455,7 @@ def _apply_output(device_id: str) -> None:
     AudioUtilities.SetDefaultDevice(device_id, roles=[ERole.eConsole, ERole.eMultimedia, ERole.eCommunications])
 
 
-@jarvis_tool
+@orion_tool
 def audio_outputs() -> str:
     """Кои звукови изходи има (колони, слушалки, монитор) и през кой е звукът в момента."""
     devices, current = _outputs()
@@ -464,7 +464,7 @@ def audio_outputs() -> str:
     return "Звукови изходи: " + "; ".join(f"{name}{' (избран)' if d == current else ''}" for name, d in devices) + "."
 
 
-@jarvis_tool
+@orion_tool
 def set_audio_output(name: str = "") -> str:
     """Пуска звука през друго устройство: слушалките, колоните, монитора… Празно — през следващото.
     Сър потвърждава с бутон.
@@ -500,7 +500,7 @@ def _refresh_explorer() -> None:
     ctypes.windll.shell32.SHChangeNotify(0x08000000, 0, None, None)  # SHCNE_ASSOCCHANGED
 
 
-@jarvis_tool
+@orion_tool
 def show_file_extensions(show: bool = True) -> str:
     """Показва или скрива разширенията на файловете (.docx, .exe…) в Explorer. Сър потвърждава с бутон.
 
@@ -517,7 +517,7 @@ def show_file_extensions(show: bool = True) -> str:
     return _change("Разширенията на файловете", label(shown), label(show), lambda: apply(show), lambda: apply(shown))
 
 
-@jarvis_tool
+@orion_tool
 def show_hidden_files(show: bool = True) -> str:
     """Показва или скрива скритите файлове и папки в Explorer. Сър потвърждава с бутон.
 
@@ -535,7 +535,7 @@ def show_hidden_files(show: bool = True) -> str:
 
 
 # --- Връщане и преглед ----------------------------------------------------------------------------
-@jarvis_tool
+@orion_tool
 def undo_setting_change() -> str:
     """Връща последната настройка, която си променил (яркост, режим, тапет, звуков изход…), както
     беше. За „върни настройката“, „върни както беше“. Сър потвърждава с бутон."""
@@ -556,7 +556,7 @@ def _safe(read: Callable[[], str]) -> str | None:
         return None
 
 
-@jarvis_tool
+@orion_tool
 def device_settings() -> str:
     """Текущите настройки на компютъра: яркост, тема, захранване, изключване на екрана и заспиване,
     мишка, звуков изход, Bluetooth, Wi-Fi, разширения и скрити файлове. Само чете — не променя нищо."""

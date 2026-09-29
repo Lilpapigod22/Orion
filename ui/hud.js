@@ -1,7 +1,7 @@
 /* ==========================================================================
    О.Р.И.О.Н. HUD — логика на интерфейса.
 
-   Python -> JS:  window.hud.<функция>(...)          (виж app.py -> Jarvis.hud)
+   Python -> JS:  window.hud.<функция>(...)          (виж app.py -> Orion.hud)
    JS -> Python:  window.pywebview.api.<метод>(...)  (виж app.py -> HudApi)
    ========================================================================== */
 'use strict';
@@ -297,7 +297,7 @@ voice.el.addEventListener('error', () => voice.finish());
 const log = $('log');
 const subtitle = $('subtitle');
 const WHO = {
-  user: 'Сър', jarvis: 'Орион', tool: '▸ умение', evolve: '▸ развитие', system: 'Система', guide: '▸ подсказка',
+  user: 'Сър', orion: 'Орион', tool: '▸ умение', evolve: '▸ развитие', system: 'Система', guide: '▸ подсказка',
   claude: '▸ Claude', chart: '▸ пазар', test: '▸ тест', reels: '▸ рийлове',
 };
 
@@ -504,7 +504,7 @@ const hud = {
   },
 
   say(text) {
-    this.addLog('jarvis', text);
+    this.addLog('orion', text);
     this.setSubtitle(text);
     refocus();
   },

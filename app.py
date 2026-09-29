@@ -7,7 +7,7 @@
     python app.py --no-mic            # без микрофон (за тестове)
 
 Архитектура:
-    ui/ (HTML/CSS/JS)  <-- window.pywebview.api -->  HudApi  -->  Jarvis (тази програма)
+    ui/ (HTML/CSS/JS)  <-- window.pywebview.api -->  HudApi  -->  Orion (тази програма)
                                                                    ├─ Brain      (мислене)
                                                                    ├─ Listener   (слушане)
                                                                    └─ NeuralVoice (говорене)
@@ -27,7 +27,7 @@ class TimedLog:
 
     def __init__(self, path: Path):
         path.parent.mkdir(exist_ok=True)
-        # Над 1 MB започваме нов журнал, старият остава като jarvis.old.log.
+        # Над 1 MB започваме нов журнал, старият остава като orion.old.log.
         if path.exists() and path.stat().st_size > 1_000_000:
             path.replace(path.with_suffix(".old.log"))
         self._file = open(path, "a", encoding="utf-8", buffering=1)
@@ -47,9 +47,9 @@ class TimedLog:
         return getattr(self._file, name)
 
 
-# При двоен клик на иконата (pythonw) няма конзола -> съобщенията отиват в logs/jarvis.log.
+# При двоен клик на иконата (pythonw) няма конзола -> съобщенията отиват в logs/orion.log.
 if sys.stdout is None or sys.stderr is None:
-    sys.stdout = sys.stderr = TimedLog(BASE_DIR / "logs" / "jarvis.log")
+    sys.stdout = sys.stderr = TimedLog(BASE_DIR / "logs" / "orion.log")
     print(f"===== Старт на Орион · {datetime.now():%d.%m.%Y} =====")
 else:
     sys.stdout.reconfigure(errors="replace")
@@ -72,15 +72,15 @@ import openai  # noqa: E402
 import webview  # noqa: E402
 
 import config  # noqa: E402
-from jarvis import alerts, apps, confirm, games, google, reels, reflexes, self_test, speech, vision  # noqa: E402
-from jarvis.memory import tool_steps  # noqa: E402
-from jarvis.reminders import book as reminder_book  # noqa: E402
-from jarvis.self_improve import forge, lessons  # noqa: E402
-from jarvis.tools import registry  # noqa: E402
-from jarvis.voice import NeuralVoice  # noqa: E402
+from orion import alerts, apps, confirm, games, google, reels, reflexes, self_test, speech, vision  # noqa: E402
+from orion.memory import tool_steps  # noqa: E402
+from orion.reminders import book as reminder_book  # noqa: E402
+from orion.self_improve import forge, lessons  # noqa: E402
+from orion.tools import registry  # noqa: E402
+from orion.voice import NeuralVoice  # noqa: E402
 from main import build_brain  # noqa: E402
 
-ICON = BASE_DIR / "assets" / "jarvis.ico"
+ICON = BASE_DIR / "assets" / "orion.ico"
 MIC_BUSY = object()   # _hear: микрофонът е зает от друго слушане
 MIC_ERROR = object()  # _hear: микрофонът не работи
 SETTINGS_FILE = BASE_DIR / "user_settings.json"
@@ -119,7 +119,7 @@ def describe_tool(name: str, arguments: str) -> str:
     return " · ".join([name, *values])
 
 
-class Jarvis:
+class Orion:
     """Свързва мисленето, слушането и говоренето с прозореца."""
 
     def __init__(self, muted: bool = False, use_mic: bool = True):
@@ -288,7 +288,7 @@ class Jarvis:
                 "lessons": len(lessons.all()),
             })
 
-    # --- Одобрение на код, написан от JARVIS -------------------------------------------------
+    # --- Одобрение на код, написан от Орион -------------------------------------------------
     def request_approval(self, proposal) -> bool:
         """Показва кода в прозореца и чака сър да натисне „Одобри“ или „Откажи“.
         Вика се от работилницата за умения в нишката на worker-а."""
@@ -300,7 +300,7 @@ class Jarvis:
         }, f"Сър, {what}. Моля, прегледайте кода и решете дали да го включа.", timeout=900)
 
     def request_confirmation(self, title: str, summary: str, body: str, accept: str) -> bool:
-        """Писмо за изпращане, събитие за изтриване… — сър решава с бутон (виж jarvis/confirm.py)."""
+        """Писмо за изпращане, събитие за изтриване… — сър решава с бутон (виж orion/confirm.py)."""
         return self._wait_for_decision(
             "showConfirm", {"title": title, "summary": summary, "body": body, "accept": accept},
             f"Сър, моля, потвърдете: {title.lower()}. Натиснете „{accept}“, ако всичко е наред.", timeout=300)
@@ -321,7 +321,7 @@ class Jarvis:
         if self._approval_event:
             self._approval_event.set()
 
-    # --- Тест режим (jarvis/self_test.py) ---------------------------------------------------
+    # --- Тест режим (orion/self_test.py) ---------------------------------------------------
     def set_test_mode(self, enabled: bool) -> str:
         """Включва/изключва самопроверката. Връща какво да каже Орион."""
         if not enabled:
@@ -357,7 +357,7 @@ class Jarvis:
     def _prepare_model(self, progress) -> str:
         if config.LLM_PROVIDER != "ollama":
             return config.LLM_MODEL
-        from jarvis.ollama_manager import OllamaManager
+        from orion.ollama_manager import OllamaManager
         self.ollama = OllamaManager(config.LLM_BASE_URL, config.LLM_MODEL,
                                     config.OLLAMA_CONTEXT, config.OLLAMA_KEEP_ALIVE)
         return self.ollama.ensure_ready(progress)
@@ -601,7 +601,7 @@ class Jarvis:
         self.hud("say", text)
         if self.muted:
             return
-        # Всичко, записано от микрофона, докато JARVIS говори, е собственият му глас — _hear го изхвърля.
+        # Всичко, записано от микрофона, докато Орион говори, е собственият му глас — _hear го изхвърля.
         self._speech_gen += 1
         try:
             self.hud("setState", "thinking")  # докато се синтезира гласът
@@ -625,7 +625,7 @@ class Jarvis:
             import comtypes
             comtypes.CoInitialize()
             if self._fallback_speaker is None:
-                from jarvis.speaker import Speaker
+                from orion.speaker import Speaker
                 self._fallback_speaker = Speaker(config.TTS_VOICE_HINT, config.TTS_RATE)
             self._fallback_speaker.say(text)
         except Exception as e:  # noqa: BLE001
@@ -644,7 +644,7 @@ class Jarvis:
             return None
         if self.listener is None:
             try:
-                from jarvis.listener import Listener
+                from orion.listener import Listener
                 self.hud("setState", "calibrating")
                 self.listener = Listener(config.LANGUAGE, config.LISTEN_TIMEOUT, config.PHRASE_TIME_LIMIT)
             except Exception as e:  # noqa: BLE001
@@ -689,7 +689,7 @@ class Jarvis:
             self.mic_lock.release()
             self._set_idle_state()
 
-        # Записаното, докато JARVIS е говорил или е започнал да отговаря, е неговият собствен глас.
+        # Записаното, докато Орион е говорил или е започнал да отговаря, е неговият собствен глас.
         if audio is None or self._speech_gen != speech_gen or self.busy:
             return None
         text = listener.recognize(audio)
@@ -763,7 +763,7 @@ class Jarvis:
             direct = direct or time.time() < self.followup_until
             has_wake_word = bool(self._wake_re.search(text))
             if not (direct or has_wake_word) or not (self.always_listen or direct):
-                # Разговорът не е към JARVIS (или слушането е изключено междувременно).
+                # Разговорът не е към Орион (или слушането е изключено междувременно).
                 print(f"[Пропуснато — без „Орион“] {text}")
                 if self.always_listen and time.time() - self._last_wake_hint > 90:
                     self._last_wake_hint = time.time()
@@ -837,7 +837,7 @@ class Jarvis:
 class HudApi:
     """Методите тук се викат от ui/hud.js чрез window.pywebview.api.<метод>()."""
 
-    def __init__(self, app: Jarvis):
+    def __init__(self, app: Orion):
         self._app = app  # С „_“, за да не се изложи към JavaScript.
 
     def start(self):
@@ -940,7 +940,7 @@ def already_running() -> bool:
     if os.name != "nt":
         return False
     import ctypes
-    ctypes.windll.kernel32.CreateMutexW(None, False, "Mitak.JARVIS.SingleInstance")
+    ctypes.windll.kernel32.CreateMutexW(None, False, "Orion.SingleInstance")
     return ctypes.windll.kernel32.GetLastError() == 183  # ERROR_ALREADY_EXISTS
 
 
@@ -963,9 +963,9 @@ def main() -> None:
 
     if os.name == "nt":  # Собствена икона в лентата на задачите (вместо тази на Python).
         import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Mitak.JARVIS")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Orion.Assistant")
 
-    app = Jarvis(muted=args.mute, use_mic=not args.no_mic)
+    app = Orion(muted=args.mute, use_mic=not args.no_mic)
     width, height, app.start_maximized = window_size()
     app.window = webview.create_window(
         "О.Р.И.О.Н.",

@@ -1,13 +1,13 @@
 """
-Умения за самоусъвършенстване: JARVIS се учи от забележките си и програмира сам себе си.
+Умения за самоусъвършенстване: Орион се учи от забележките си и програмира сам себе си.
 
-Този файл е защитен — JARVIS не може да го пренаписва (виж SkillForge.PROTECTED).
+Този файл е защитен — Орион не може да го пренаписва (виж SkillForge.PROTECTED).
 """
-from jarvis import jarvis_tool
-from jarvis.self_improve import forge, lessons
+from orion import orion_tool
+from orion.self_improve import forge, lessons
 
 
-@jarvis_tool
+@orion_tool
 def learn_lesson(lesson: str) -> str:
     """Използвай ВИНАГИ, когато сър те поправи, каже че грешиш или обясни как трябва да се държиш
     или отговаряш. Записва трайна поука за поведението ти, за да не повтаряш грешката.
@@ -20,7 +20,7 @@ def learn_lesson(lesson: str) -> str:
     return f"Поуката е записана завинаги. Вече знам {count} поуки."
 
 
-@jarvis_tool
+@orion_tool
 def list_lessons() -> str:
     """Изброява научените поуки, когато сър попита какво си научил от грешките си."""
     items = lessons.all()
@@ -29,7 +29,7 @@ def list_lessons() -> str:
     return " ".join(f"{i}. {l['text']}" for i, l in enumerate(items, 1))
 
 
-@jarvis_tool
+@orion_tool
 def forget_lesson(number: int) -> str:
     """Изтрива поука по номер, когато сър каже, че е грешна или вече не важи.
 
@@ -40,7 +40,7 @@ def forget_lesson(number: int) -> str:
     return f"Забравих поуката: {removed}" if removed else f"Няма поука с номер {number}."
 
 
-@jarvis_tool
+@orion_tool
 def create_skill(name: str, description: str) -> str:
     """Програмира НОВО умение за теб самия, когато сър поиска нещо, което не можеш да направиш
     с наличните умения (напр. „научи се да…“). Сър одобрява кода, след което умението става
@@ -53,7 +53,7 @@ def create_skill(name: str, description: str) -> str:
     return forge.create(name, description)
 
 
-@jarvis_tool
+@orion_tool
 def improve_skill(skill_name: str, problem: str) -> str:
     """Поправя или подобрява съществуващо умение, когато то върне грешка, работи неправилно
     или сър каже какъв е проблемът. След одобрение от сър опитай умението отново.
@@ -65,7 +65,7 @@ def improve_skill(skill_name: str, problem: str) -> str:
     return forge.improve(skill_name, problem)
 
 
-@jarvis_tool
+@orion_tool
 def undo_skill_change(skill_name: str) -> str:
     """Връща предишната версия на умение (или премахва ново умение), когато сър каже,
     че последната промяна е лоша.
@@ -76,7 +76,7 @@ def undo_skill_change(skill_name: str) -> str:
     return forge.undo(skill_name)
 
 
-@jarvis_tool
+@orion_tool
 def recent_errors() -> str:
     """Показва последните грешки на уменията, когато сър пита какво се е объркало
     или когато трябва да откриеш причината за проблем, преди да го поправиш."""

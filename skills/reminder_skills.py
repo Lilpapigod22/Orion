@@ -3,8 +3,8 @@
 """
 from datetime import datetime
 
-from jarvis import jarvis_tool, when
-from jarvis.reminders import book
+from orion import orion_tool, when
+from orion.reminders import book
 
 
 def describe_due(due: datetime, now: datetime | None = None) -> str:
@@ -16,7 +16,7 @@ def describe_due(due: datetime, now: datetime | None = None) -> str:
     return f"{when.spoken_date(due.date(), now.date())} в {due:%H:%M}"
 
 
-@jarvis_tool
+@orion_tool
 def set_reminder(what: str, when_text: str) -> str:
     """Слага напомняне или будилник чрез гласови команди за конкретни действия в бъдеще време, като
     „Напомни ми след 20 минути да изключа фурната", „Събуди ме утре в седем" или „Запиши ми среща за
@@ -33,7 +33,7 @@ def set_reminder(what: str, when_text: str) -> str:
     return f"Ще Ви напомня {describe_due(due)}: {what}."
 
 
-@jarvis_tool
+@orion_tool
 def set_timer(duration: str) -> str:
     """Пуска таймер (обратно броене). За „таймер за 10 минути“, „засечи 5 минути“.
 
@@ -47,7 +47,7 @@ def set_timer(duration: str) -> str:
     return f"Таймерът за {duration.strip()} тръгна."
 
 
-@jarvis_tool
+@orion_tool
 def list_reminders() -> str:
     """Казва кои напомняния и таймери чакат."""
     items = book.pending()
@@ -58,7 +58,7 @@ def list_reminders() -> str:
         f"{'таймер ' + i['text'] if i['kind'] == 'timer' else i['text']}" for i in items) + "."
 
 
-@jarvis_tool
+@orion_tool
 def cancel_reminder(what: str = "") -> str:
     """Отменя напомняне или таймер.
 

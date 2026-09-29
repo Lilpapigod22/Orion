@@ -11,23 +11,23 @@ BASE_DIR = Path(__file__).resolve().parent
 
 # --- AI ядро (LLM) -----------------------------------------------------------
 # "ollama" -> локален модел (безплатно, без интернет), "openai" -> облачен модел.
-LLM_PROVIDER = os.getenv("JARVIS_PROVIDER", "ollama").lower()
+LLM_PROVIDER = os.getenv("ORION_PROVIDER", "ollama").lower()
 
 if LLM_PROVIDER == "openai":
     LLM_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     LLM_API_KEY = os.getenv("OPENAI_API_KEY", "")
-    LLM_MODEL = os.getenv("JARVIS_MODEL", "gpt-4o-mini")
+    LLM_MODEL = os.getenv("ORION_MODEL", "gpt-4o-mini")
 else:
     # Ollama предоставя OpenAI-съвместимо API на този адрес.
     LLM_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
     LLM_API_KEY = "ollama"  # Ollama не проверява ключа, но клиентът изисква стойност.
     # Моделът трябва да поддържа "tool calling" (напр. qwen3.5, qwen2.5, llama3.1).
     # qwen3.5:9b говори по-добър български и по-рядко измисля от qwen2.5:7b (сравнено на 25.09.2026).
-    LLM_MODEL = os.getenv("JARVIS_MODEL", "qwen3.5:9b")
+    LLM_MODEL = os.getenv("ORION_MODEL", "qwen3.5:9b")
 
 # Ollama по подразбиране дава на модела само 4096 токена „работна памет“ — твърде малко
-# за персонажа + уменията + знанията + историята. JARVIS автоматично създава производен
-# модел "jarvis-<модел>" с по-голям контекст (без допълнително място на диска).
+# за персонажа + уменията + знанията + историята. Орион автоматично създава производен
+# модел "orion-<модел>" с по-голям контекст (без допълнително място на диска).
 OLLAMA_CONTEXT = 16384
 OLLAMA_KEEP_ALIVE = "30m"  # Колко време моделът стои във видеопаметта след последния въпрос.
 
@@ -55,10 +55,10 @@ KNOWLEDGE_TOP_K = 4         # Колко най-релевантни парче�
 KNOWLEDGE_FULL_CONTEXT_CHARS = 6000
 
 # --- Глас ---------------------------------------------------------------------
-LANGUAGE = os.getenv("JARVIS_LANGUAGE", "bg-BG")  # Език за разпознаване на реч.
+LANGUAGE = os.getenv("ORION_LANGUAGE", "bg-BG")  # Език за разпознаване на реч.
 
 # Неврален глас (edge-tts, изисква интернет). Български: "bg-BG-BorislavNeural" (мъжки),
-# "bg-BG-KalinaNeural" (женски). Английски JARVIS: "en-GB-RyanNeural".
+# "bg-BG-KalinaNeural" (женски). Английски Орион: "en-GB-RyanNeural".
 NEURAL_VOICE = "bg-BG-BorislavNeural"
 NEURAL_VOICE_RATE = "+0%"   # По-бързо: "+10%", по-бавно: "-10%".
 NEURAL_VOICE_PITCH = "-3Hz" # По-нисък тон звучи по-„иконом“-ски.
@@ -76,19 +76,19 @@ LISTEN_PAUSE_SECONDS = 1.5
 # "google" — само Google. Whisper пише по-добре английските имена (Steam, Hearts of Iron).
 STT_ENGINE = "auto"
 WHISPER_MODEL = "large-v3-turbo"
-WHISPER_DIR = Path(r"D:\MitkoData\whisper")        # моделът (~1.6 GB) — на D:, защото C: е почти пълен
-CUDA_LIBS = Path(r"D:\MitkoData\cuda\nvidia")      # библиотеките за видеокартата (~2 GB)
+WHISPER_DIR = Path(r"D:\OrionData\whisper")        # моделът (~1.6 GB) — на D:, защото C: е почти пълен
+CUDA_LIBS = Path(r"D:\OrionData\cuda\nvidia")      # библиотеките за видеокартата (~2 GB)
 WHISPER_MIN_FREE_VRAM_MB = 1500                    # иначе Whisper би забавил езиковия модел
 
-# --- Рийлове от YouTube (jarvis/reels.py) ---------------------------------------
-REELS_DIR = Path(r"D:\MitkoData\reels")            # готовите рийлове — на D:, видеата са големи
+# --- Рийлове от YouTube (orion/reels.py) ---------------------------------------
+REELS_DIR = Path(r"D:\OrionData\reels")            # готовите рийлове — на D:, видеата са големи
 REEL_COUNT = 3                                     # колко рийла по подразбиране
 REEL_SECONDS = 45                                  # дължина на рийл (YouTube Shorts: до 3 минути)
 REEL_TITLE_LANGUAGE = "български"                  # на какъв език Орион пише заглавията и хаштаговете
 # Модел за намиране на лица (OpenCV YuNet, 0.2 MB) — за кадрирането на рийловете по лицата.
-FACE_MODEL = Path(r"D:\MitkoData\models\face_detection_yunet_2023mar.onnx")
+FACE_MODEL = Path(r"D:\OrionData\models\face_detection_yunet_2023mar.onnx")
 
-# Само за конзолния режим (main.py): ако е зададена, JARVIS реагира само на фрази с тази дума.
+# Само за конзолния режим (main.py): ако е зададена, Орион реагира само на фрази с тази дума.
 WAKE_WORD = None
 
 # Приложението (app.py) в режим „Винаги слушай“ реагира на фрази, които съдържат
@@ -102,7 +102,7 @@ FOLLOWUP_SECONDS = 12       # След отговор можете да прод
 # безкраен „разговор“ с телевизора или YouTube във фона.
 FOLLOWUP_TURNS = 3
 
-# Прекъсване с глас (jarvis/barge_in.py): докато Орион говори, микрофонът слуша за тези думи —
+# Прекъсване с глас (orion/barge_in.py): докато Орион говори, микрофонът слуша за тези думи —
 # локално, с Whisper на видеокартата. „Стоп“ — млъква; „Орион, …“ — млъква и изпълнява командата;
 # „Орион“ или „чакай“ — млъква и слуша. Без Whisper остават Esc и кликът върху ядрото.
 BARGE_IN = True

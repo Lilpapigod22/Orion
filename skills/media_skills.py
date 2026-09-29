@@ -5,7 +5,7 @@ import os
 import urllib.parse
 import webbrowser
 
-from jarvis import folders, geo, jarvis_tool
+from orion import folders, geo, orion_tool
 
 RADIO_API = "https://de1.api.radio-browser.info/json/stations"
 
@@ -19,7 +19,7 @@ def _stations(query: str = "", limit: int = 10) -> list[dict]:
     return geo.get_json(f"{RADIO_API}/search?" + urllib.parse.urlencode(params))
 
 
-@jarvis_tool
+@orion_tool
 def play_radio(station: str) -> str:
     """Пуска радиостанция онлайн: БНР Хоризонт, Радио 1, N-JOY, Energy, BBC… (и чужди).
 
@@ -28,7 +28,7 @@ def play_radio(station: str) -> str:
     """
     found = _stations(station, 10)
     if not found:
-        from jarvis.apps import to_latin
+        from orion.apps import to_latin
         found = _stations(to_latin(station), 10)
     if not found:
         return f"Не намерих радио „{station}“."
@@ -37,14 +37,14 @@ def play_radio(station: str) -> str:
     return f"Пуснах радио {best['name'].strip()} (спира се от раздела в браузъра)."
 
 
-@jarvis_tool
+@orion_tool
 def radio_stations() -> str:
     """Най-слушаните български радиостанции онлайн."""
     names = [s["name"].strip() for s in _stations("", 12)]
     return "Популярни радиа: " + ", ".join(dict.fromkeys(names)) + "."
 
 
-@jarvis_tool
+@orion_tool
 def play_on_spotify(query: str) -> str:
     """Търси песен, изпълнител или плейлист в Spotify (приложението).
 
@@ -55,7 +55,7 @@ def play_on_spotify(query: str) -> str:
     return f"Отворих „{query}“ в Spotify — натиснете Play на песента, която искате."
 
 
-@jarvis_tool
+@orion_tool
 def play_local_music(query: str = "") -> str:
     """Пуска музика от компютъра (папка „Музика“) — песен по име или цялата папка.
 

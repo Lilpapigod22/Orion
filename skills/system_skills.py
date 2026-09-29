@@ -3,7 +3,7 @@
 заключване/изключване, снимка на екрана, клипборд, папки и файлове.
 
 Всичко необратимо (затваряне на програма, изключване, рестарт, сън) става само след бутона
-в прозореца (jarvis/confirm.py).
+в прозореца (orion/confirm.py).
 """
 import ctypes
 import os
@@ -13,7 +13,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from jarvis import apps, confirm, folders, jarvis_tool
+from orion import apps, confirm, folders, orion_tool
 
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -31,7 +31,7 @@ def _volume_now(endpoint) -> str:
     return f"Звукът е на {level}%" + (" (заглушен)." if endpoint.GetMute() else ".")
 
 
-@jarvis_tool
+@orion_tool
 def set_volume(level: int) -> str:
     """Слага силата на звука на компютъра на точна стойност. За „звукът на 30“, „сложи звука на половина“.
 
@@ -44,7 +44,7 @@ def set_volume(level: int) -> str:
     return _volume_now(endpoint)
 
 
-@jarvis_tool
+@orion_tool
 def change_volume(amount: int) -> str:
     """Увеличава или намалява звука. За „усили звука“ (+10), „намали звука“ (-10), „по-тихо“.
 
@@ -58,7 +58,7 @@ def change_volume(amount: int) -> str:
     return _volume_now(endpoint)
 
 
-@jarvis_tool
+@orion_tool
 def mute_sound(mute: bool = True) -> str:
     """Заглушава или пуска обратно звука на компютъра.
 
@@ -73,7 +73,7 @@ def mute_sound(mute: bool = True) -> str:
 _MEDIA_KEYS = {"play": 0xB3, "pause": 0xB3, "next": 0xB0, "previous": 0xB1, "stop": 0xB2}
 
 
-@jarvis_tool
+@orion_tool
 def media_control(action: str) -> str:
     """Управлява музиката или видеото, което свири (Spotify, YouTube…): пауза, пусни, следваща, предишна.
 
@@ -90,7 +90,7 @@ def media_control(action: str) -> str:
 
 
 # --- Състояние на системата ------------------------------------------------------------------
-@jarvis_tool
+@orion_tool
 def system_status() -> str:
     """Умението показва състоянието на системата, включително свободно място на дискове, процесор,
     памет и батерия. Използва се за проверка на ресурсите или при липса на пространство. Примери:
@@ -153,7 +153,7 @@ def _process_query(name: str) -> str:
     return apps.to_latin(apps.normalize(name)).replace(" ", "")
 
 
-@jarvis_tool
+@orion_tool
 def close_program(name: str) -> str:
     """Затваря отворена програма или игра (Chrome, Steam, калкулатора…). Сър потвърждава с бутон.
 
@@ -192,7 +192,7 @@ def close_program(name: str) -> str:
     return f"Затворих {exe}."
 
 
-@jarvis_tool
+@orion_tool
 def power_action(action: str, minutes: int = 0) -> str:
     """Заключва, приспива, изключва или рестартира компютъра, или отменя насрочено изключване.
     Всичко освен заключването иска потвърждение от сър.
@@ -231,7 +231,7 @@ def _pictures_dir() -> Path:
     return folders.known().get("снимки", Path.home() / "Pictures")
 
 
-@jarvis_tool
+@orion_tool
 def take_screenshot() -> str:
     """Прави снимка на целия екран и я запазва в папка „Снимки\\Орион“."""
     from PIL import ImageGrab
@@ -242,7 +242,7 @@ def take_screenshot() -> str:
     return f"Запазих снимка на екрана: {path}"
 
 
-@jarvis_tool
+@orion_tool
 def read_clipboard() -> str:
     """Какво е копирано в момента (клипборда) — за „прочети какво копирах“, „преведи копираното“."""
     import pyperclip
@@ -252,7 +252,7 @@ def read_clipboard() -> str:
     return f"Копираният текст ({len(text)} знака):\n{text[:2500]}"
 
 
-@jarvis_tool
+@orion_tool
 def copy_to_clipboard(text: str) -> str:
     """Копира текст в клипборда, за да го постави сър с Ctrl+V.
 
@@ -264,8 +264,8 @@ def copy_to_clipboard(text: str) -> str:
     return "Копирах го — поставете с Ctrl+V."
 
 
-# --- Папки и файлове (общата логика е в jarvis/folders.py) ------------------------------------
-@jarvis_tool
+# --- Папки и файлове (общата логика е в orion/folders.py) ------------------------------------
+@orion_tool
 def open_folder(name: str) -> str:
     """Отваря папка: Документи, Изтегляния (свалени файлове), Снимки, Музика, Видео, Работен плот или път.
 
@@ -303,7 +303,7 @@ def walk_user_files(deadline_seconds: float = 4):
                 return
 
 
-@jarvis_tool
+@orion_tool
 def find_files(query: str) -> str:
     """Търси файлове по име в Документи, Изтегляния, Работния плот, Снимки, Музика и Видео.
 
@@ -319,7 +319,7 @@ def find_files(query: str) -> str:
     return list_files(found, "Намерих") + " Мога да отворя някой с open_file."
 
 
-@jarvis_tool
+@orion_tool
 def open_file(number: int = 1) -> str:
     """Отваря файл от последния списък (търсене, най-големите, последните файлове…).
 

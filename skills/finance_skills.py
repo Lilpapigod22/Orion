@@ -2,14 +2,14 @@
 Калкулатори за пари и здраве: кредит, сложна лихва, ДДС, отстъпки, спестявания, гориво, ИТМ.
 Сметките са точни — моделът само ги обяснява.
 """
-from jarvis import jarvis_tool
+from orion import orion_tool
 
 
 def _money(value: float) -> str:
     return f"{value:,.2f}".replace(",", " ")
 
 
-@jarvis_tool
+@orion_tool
 def loan_payment(amount: float, annual_rate: float, years: float) -> str:
     """Месечна вноска по кредит (анюитет), общо платено и лихва. За ипотека, заем, лизинг.
 
@@ -26,7 +26,7 @@ def loan_payment(amount: float, annual_rate: float, years: float) -> str:
             f"от които {_money(total - amount)} лихва.")
 
 
-@jarvis_tool
+@orion_tool
 def compound_interest(principal: float, annual_rate: float, years: float, monthly_deposit: float = 0) -> str:
     """Колко ще станат спестяванията със сложна лихва (и месечни вноски по желание).
 
@@ -45,7 +45,7 @@ def compound_interest(principal: float, annual_rate: float, years: float, monthl
             f"печалба {_money(balance - invested)}).")
 
 
-@jarvis_tool
+@orion_tool
 def vat_calculator(amount: float, includes_vat: bool = False, rate: float = 20) -> str:
     """ДДС: добавя или изважда данъка от сума. Стандартната ставка в България е 20%.
 
@@ -60,7 +60,7 @@ def vat_calculator(amount: float, includes_vat: bool = False, rate: float = 20) 
     return f"{_money(amount)} без ДДС = {_money(amount * (1 + rate / 100))} с ДДС ({_money(amount * rate / 100)} данък)."
 
 
-@jarvis_tool
+@orion_tool
 def discount_price(price: float, discount_percent: float) -> str:
     """Цена след отстъпка и колко спестявате.
 
@@ -72,7 +72,7 @@ def discount_price(price: float, discount_percent: float) -> str:
     return f"С {discount_percent:g}% отстъпка: {_money(price - saved)} (спестявате {_money(saved)})."
 
 
-@jarvis_tool
+@orion_tool
 def savings_goal(goal: float, months: int, already_saved: float = 0) -> str:
     """Колко да спестявате на месец, за да съберете сума до срок.
 
@@ -85,7 +85,7 @@ def savings_goal(goal: float, months: int, already_saved: float = 0) -> str:
     return f"Трябват Ви още {_money(left)} — по {_money(left / max(1, months))} на месец за {months} месеца."
 
 
-@jarvis_tool
+@orion_tool
 def fuel_cost(distance_km: float, consumption_per_100km: float, price_per_liter: float, people: int = 1) -> str:
     """Колко струва горивото за пътуване (и на човек, ако сте няколко).
 
@@ -101,7 +101,7 @@ def fuel_cost(distance_km: float, consumption_per_100km: float, price_per_liter:
     return f"{liters:.1f} литра гориво за {distance_km:g} км — {_money(cost)}{share}."
 
 
-@jarvis_tool
+@orion_tool
 def bmi_calculator(weight_kg: float, height_cm: float) -> str:
     """Индекс на телесната маса (ИТМ) и какво значи.
 

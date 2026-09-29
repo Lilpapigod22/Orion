@@ -30,7 +30,7 @@ class Speaker:
             engine.stop()
 
     def say(self, text: str) -> None:
-        print(f"[JARVIS] {text}")
+        print(f"[Орион] {text}")
         if self.muted or not text:
             return
         # Нов engine за всяко изречение: заобикаля известен бъг в pyttsx3 на Windows,

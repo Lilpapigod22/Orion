@@ -5,10 +5,10 @@ import re
 import urllib.parse
 import webbrowser
 
-from jarvis import geo, jarvis_tool
+from orion import geo, orion_tool
 
 
-@jarvis_tool
+@orion_tool
 def country_info(country: str) -> str:
     """Справка за държава: столица, население, площ, валута, езици, регион.
 
@@ -49,7 +49,7 @@ def country_info(country: str) -> str:
             f"континент {', '.join(values('continentLabel')[:2]) or '—'}.")
 
 
-@jarvis_tool
+@orion_tool
 def distance_between(from_city: str, to_city: str = "") -> str:
     """Използвай това умение, когато питаш за разстоянието между два града или локация и приблизително
     времето за пътуване с кола. Примери: „Колко километра е от София до Бургас?“, „Сколько време ще
@@ -68,7 +68,7 @@ def distance_between(from_city: str, to_city: str = "") -> str:
             f"и {int(hours)} ч. {int(hours % 1 * 60)} мин.")
 
 
-@jarvis_tool
+@orion_tool
 def open_directions(destination: str, origin: str = "") -> str:
     """Отваря маршрут в Google Maps — как да стигна до някъде.
 
@@ -83,7 +83,7 @@ def open_directions(destination: str, origin: str = "") -> str:
     return f"Отворих маршрута до {destination} в Google Maps."
 
 
-@jarvis_tool
+@orion_tool
 def find_nearby(what: str) -> str:
     """Търси наблизо в Google Maps: аптека, бензиностанция, ресторант, банкомат, болница…
 
@@ -94,7 +94,7 @@ def find_nearby(what: str) -> str:
     return f"Отворих „{what} наблизо“ в Google Maps."
 
 
-@jarvis_tool
+@orion_tool
 def open_map(place: str) -> str:
     """Показва място на картата (Google Maps).
 

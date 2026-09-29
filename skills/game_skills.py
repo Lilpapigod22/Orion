@@ -2,12 +2,12 @@
 Игрите на сър — от Steam, Riot (League of Legends, VALORANT) и Epic Games.
 Пускането става с open_program („пусни Апекс“), тук е списъкът.
 """
-from jarvis import games, jarvis_tool
+from orion import games, orion_tool
 
 _SOURCES = {"steam": "Steam", "riot": "Riot", "epic": "Epic Games"}
 
 
-@jarvis_tool
+@orion_tool
 def list_games() -> str:
     """Кои игри са инсталирани на компютъра (Steam, Riot, Epic). За „какви игри имам“."""
     found = games.installed()

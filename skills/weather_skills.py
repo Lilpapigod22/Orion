@@ -4,14 +4,14 @@
 """
 from datetime import date, datetime
 
-from jarvis import geo, jarvis_tool, when
+from orion import geo, orion_tool, when
 
 
 def _code(value: int) -> str:
     return geo.WEATHER_CODES.get(value, "променливо")
 
 
-@jarvis_tool
+@orion_tool
 def weather_week(city: str = "") -> str:
     """Прогнозата за 7 дни напред — ден по ден: температура, валежи, вятър.
 
@@ -28,7 +28,7 @@ def weather_week(city: str = "") -> str:
     return f"{place.name}, 7 дни: " + "; ".join(days) + "."
 
 
-@jarvis_tool
+@orion_tool
 def weather_hourly(city: str = "", hours: int = 12) -> str:
     """Прогнозата по часове за следващите часове — температура и вероятност за дъжд.
 
@@ -46,7 +46,7 @@ def weather_hourly(city: str = "", hours: int = 12) -> str:
     return f"{place.name}, следващите {hours} часа: " + "; ".join(rows) + "."
 
 
-@jarvis_tool
+@orion_tool
 def will_it_rain(city: str = "", day: str = "днес") -> str:
     """Ще вали ли и в колко часа — днес, утре или друг ден (до 7 дни). За „трябва ли ми чадър“.
 
@@ -65,7 +65,7 @@ def will_it_rain(city: str = "", day: str = "днес") -> str:
     return f"{place.name}, {spoken}: вероятен дъжд около {wet[0]}" + (f" до {wet[-1]}" if len(wet) > 1 else "") + " — вземете чадър."
 
 
-@jarvis_tool
+@orion_tool
 def air_quality(city: str = "") -> str:
     """Качеството на въздуха сега: индекс, фини прахови частици (ФПЧ 2.5 и 10), озон.
 
@@ -81,7 +81,7 @@ def air_quality(city: str = "") -> str:
             f"ФПЧ 10: {a['pm10']:.0f}, озон: {a['ozone']:.0f}.")
 
 
-@jarvis_tool
+@orion_tool
 def uv_index(city: str = "") -> str:
     """UV индексът днес и нужен ли е слънцезащитен крем.
 

@@ -3,9 +3,9 @@
 
 Добавянето на ново умение е едно Python функция с декоратор:
 
-    from jarvis import jarvis_tool
+    from orion import orion_tool
 
-    @jarvis_tool
+    @orion_tool
     def get_time(city: str) -> str:
         '''Връща текущия час в даден град.
 
@@ -45,13 +45,13 @@ def _parse_docstring(doc: str) -> tuple[str, dict[str, str]]:
     return description.strip(), param_docs
 
 
-class JarvisTools:
-    """Регистър на всички умения, които JARVIS може да използва."""
+class OrionTools:
+    """Регистър на всички умения, които Орион може да използва."""
 
     def __init__(self):
         self._tools: dict[str, dict] = {}  # име -> {"func": ..., "schema": ..., "module": ...}
         self._files: dict[str, Path] = {}  # модул -> файл, от който е зареден
-        # Последните грешки на уменията — JARVIS ги чете, когато се самопоправя.
+        # Последните грешки на уменията — Орион ги чете, когато се самопоправя.
         self.errors: deque[dict] = deque(maxlen=30)
 
     # --- Регистриране ----------------------------------------------------------
@@ -91,7 +91,7 @@ class JarvisTools:
 
     # --- Използване от AI ядрото ------------------------------------------------
     def schemas(self, exclude_modules: set[str] | frozenset = frozenset()) -> list[dict]:
-        """Описанията на уменията за модела — без тези от `exclude_modules` (виж jarvis/router.py)."""
+        """Описанията на уменията за модела — без тези от `exclude_modules` (виж orion/router.py)."""
         return [t["schema"] for t in self._tools.values() if t["module"] not in exclude_modules]
 
     def names(self) -> list[str]:
@@ -129,13 +129,13 @@ class JarvisTools:
     def load_skills(self, folder: Path) -> None:
         """Импортира всеки .py файл от папката (без тези, започващи с '_').
 
-        Импортирането изпълнява декораторите @jarvis_tool и така уменията се регистрират.
+        Импортирането изпълнява декораторите @orion_tool и така уменията се регистрират.
         """
         for path in sorted(Path(folder).glob("*.py")):
             if not path.name.startswith("_"):
                 try:
                     self.load_skill_file(path)
-                except Exception as e:  # noqa: BLE001 — един счупен плъгин не спира JARVIS
+                except Exception as e:  # noqa: BLE001 — един счупен плъгин не спира Орион
                     print(f"[Умения] Неуспешно зареждане на {path.name}: {e}")
 
     def load_skill_file(self, path: Path) -> list[str]:
@@ -168,5 +168,5 @@ class JarvisTools:
 
 
 # Глобален регистър + кратък псевдоним за декоратора.
-registry = JarvisTools()
-jarvis_tool = registry.tool
+registry = OrionTools()
+orion_tool = registry.tool

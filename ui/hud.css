@@ -389,8 +389,8 @@ body[data-state="approval"] { --accent: var(--amber); }
 }
 .entry p { margin: 3px 0 0; font-size: 14.5px; line-height: 1.55; overflow-wrap: anywhere; }
 
-.entry--jarvis b { color: var(--holo); }
-.entry--jarvis p { color: var(--text); }
+.entry--orion b { color: var(--holo); }
+.entry--orion p { color: var(--text); }
 .entry--user b { color: var(--amber); }
 .entry--user p { color: var(--amber-text); }
 .entry--tool, .entry--reels { padding: 6px 0; }
@@ -423,7 +423,7 @@ body[data-state="approval"] { --accent: var(--amber); }
   font: 400 11px/1.4 var(--f-mono); color: var(--text); pointer-events: none; white-space: nowrap;
 }
 .chart-tip[hidden] { display: none; }
-/* Самоусъвършенстване: JARVIS пише код, учи поуки. Кехлибарено — действие, което засяга вас. */
+/* Самоусъвършенстване: Орион пише код, учи поуки. Кехлибарено — действие, което засяга вас. */
 .entry--evolve { padding: 6px 0; }
 .entry--evolve b { color: var(--amber); }
 .entry--evolve p { font: 400 12px/1.5 var(--f-mono); color: var(--amber-text); }

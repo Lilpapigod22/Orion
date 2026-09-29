@@ -1,5 +1,5 @@
 """
-Готовите тестове на тест режима (виж jarvis/self_test.py).
+Готовите тестове на тест режима (виж orion/self_test.py).
 
 SKILL_CASES — всяко умение се пуска с примерни данни в пясъчник и резултатът се проверява.
 ASKS        — молби, както ги казва сър; проверява се дали Орион избира правилното умение.
@@ -130,8 +130,8 @@ SKILL_CASES = [
     # Инструменти
     C("generate_password", {"length": 20}), C("random_number", {"minimum": 1, "maximum": 6}, r"[1-6]"),
     C("flip_coin"), C("roll_dice", {"count": 2}), C("pick_random", {"options": "пица, суши или бургер"}),
-    C("count_text", {"text": "Здравей, свят! Как си?"}, r"4"), C("encode_base64", {"text": "Орион"}, r"0JzQuNGC0LrQvg"),
-    C("decode_base64", {"data": "0JzQuNGC0LrQvg=="}, r"Орион"), C("hash_text", {"text": "abc"}, r"ba7816bf"),
+    C("count_text", {"text": "Здравей, свят! Как си?"}, r"4"), C("encode_base64", {"text": "Орион"}, r"0J7RgNC40L7QvQ"),
+    C("decode_base64", {"data": "0J7RgNC40L7QvQ=="}, r"Орион"), C("hash_text", {"text": "abc"}, r"ba7816bf"),
     C("convert_number_base", {"number": "255", "to_base": 16}, r"(?i)ff"),
     C("roman_numeral", {"value": "2026"}, r"MMXXVI"), C("roman_numeral", {"value": "XIV"}, r"14"),
     C("convert_timestamp", {"value": "1790000000"}, r"20\d\d"), C("number_stats", {"numbers": "12, 15, 9, 22"}, r"14[.,]5"),

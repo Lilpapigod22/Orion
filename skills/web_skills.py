@@ -3,10 +3,10 @@
 """
 from urllib.parse import urlparse
 
-from jarvis import jarvis_tool, web
+from orion import orion_tool, web
 
 
-@jarvis_tool
+@orion_tool
 def search_web(query: str, news: bool = False) -> str:
     """Търси в интернет актуална информация — новини, цени, курсове, резултати, факти, рецепти.
     Използвай, когато не знаеш отговора със сигурност или той зависи от днешния ден.
@@ -27,7 +27,7 @@ def search_web(query: str, news: bool = False) -> str:
             "прочети най-подходящия адрес с read_webpage):\n" + "\n".join(lines))
 
 
-@jarvis_tool
+@orion_tool
 def read_webpage(url: str) -> str:
     """Прочита текста на уеб страница, за да отговориш по нейното съдържание.
 

@@ -5,8 +5,8 @@ Google Календар, Gmail и Google Задачи. Връзката се н�
 """
 from datetime import date, datetime, time, timedelta
 
-from jarvis import apps, confirm, google, jarvis_tool, when
-from jarvis.google import GoogleError
+from orion import apps, confirm, google, orion_tool, when
+from orion.google import GoogleError
 
 # Последният прочетен списък с писма — за „прочети второто“.
 _last_mail: list[dict] = []
@@ -40,7 +40,7 @@ def _describe_event(ev: dict) -> str:
     return f"{start:%H:%M}–{end:%H:%M} {ev['title']}{where}"
 
 
-@jarvis_tool
+@orion_tool
 def calendar_events(day: str = "днес", days: int = 1) -> str:
     """Поискайте „Какво има в календара ми за утре?/" или „Кои срещи имам днес?", за да видите вашите
     събития и напомняния от Google Календар. Умението показва детайли за планираните ви дейности за
@@ -68,7 +68,7 @@ def calendar_events(day: str = "днес", days: int = 1) -> str:
     return f"Събития за {period}: " + " | ".join(f"{d}: {'; '.join(items)}" for d, items in by_day.items()) + "."
 
 
-@jarvis_tool
+@orion_tool
 def calendar_add_event(title: str, day: str, start_time: str = "", duration_minutes: int = 60,
                        location: str = "") -> str:
     """Записва събитие или среща в Google календара на сър.
@@ -99,7 +99,7 @@ def calendar_add_event(title: str, day: str, start_time: str = "", duration_minu
     return problem or f"Записах „{title}“ в календара — {period}."
 
 
-@jarvis_tool
+@orion_tool
 def calendar_delete_event(title: str, day: str) -> str:
     """Изтрива събитие от Google календара (сър потвърждава с бутон).
 
@@ -127,7 +127,7 @@ def calendar_delete_event(title: str, day: str) -> str:
 
 
 # --- Поща -------------------------------------------------------------------------------------
-@jarvis_tool
+@orion_tool
 def check_email(search: str = "") -> str:
     """Проверява пощата (Gmail) на сър: новите непрочетени писма — от кого са и за какво.
 
@@ -150,7 +150,7 @@ def check_email(search: str = "") -> str:
     return f"{head} ({len(mails)}): " + " ".join(lines)
 
 
-@jarvis_tool
+@orion_tool
 def read_email(number: int = 1) -> str:
     """Прочита цялото писмо от последния списък на check_email.
 
@@ -180,7 +180,7 @@ def _find_address(to: str) -> tuple[str | None, str]:
     return best["email"], f"{best['name']} <{best['email']}>" if best["name"] else best["email"]
 
 
-@jarvis_tool
+@orion_tool
 def send_email(to: str, subject: str, body: str) -> str:
     """Изпраща ново писмо от Gmail на сър. Писмото тръгва само ако сър натисне „Изпрати“.
 
@@ -198,7 +198,7 @@ def send_email(to: str, subject: str, body: str) -> str:
     return problem or f"Писмото до {shown} е изпратено."
 
 
-@jarvis_tool
+@orion_tool
 def reply_email(number: int, body: str) -> str:
     """Отговаря на писмо от последния списък на check_email (след „Изпрати“ от сър).
 
@@ -216,7 +216,7 @@ def reply_email(number: int, body: str) -> str:
 
 
 # --- Задачи ---------------------------------------------------------------------------------
-@jarvis_tool
+@orion_tool
 def tasks_list() -> str:
     """Списъкът със задачи на сър (Google Tasks) — какво има да свърши."""
     tasks, problem = _google("tasks_list")
@@ -229,7 +229,7 @@ def tasks_list() -> str:
         for t in tasks) + "."
 
 
-@jarvis_tool
+@orion_tool
 def tasks_add(title: str, due: str = "") -> str:
     """Добавя задача в списъка на сър (Google Tasks), напр. „купи мляко“.
 
@@ -244,7 +244,7 @@ def tasks_add(title: str, due: str = "") -> str:
     return f"Добавих задачата „{title}“" + (f" със срок {when.spoken_date(due_day)}." if due_day else ".")
 
 
-@jarvis_tool
+@orion_tool
 def tasks_complete(title: str) -> str:
     """Отбелязва задача като свършена.
 

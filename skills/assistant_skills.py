@@ -4,7 +4,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-from jarvis import clock, google, jarvis_tool, registry
+from orion import clock, google, orion_tool, registry
 
 GROUPS = {
     "skills.basic_skills": "Основни (час, сметки, програми, сайтове, време навън)",
@@ -35,7 +35,7 @@ GROUPS = {
 }
 
 
-@jarvis_tool
+@orion_tool
 def list_skills(group: str = "") -> str:
     """Какво може Орион — уменията по групи, или подробно за една група. За „какво можеш“.
 
@@ -64,7 +64,7 @@ def _safe(tool: str, **arguments) -> str:
     return "" if result.startswith("Грешка") else result
 
 
-@jarvis_tool
+@orion_tool
 def daily_briefing() -> str:
     """Сутрешен брифинг: датата, времето, напомнянията, календарът и пощата (ако Google е свързан),
     пазарите и имените дни — всичко важно за деня наведнъж. За „добро утро“, „какво ме чака днес“."""

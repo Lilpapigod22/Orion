@@ -11,7 +11,7 @@ import sys
 import time
 from ctypes import wintypes
 
-from jarvis import jarvis_tool, vision
+from orion import orion_tool, vision
 
 user32 = ctypes.windll.user32
 
@@ -43,7 +43,7 @@ def _windows() -> list[tuple[int, str, str]]:
     return found
 
 
-@jarvis_tool
+@orion_tool
 def list_open_windows() -> str:
     """Кои прозорци и програми са отворени в момента."""
     windows = _windows()
@@ -52,7 +52,7 @@ def list_open_windows() -> str:
     return f"Отворени прозорци ({len(windows)}): " + "; ".join(f"{t[:60]} ({p})" for _, t, p in windows[:20]) + "."
 
 
-@jarvis_tool
+@orion_tool
 def focus_window(title: str) -> str:
     """Превключва към отворен прозорец (извежда го отпред). За „покажи ми Chrome“, „върни се в Word“.
 
@@ -71,7 +71,7 @@ def focus_window(title: str) -> str:
     return f"Показах „{name[:60]}“."
 
 
-@jarvis_tool
+@orion_tool
 def minimize_all_windows() -> str:
     """Скрива всички прозорци и показва работния плот (като Win+D)."""
     user32.keybd_event(0x5B, 0, 0, 0)  # Win
@@ -81,7 +81,7 @@ def minimize_all_windows() -> str:
     return "Показах работния плот."
 
 
-@jarvis_tool
+@orion_tool
 def resource_hogs() -> str:
     """Умението resource_hogs идентифицира програми, които натоварват процесора и паметта, причинявайки
     забавяне на компютъра. Използва се при въпроси като „Защо компютърът ми е толкова бавен?","Кои
@@ -110,7 +110,7 @@ def resource_hogs() -> str:
             + ", ".join(f"{n} {m / 2**30:.1f} GB" for n, m in top_memory) + ".")
 
 
-@jarvis_tool
+@orion_tool
 def running_programs() -> str:
     """Кои програми работят (с прозорец) — без системните процеси."""
     programs = sorted({p for _, _, p in _windows()})
@@ -131,7 +131,7 @@ _SETTINGS = {
 }
 
 
-@jarvis_tool
+@orion_tool
 def open_settings_page(page: str) -> str:
     """Отваря страница от Настройките на Windows: Wi-Fi, Bluetooth, звук, дисплей, обновления,
     приложения, фон, захранване, съхранение, принтери, микрофон, програми при стартиране…
@@ -144,7 +144,7 @@ def open_settings_page(page: str) -> str:
     return f"Отворих настройките{' — ' + page if key else ''}."
 
 
-@jarvis_tool
+@orion_tool
 def installed_programs(search: str = "") -> str:
     """Кои програми са инсталирани — или дали е инсталирана определена.
 
@@ -219,7 +219,7 @@ def send_text(text: str) -> None:
     user32.SendInput(len(events), array, ctypes.sizeof(_INPUT))
 
 
-@jarvis_tool
+@orion_tool
 def type_text(text: str) -> str:
     """Написва текст в програмата, в която сър пише в момента (Word, бележник, чат…) — като диктовка.
 
@@ -232,7 +232,7 @@ def type_text(text: str) -> str:
     return f"Написах {len(text)} знака (прибрах се долу, за да не преча)."
 
 
-@jarvis_tool
+@orion_tool
 def windows_version() -> str:
     """Коя версия на Windows е инсталирана."""
     import winreg

@@ -7,7 +7,7 @@ import urllib.parse
 import urllib.request
 import webbrowser
 
-from jarvis import jarvis_tool
+from orion import orion_tool
 
 USER_AGENT = "Orion/1.0 (personal voice assistant)"  # само латиница: HTTP заглавията не приемат кирилица
 
@@ -19,7 +19,7 @@ def _get_json(url: str) -> dict:
 
 
 # --- Уикипедия ----------------------------------------------------------------------------------
-@jarvis_tool
+@orion_tool
 def wikipedia(topic: str) -> str:
     """Кратка справка от Уикипедия — хора, места, събития, понятия. Първо на български, после на английски.
 
@@ -84,7 +84,7 @@ def _rate(src: str, dst: str) -> float:
     return data["rates"][dst]
 
 
-@jarvis_tool
+@orion_tool
 def convert_currency(amount: float, from_currency: str, to_currency: str) -> str:
     """Превръща пари от една валута в друга по днешния курс (евро, долар, лев, паунд, франк…).
 
@@ -149,7 +149,7 @@ def _unit(text: str):
     raise ValueError(f"не познавам мерната единица „{text}“")
 
 
-@jarvis_tool
+@orion_tool
 def convert_units(value: float, from_unit: str, to_unit: str) -> str:
     """Превръща мерни единици: дължина (км, мили, инчове), тегло (кг, паунди), обем (литри, галони),
     скорост, площ (декари, акри), време и температура (°C, °F).
@@ -174,7 +174,7 @@ def convert_units(value: float, from_unit: str, to_unit: str) -> str:
 
 
 # --- Музика и клипове ------------------------------------------------------------------------------
-@jarvis_tool
+@orion_tool
 def play_on_youtube(query: str) -> str:
     """Пуска песен или клип в YouTube — направо видеото, не търсенето. За „пусни ми песента…“.
 

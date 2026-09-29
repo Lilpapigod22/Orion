@@ -6,12 +6,12 @@ import json
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from jarvis import alerts, jarvis_tool, markets
+from orion import alerts, orion_tool, markets
 
 BGN_PER_EUR = 1.95583
 
 
-@jarvis_tool
+@orion_tool
 def compare_assets(assets: str) -> str:
     """Сравнява представянето на различни активи за кратки периоди като месец, 3 месеца или година.
     Използва се при сравнение на конкретни пари (напр. „Сравни биткойна и златото", „Кой е по-добър:
@@ -46,7 +46,7 @@ def _screener(kind: str) -> list[dict]:
         return json.load(response)["finance"]["result"][0]["quotes"]
 
 
-@jarvis_tool
+@orion_tool
 def top_stock_movers() -> str:
     """Акциите в САЩ, които днес растат и падат най-много."""
     rows = []
@@ -58,7 +58,7 @@ def top_stock_movers() -> str:
     return "; ".join(rows) + "."
 
 
-@jarvis_tool
+@orion_tool
 def crypto_fear_greed() -> str:
     """Индексът „страх и алчност“ на крипто пазара (0 — паника, 100 — еуфория) и промяната му."""
     data = markets._get_json("https://api.alternative.me/fng/?limit=8")["data"]
@@ -69,7 +69,7 @@ def crypto_fear_greed() -> str:
             f"(преди седмица: {week['value']}, {labels.get(week['value_classification'], '')}).")
 
 
-@jarvis_tool
+@orion_tool
 def convert_crypto(amount: float, coin: str, currency: str = "EUR") -> str:
     """Колко струват криптовалути в евро, лева или долари. За „колко са 0.5 биткойна в евро“.
 
@@ -89,7 +89,7 @@ def convert_crypto(amount: float, coin: str, currency: str = "EUR") -> str:
     return f"{amount:g} {name} = {markets._fmt(value)} {target if target != 'BGN' else 'лева'} (цена {markets._fmt(price_usd)} USD)."
 
 
-@jarvis_tool
+@orion_tool
 def set_price_alert(asset: str, price: float) -> str:
     """Известие при цена: Орион казва, когато актив надмине или падне под дадена цена.
 
@@ -107,7 +107,7 @@ def set_price_alert(asset: str, price: float) -> str:
     return f"Ще Ви кажа, когато {name} {word} {markets._fmt(price)} (сега е {markets._fmt(current)} {currency})."
 
 
-@jarvis_tool
+@orion_tool
 def list_price_alerts() -> str:
     """Кои известия за цени чакат."""
     items = alerts.load(alerts.ALERTS)
@@ -117,7 +117,7 @@ def list_price_alerts() -> str:
         f"{i['name']} {'над' if i['direction'] == 'above' else 'под'} {markets._fmt(i['price'])}" for i in items) + "."
 
 
-@jarvis_tool
+@orion_tool
 def cancel_price_alert(asset: str = "") -> str:
     """Маха известие за цена (или всички).
 
@@ -131,7 +131,7 @@ def cancel_price_alert(asset: str = "") -> str:
     return f"Махнах {len(items) - len(kept)} известия."
 
 
-@jarvis_tool
+@orion_tool
 def portfolio_add(asset: str, amount: float, buy_price: float = 0) -> str:
     """Добавя актив в портфейла на сър (колко има и на каква цена е купил).
 
@@ -148,7 +148,7 @@ def portfolio_add(asset: str, amount: float, buy_price: float = 0) -> str:
     return f"Добавих {amount:g} {name} на цена {markets._fmt(buy_price or current)} {currency} в портфейла."
 
 
-@jarvis_tool
+@orion_tool
 def portfolio_show() -> str:
     """Портфейлът на сър: стойност сега, печалба или загуба за всеки актив и общо."""
     items = alerts.load(alerts.PORTFOLIO)
@@ -168,7 +168,7 @@ def portfolio_show() -> str:
     return "Портфейл — " + "; ".join(rows) + f". Общо: {summary}."
 
 
-@jarvis_tool
+@orion_tool
 def portfolio_remove(asset: str) -> str:
     """Маха актив от портфейла.
 

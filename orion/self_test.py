@@ -2,7 +2,7 @@
 Тест режим — Орион сам се проверява, намира грешките си и ги поправя.
 
 Един кръг:
-  1. Умения. Всяко умение от jarvis/self_test_cases.py се пуска с примерни данни в пясъчник:
+  1. Умения. Всяко умение от orion/self_test_cases.py се пуска с примерни данни в пясъчник:
      бележките, напомнянията, известията и портфейлът са временни копия, нищо не се отваря на
      екрана, клипбордът се връща, всяко потвърждение (писмо, изтриване) се отказва. Опасните
      умения (изключване, писма, звук, изтриване…) изобщо не се пускат.
@@ -10,7 +10,7 @@
      същия път като истинските (рефлекси -> езиков модел). Проверява се дали е избрал правилното
      умение. Действията не се изпълняват: вместо тях има манекен, който само ги отбелязва.
   3. Поправки.
-     - Неразбрана молба: Орион сам добавя ключова дума към подбора на умения (jarvis/router.py)
+     - Неразбрана молба: Орион сам добавя ключова дума към подбора на умения (orion/router.py)
        или пренаписва описанието на умението — само текста, кодът гарантирано остава същият.
        Промяната остава само ако молбата вече се разбира и старите тестове още минават.
      - Счупено умение: Орион пише нов код, проверява го в пясъчника с всички тестове на файла и
@@ -52,12 +52,12 @@ from .memory import ConversationMemory
 from .reminders import book as reminder_book
 from .self_improve import CODER_PROMPT, Proposal, _normalized, extract_code, forge, lessons, validate_skill_code
 from .self_test_cases import ASKS, SKILL_CASES, Ask, SkillCase
-from .tools import JarvisTools, _parse_docstring, registry
+from .tools import OrionTools, _parse_docstring, registry
 
 MEMORY_DIR = config.BASE_DIR / "memory"
 STORE = MEMORY_DIR / "self_tests.json"            # молбите и проверките, които Орион е измислил сам
 REPORT = config.BASE_DIR / "logs" / "self_test.md"
-BOX = Path(tempfile.gettempdir()) / "mitko_selftest"
+BOX = Path(tempfile.gettempdir()) / "orion_selftest"
 
 ROUND_PAUSE = 10 * 60   # секунди между кръговете, докато тест режимът е включен
 SKILLS_EVERY = 3        # уменията (мрежа, файлове) — на всеки 3 кръга; разбирането — всеки кръг
@@ -253,7 +253,7 @@ class Sandbox:
     в BOX, нищо не се отваря на екрана, запомнените списъци и клипбордът се връщат след това,
     а всяко потвърждение (писмо, изтриване) се отказва."""
 
-    SKIP = {"jarvis.self_test", "jarvis.router", "jarvis.self_improve"}
+    SKIP = {"orion.self_test", "orion.router", "orion.self_improve"}
 
     def __enter__(self):
         sandbox_lock.acquire()
@@ -286,7 +286,7 @@ class Sandbox:
         openers = {id(f) for f in (getattr(os, "startfile", None), webbrowser.open, webbrowser.open_new,
                                    webbrowser.open_new_tab) if f}
         for name, module in list(sys.modules.items()):
-            if module is None or name in self.SKIP or not name.startswith(("skills.", "jarvis.")):
+            if module is None or name in self.SKIP or not name.startswith(("skills.", "orion.")):
                 continue
             for attr, value in list(vars(module).items()):
                 if attr.startswith("__"):
@@ -295,7 +295,7 @@ class Sandbox:
                     self._set(module, attr, lambda *args, **kwargs: None)
                 elif isinstance(value, Path) and value.suffix == ".json" and MEMORY_DIR in value.parents:
                     self._set(module, attr, BOX / value.name)
-                elif name.startswith("skills.") or name == "jarvis.folders":
+                elif name.startswith("skills.") or name == "orion.folders":
                     if attr.startswith(("last_", "_last")):  # „последният списък с файлове/писма…“
                         self._attrs.append((module, attr, value))
                     if isinstance(value, (list, dict, set)):
@@ -553,7 +553,7 @@ class Report:
 #  Тест режимът
 # =====================================================================================
 class SelfTester:
-    """`host` е приложението (app.py -> Jarvis): brain, work_lock, hud(), say(), test_idle(),
+    """`host` е приложението (app.py -> Orion): brain, work_lock, hud(), say(), test_idle(),
     approve_test_fix(). work_lock е ключалката, която държи и worker-ът, докато отговаря на сър:
     така тест в пясъчника и истинска молба никога не вървят едновременно."""
 
@@ -1114,15 +1114,15 @@ class SelfTester:
         всички проверки на файла в пясъчника. Връща неуспелите."""
         temp = path.with_name(f"_selftest_{path.stem}.py")  # „_“ — не се зарежда като умение
         name = f"skills._selftest_{path.stem}"
-        tools = JarvisTools()
+        tools = OrionTools()
         self._wait_idle()
         with self.host.work_lock:
-            import jarvis
-            import jarvis.tools
-            saved = jarvis.jarvis_tool, jarvis.tools.jarvis_tool
+            import orion
+            import orion.tools
+            saved = orion.orion_tool, orion.tools.orion_tool
             try:
                 temp.write_text(code, encoding="utf-8")
-                jarvis.jarvis_tool = jarvis.tools.jarvis_tool = tools.tool
+                orion.orion_tool = orion.tools.orion_tool = tools.tool
                 spec = importlib.util.spec_from_file_location(name, temp)
                 module = importlib.util.module_from_spec(spec)
                 sys.modules[name] = module
@@ -1130,7 +1130,7 @@ class SelfTester:
             except BaseException as e:  # noqa: BLE001 — кодът не се зарежда
                 return [(cases[0] if cases else SkillCase("?"), f"не се зарежда: {type(e).__name__}: {e}")]
             finally:
-                jarvis.jarvis_tool, jarvis.tools.jarvis_tool = saved
+                orion.orion_tool, orion.tools.orion_tool = saved
                 temp.unlink(missing_ok=True)
             try:
                 failed = []

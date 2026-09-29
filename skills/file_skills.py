@@ -14,7 +14,7 @@ from ctypes import wintypes
 from datetime import datetime
 from pathlib import Path
 
-from jarvis import confirm, folders, jarvis_tool
+from orion import confirm, folders, orion_tool
 
 _SKIP_DIRS = {"node_modules", ".git", "__pycache__", "appdata", "$recycle.bin", ".venv", "venv"}
 
@@ -49,7 +49,7 @@ def _target_folder(name: str) -> Path:
     return folder
 
 
-@jarvis_tool
+@orion_tool
 def create_folder(name: str, location: str = "работен плот") -> str:
     """Създава нова папка.
 
@@ -62,7 +62,7 @@ def create_folder(name: str, location: str = "работен плот") -> str:
     return f"Създадох папка „{path.name}“ в {path.parent.name}."
 
 
-@jarvis_tool
+@orion_tool
 def recent_files(days: int = 3) -> str:
     """Файловете, променяни последно (в Документи, Изтегляния, Работен плот…).
 
@@ -75,7 +75,7 @@ def recent_files(days: int = 3) -> str:
     return _describe(found, f"Последни файлове (за {days} дни)") if found else f"Няма файлове, променяни в последните {days} дни."
 
 
-@jarvis_tool
+@orion_tool
 def largest_files(location: str = "") -> str:
     """Най-големите файлове — за да се освободи място на диска.
 
@@ -87,7 +87,7 @@ def largest_files(location: str = "") -> str:
     return _describe(found, "Най-големите файлове") if found else "Не намерих файлове."
 
 
-@jarvis_tool
+@orion_tool
 def folder_size(location: str) -> str:
     """Колко място заема папка и колко файла има в нея.
 
@@ -105,7 +105,7 @@ def folder_size(location: str) -> str:
     return f"Папка „{folder.name}“: {folders.human_size(total)} в {count} файла."
 
 
-@jarvis_tool
+@orion_tool
 def latest_download() -> str:
     """Последно изтегленият файл (в Изтегляния) — за „отвори последното, което свалих“."""
     downloads = folders.known().get("изтегляния")
@@ -116,7 +116,7 @@ def latest_download() -> str:
     return _describe(files, "Последно изтеглени", limit=5)
 
 
-@jarvis_tool
+@orion_tool
 def rename_file(number: int, new_name: str) -> str:
     """Преименува файл от последния списък.
 
@@ -136,7 +136,7 @@ def rename_file(number: int, new_name: str) -> str:
     return f"Преименувах „{path.name}“ на „{target.name}“."
 
 
-@jarvis_tool
+@orion_tool
 def copy_file_to(number: int, destination: str) -> str:
     """Копира файл от последния списък в друга папка.
 
@@ -149,7 +149,7 @@ def copy_file_to(number: int, destination: str) -> str:
     return f"Копирах „{path.name}“ в {Path(target).parent.name}."
 
 
-@jarvis_tool
+@orion_tool
 def move_file_to(number: int, destination: str) -> str:
     """Премества файл от последния списък в друга папка.
 
@@ -180,7 +180,7 @@ def _to_recycle_bin(path: Path) -> None:
         raise OSError(f"не успях да изтрия {path.name}")
 
 
-@jarvis_tool
+@orion_tool
 def delete_file(number: int) -> str:
     """Изтрива файл от последния списък — в Кошчето (може да се върне). Сър потвърждава с бутон.
 
@@ -196,7 +196,7 @@ def delete_file(number: int) -> str:
     return f"Изтрих „{path.name}“ (в Кошчето е)."
 
 
-@jarvis_tool
+@orion_tool
 def zip_folder(location: str) -> str:
     """Архивира папка в .zip файл на работния плот.
 
@@ -209,7 +209,7 @@ def zip_folder(location: str) -> str:
     return f"Архивирах „{folder.name}“ в {Path(archive).name} на работния плот ({folders.human_size(Path(archive).stat().st_size)})."
 
 
-@jarvis_tool
+@orion_tool
 def unzip_file(number: int) -> str:
     """Разархивира .zip файл от последния списък в папка до него.
 
@@ -227,7 +227,7 @@ def unzip_file(number: int) -> str:
     return f"Разархивирах „{path.name}“ в папка „{target.name}“."
 
 
-@jarvis_tool
+@orion_tool
 def read_document(number: int = 0, path: str = "") -> str:
     """Прочита текста на документ (PDF, Word, TXT, CSV…), за да го обобщиш или да отговориш за него.
 
@@ -252,7 +252,7 @@ def read_document(number: int = 0, path: str = "") -> str:
     return f"Документ „{file.name}“ ({len(text)} знака):\n{text[:4000]}"
 
 
-@jarvis_tool
+@orion_tool
 def clean_temp_files() -> str:
     """Почиства временните файлове на Windows (по-стари от ден), за да освободи място на диск C:.
     Сър потвърждава с бутон."""
@@ -279,7 +279,7 @@ class _SHQUERYRBINFO(ctypes.Structure):
     _fields_ = [("cbSize", wintypes.DWORD), ("i64Size", ctypes.c_longlong), ("i64NumItems", ctypes.c_longlong)]
 
 
-@jarvis_tool
+@orion_tool
 def empty_recycle_bin() -> str:
     """Изпразва Кошчето (окончателно). Сър потвърждава с бутон."""
     info = _SHQUERYRBINFO(cbSize=ctypes.sizeof(_SHQUERYRBINFO))

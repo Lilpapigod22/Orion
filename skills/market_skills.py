@@ -8,7 +8,7 @@ import json
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from jarvis import jarvis_tool, markets, web
+from orion import orion_tool, markets, web
 
 DISCLAIMER = "(Кажи накратко какво значи и напомни, че това е технически анализ, не инвестиционен съвет.)"
 # Последната графика — приложението я показва в журнала (app.py -> hud.showChart).
@@ -25,7 +25,7 @@ def _news(name: str) -> str:
     return "\nПоследни новини: " + " | ".join(f"{h['title']} ({h['date']})" for h in hits)
 
 
-@jarvis_tool
+@orion_tool
 def market_price(asset: str) -> str:
     """Текущата цена и промяната за деня на акция, индекс, криптовалута, валутна двойка или суровина.
 
@@ -36,7 +36,7 @@ def market_price(asset: str) -> str:
     return f"{name}: {markets._fmt(price)} {currency} ({change:+.2f}% за деня)."
 
 
-@jarvis_tool
+@orion_tool
 def analyze_market(asset: str, timeframe: str = "1d") -> str:
     """Технически анализ на акция, криптовалута, валутна двойка, индекс или суровина: тренд, средни
     линии, RSI, MACD, Болинджър, подкрепа и съпротива, волатилност и последните новини.
@@ -52,7 +52,7 @@ def analyze_market(asset: str, timeframe: str = "1d") -> str:
     return markets.report(series, analysis) + _news(series.name) + "\n" + DISCLAIMER
 
 
-@jarvis_tool
+@orion_tool
 def analyze_price_file(file_name: str) -> str:
     """Технически анализ на CSV файл с цени (напр. изтеглен от MetaTrader) — от работния плот,
     Документи или Изтегляния.
@@ -75,7 +75,7 @@ _OVERVIEW = {
 }
 
 
-@jarvis_tool
+@orion_tool
 def market_overview() -> str:
     """Преглед на пазарите днес: основните индекси, криптовалути, валути, злато и петрол."""
     symbols = [(group, label, symbol) for group, items in _OVERVIEW.items() for label, symbol in items.items()]
@@ -98,7 +98,7 @@ def _safe_quote(symbol: str):
         return None
 
 
-@jarvis_tool
+@orion_tool
 def crypto_market() -> str:
     """Крипто пазарът сега: най-големите криптовалути и кои растат и падат най-много за 24 часа."""
     request = urllib.request.Request(

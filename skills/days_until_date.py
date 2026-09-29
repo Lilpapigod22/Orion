@@ -1,10 +1,10 @@
 """Изчислява колко дни остават до дадена дата."""
 from datetime import datetime
 
-from jarvis import jarvis_tool
+from orion import orion_tool
 
 
-@jarvis_tool
+@orion_tool
 def days_until_date(date_str: str) -> str:
     """Изчислява колко дни остават до дадена дата.
 

@@ -7,8 +7,8 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from jarvis import jarvis_tool
-from jarvis.apps import normalize
+from orion import orion_tool
+from orion.apps import normalize
 
 FILE = Path(__file__).resolve().parent.parent / "memory" / "notes.json"
 _lock = threading.Lock()
@@ -34,7 +34,7 @@ def _list_name(name: str) -> str:
     return name
 
 
-@jarvis_tool
+@orion_tool
 def save_note(text: str, title: str = "") -> str:
     """Записва бележка (идея, код, номер, текст за после). За „запиши си бележка…“.
 
@@ -50,7 +50,7 @@ def save_note(text: str, title: str = "") -> str:
         return f"Записах бележката. Имате {len(data['notes'])} бележки."
 
 
-@jarvis_tool
+@orion_tool
 def list_notes() -> str:
     """Кои бележки има — заглавията, с номера."""
     notes = _load()["notes"]
@@ -59,7 +59,7 @@ def list_notes() -> str:
     return "Бележки: " + "; ".join(f"{i}. {n['title']} ({n['time']})" for i, n in enumerate(notes, 1)) + "."
 
 
-@jarvis_tool
+@orion_tool
 def read_note(number: int = 0, search: str = "") -> str:
     """Прочита бележка по номер или по дума от нея.
 
@@ -80,7 +80,7 @@ def read_note(number: int = 0, search: str = "") -> str:
     return f"Бележка „{note['title']}“ от {note['time']}: {note['text']}"
 
 
-@jarvis_tool
+@orion_tool
 def delete_note(number: int = 0, search: str = "") -> str:
     """Изтрива бележка по номер или по дума от нея.
 
@@ -100,7 +100,7 @@ def delete_note(number: int = 0, search: str = "") -> str:
         return f"Изтрих бележката „{removed['title']}“."
 
 
-@jarvis_tool
+@orion_tool
 def add_to_list(items: str, list_name: str = "пазарски") -> str:
     """Добавя неща в списък — пазарски (по подразбиране) или друг: „за пътуването“, „филми“…
 
@@ -118,7 +118,7 @@ def add_to_list(items: str, list_name: str = "пазарски") -> str:
         return f"Добавих в списък „{name}“: {', '.join(new)}. Вече има {len(current)} неща."
 
 
-@jarvis_tool
+@orion_tool
 def show_list(list_name: str = "пазарски") -> str:
     """Какво има в списък (пазарски по подразбиране).
 
@@ -130,7 +130,7 @@ def show_list(list_name: str = "пазарски") -> str:
     return f"В списък „{name}“: {', '.join(items)}." if items else f"Списък „{name}“ е празен."
 
 
-@jarvis_tool
+@orion_tool
 def remove_from_list(items: str, list_name: str = "пазарски") -> str:
     """Маха неща от списък (купени, свършени).
 
@@ -149,7 +149,7 @@ def remove_from_list(items: str, list_name: str = "пазарски") -> str:
         return f"Махнах {len(current) - len(kept)} неща. В „{name}“ остават: {', '.join(kept) or 'нищо'}."
 
 
-@jarvis_tool
+@orion_tool
 def clear_list(list_name: str = "пазарски") -> str:
     """Изчиства целия списък.
 
@@ -164,7 +164,7 @@ def clear_list(list_name: str = "пазарски") -> str:
     return f"Изчистих списък „{name}“."
 
 
-@jarvis_tool
+@orion_tool
 def all_lists() -> str:
     """Кои списъци има и колко неща има във всеки."""
     lists = _load()["lists"]

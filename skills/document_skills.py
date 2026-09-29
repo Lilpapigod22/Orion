@@ -3,13 +3,13 @@
 декларации, CV, договори, доклади, таблици, презентации. Добавя текст към документ,
 превръща в PDF и разпечатва (разпечатването — след бутон от сър).
 
-Текста пише jarvis/writer.py (отделна заявка към модела с правила за писане), а файла
-прави jarvis/documents.py. Файловете са в Документи\\Орион, освен ако сър не каже друго.
+Текста пише orion/writer.py (отделна заявка към модела с правила за писане), а файла
+прави orion/documents.py. Файловете са в Документи\\Орион, освен ако сър не каже друго.
 """
 import os
 from pathlib import Path
 
-from jarvis import confirm, documents, folders, jarvis_tool, writer
+from orion import confirm, documents, folders, orion_tool, writer
 
 # Тестовете го подменят, за да не се отварят прозорци.
 open_path = os.startfile
@@ -46,7 +46,7 @@ def _pick(number: int, path: str) -> Path:
     return documents.last()
 
 
-@jarvis_tool
+@orion_tool
 def write_document(request: str, file_format: str = "word", title: str = "", location: str = "",
                    open_after: bool = True) -> str:
     """Пише НОВ документ и го записва като файл (Word, PDF или TXT): писмо, молба, заявление,
@@ -71,7 +71,7 @@ def write_document(request: str, file_format: str = "word", title: str = "", loc
     return _finish(path, open_after, f" {documents.word_count(text)} думи. Начало: {preview}…")
 
 
-@jarvis_tool
+@orion_tool
 def save_as_document(content: str, title: str, file_format: str = "word", location: str = "",
                      open_after: bool = True) -> str:
     """Записва ГОТОВ текст като документ точно както е — диктовка на сър, списък, текст от
@@ -90,7 +90,7 @@ def save_as_document(content: str, title: str, file_format: str = "word", locati
     return _finish(path, open_after, f" {documents.word_count(content)} думи.")
 
 
-@jarvis_tool
+@orion_tool
 def create_spreadsheet(request: str, data: str = "", title: str = "", location: str = "",
                        open_after: bool = True) -> str:
     """Прави таблица в Excel (.xlsx): бюджет, разходи, график, списък с хора или продукти,
@@ -121,7 +121,7 @@ def create_spreadsheet(request: str, data: str = "", title: str = "", location: 
     return _finish(path, open_after, f" {len(sheets)} лист(а), {rows} реда. Колони: {columns}.")
 
 
-@jarvis_tool
+@orion_tool
 def create_presentation(request: str, slides: int = 6, title: str = "", location: str = "",
                         open_after: bool = True) -> str:
     """Прави презентация в PowerPoint (.pptx) по тема на сър: заглавен слайд, слайдове с точки
@@ -144,7 +144,7 @@ def create_presentation(request: str, slides: int = 6, title: str = "", location
     return _finish(path, open_after, f" {len(items) + 1} слайда: " + "; ".join(s.title for s in items[:8]) + ".")
 
 
-@jarvis_tool
+@orion_tool
 def add_to_document(text: str, number: int = 0, path: str = "") -> str:
     """Добавя текст в края на документ (Word, TXT) — по подразбиране на последния, който си създал.
     За „добави още една точка“, „допиши в документа…“.
@@ -162,7 +162,7 @@ def add_to_document(text: str, number: int = 0, path: str = "") -> str:
     return f"Добавих текста в „{file.name}“."
 
 
-@jarvis_tool
+@orion_tool
 def convert_to_pdf(number: int = 0, path: str = "", open_after: bool = True) -> str:
     """Превръща Word, Excel, PowerPoint или TXT файл в PDF (запазва се до оригинала).
     По подразбиране — последния документ, който си създал.
@@ -179,7 +179,7 @@ def convert_to_pdf(number: int = 0, path: str = "", open_after: bool = True) -> 
     return _finish(out, open_after)
 
 
-@jarvis_tool
+@orion_tool
 def my_documents() -> str:
     """Последните документи, които Орион е създал (Word, PDF, Excel, PowerPoint…) — за „какви
     документи си ми направил“, „отвори последния документ“. След това open_file ги отваря по номер."""
@@ -191,7 +191,7 @@ def my_documents() -> str:
         f"{i}. {p.name} (в {_where(p)})" for i, p in enumerate(items[:8], 1)) + "."
 
 
-@jarvis_tool
+@orion_tool
 def print_document(number: int = 0, path: str = "", copies: int = 1) -> str:
     """Разпечатва документ на принтера по подразбиране. Сър потвърждава с бутон.
     По подразбиране — последния документ, който си създал.

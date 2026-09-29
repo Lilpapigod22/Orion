@@ -1,10 +1,10 @@
 """
-Самоусъвършенстване на JARVIS.
+Самоусъвършенстване на Орион.
 
-1. Поуки (LessonBook) — когато сър поправи JARVIS, поуката се записва в memory/lessons.json
+1. Поуки (LessonBook) — когато сър поправи Орион, поуката се записва в memory/lessons.json
    и се добавя към персонажа при всеки разговор. Така грешката не се повтаря.
 
-2. Работилница за умения (SkillForge) — JARVIS сам пише нови умения и поправя съществуващи:
+2. Работилница за умения (SkillForge) — Орион сам пише нови умения и поправя съществуващи:
        пише код -> проверява го -> при проблем чете грешката и опитва отново (до 3 пъти)
        -> показва кода на сър за одобрение -> архивира старата версия -> зарежда новата без рестарт.
    Всяка промяна може да се върне с undo().
@@ -24,7 +24,7 @@ from typing import Callable
 
 import config
 
-from .tools import JarvisTools, registry
+from .tools import OrionTools, registry
 
 
 # =====================================================================================
@@ -47,7 +47,7 @@ class LessonBook:
         self.path.write_text(json.dumps(lessons, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def add(self, text: str, source: str = "") -> int:
-        """`source` — „тест“ за поуките от тест режима (jarvis/self_test.py)."""
+        """`source` — „тест“ за поуките от тест режима (orion/self_test.py)."""
         text = text.strip()
         with self._lock:
             lessons = self.all()
@@ -104,7 +104,7 @@ def _call_name(node: ast.Call) -> str:
 
 def _is_tool_decorator(node: ast.expr) -> bool:
     target = node.func if isinstance(node, ast.Call) else node
-    return isinstance(target, ast.Name) and target.id == "jarvis_tool"
+    return isinstance(target, ast.Name) and target.id == "orion_tool"
 
 
 def validate_skill_code(code: str, taken_names: set[str]) -> tuple[list[str], list[str], list[str]]:
@@ -125,7 +125,7 @@ def validate_skill_code(code: str, taken_names: set[str]) -> tuple[list[str], li
             for m in modules:
                 if m.split(".")[0] in FORBIDDEN_MODULES:
                     problems.append(f"Модулът „{m}“ е забранен.")
-            if isinstance(node, ast.ImportFrom) and node.module == "jarvis" and any(a.name == "jarvis_tool" for a in node.names):
+            if isinstance(node, ast.ImportFrom) and node.module == "orion" and any(a.name == "orion_tool" for a in node.names):
                 imports_tool = True
             continue
         if isinstance(node, ast.FunctionDef):
@@ -135,7 +135,7 @@ def validate_skill_code(code: str, taken_names: set[str]) -> tuple[list[str], li
             if any(_is_tool_decorator(d) for d in node.decorator_list):
                 tools.append(node)
             elif node.decorator_list:
-                problems.append(f"„{node.name}“: разрешен е само декораторът @jarvis_tool.")
+                problems.append(f"„{node.name}“: разрешен е само декораторът @orion_tool.")
             continue
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             value = node.value
@@ -147,9 +147,9 @@ def validate_skill_code(code: str, taken_names: set[str]) -> tuple[list[str], li
         problems.append(f"Ред {node.lineno}: на най-горно ниво са разрешени само import-и, функции и константи.")
 
     if not imports_tool:
-        problems.append("Липсва „from jarvis import jarvis_tool“.")
+        problems.append("Липсва „from orion import orion_tool“.")
     if not tools:
-        problems.append("Няма нито една функция с @jarvis_tool.")
+        problems.append("Няма нито една функция с @orion_tool.")
 
     for fn in tools:
         if not ast.get_docstring(fn):
@@ -213,11 +213,20 @@ def _normalized(code: str) -> str:
     return "\n".join(line.rstrip() for line in code.strip().splitlines() if line.strip())
 
 
+def modernize(code: str) -> str:
+    """Код от времето, когато пакетът се казваше „jarvis“ -> „orion“ (архивирани версии на
+    умения, навик на модела)."""
+    code = re.sub(r"^from jarvis import (.*)$",
+                  lambda m: "from orion import " + m[1].replace("jarvis_tool", "orion_tool"), code, flags=re.MULTILINE)
+    code = re.sub(r"^from jarvis\.", "from orion.", code, flags=re.MULTILINE)
+    return code.replace("jarvis_tool", "orion_tool")
+
+
 def extract_code(reply: str) -> str:
     blocks = re.findall(r"```(?:python|py)?\s*\n(.*?)```", reply, re.DOTALL)
     if blocks:
-        return max(blocks, key=len).strip() + "\n"
-    return reply.strip() + "\n"
+        return modernize(max(blocks, key=len).strip() + "\n")
+    return modernize(reply.strip() + "\n")
 
 
 # =====================================================================================
@@ -227,8 +236,8 @@ CODER_PROMPT = '''Ти си внимателен Python програмист. П
 Среда: Windows 11, Python 3.12. Отговаряш САМО с един ```python блок, който съдържа ЦЕЛИЯ файл.
 
 Правила:
-1. Файлът започва с кратък docstring и `from jarvis import jarvis_tool`.
-2. Всяко умение е функция с декоратор @jarvis_tool. Параметрите имат type hints само str, int, float или bool.
+1. Файлът започва с кратък docstring и `from orion import orion_tool`.
+2. Всяко умение е функция с декоратор @orion_tool. Параметрите имат type hints само str, int, float или bool.
    Функцията връща str.
 3. Docstring на всяко умение (на български): първо изречение — КОГА Орион да го използва,
    после секция „Args:“ с по един ред за всеки параметър.
@@ -248,10 +257,10 @@ CODER_PROMPT = '''Ти си внимателен Python програмист. П
 import json
 import urllib.request
 
-from jarvis import jarvis_tool
+from orion import orion_tool
 
 
-@jarvis_tool
+@orion_tool
 def get_exchange_rate(currency: str) -> str:
     """Връща курса на валута спрямо евро, когато сър пита колко струва долар, паунд и т.н.
 
@@ -301,7 +310,7 @@ class SkillForge:
     # Самата система за самоусъвършенстване не може да се пренаписва сама.
     PROTECTED = {"self_improvement.py"}
 
-    def __init__(self, registry: JarvisTools, skills_dir: Path):
+    def __init__(self, registry: OrionTools, skills_dir: Path):
         self.registry = registry
         self.skills_dir = Path(skills_dir)
         self.history_dir = self.skills_dir / ".history"
@@ -433,7 +442,7 @@ class SkillForge:
             self.registry.unload_skill_file(path)
             message = f"Премахнах новото умение „{path.stem}“."
         else:
-            path.write_text(latest.read_text(encoding="utf-8"), encoding="utf-8")
+            path.write_text(modernize(latest.read_text(encoding="utf-8")), encoding="utf-8")
             self.registry.load_skill_file(path)
             message = f"Върнах предишната версия на „{path.stem}“."
         latest.unlink()

@@ -1,20 +1,20 @@
 """
-Конзолен режим на JARVIS (за приложението с прозорец вижте app.py).
+Конзолен режим на Орион (за приложението с прозорец вижте app.py).
 
     python main.py            # гласов режим (микрофон + говор)
-    python main.py --text     # пишете от клавиатурата, JARVIS говори
+    python main.py --text     # пишете от клавиатурата, Орион говори
     python main.py --text --mute   # изцяло текстов режим (удобно за тестове)
 """
 import argparse
 
 import config
-from jarvis import confirm, vision
-from jarvis.brain import Brain
-from jarvis.knowledge import KnowledgeBase
-from jarvis.memory import ConversationMemory
-from jarvis.speaker import Speaker
-from jarvis.self_improve import forge, lessons, reflector
-from jarvis.tools import registry
+from orion import confirm, vision
+from orion.brain import Brain
+from orion.knowledge import KnowledgeBase
+from orion.memory import ConversationMemory
+from orion.speaker import Speaker
+from orion.self_improve import forge, lessons, reflector
+from orion.tools import registry
 
 
 def prepare_model(progress=lambda message, percent: print(f"[Модел] {message}"
@@ -22,7 +22,7 @@ def prepare_model(progress=lambda message, percent: print(f"[Модел] {messag
     """При Ollama: стартира, изтегля и настройва модела. Връща името му за заявките."""
     if config.LLM_PROVIDER != "ollama":
         return config.LLM_MODEL
-    from jarvis.ollama_manager import OllamaManager
+    from orion.ollama_manager import OllamaManager
     manager = OllamaManager(config.LLM_BASE_URL, config.LLM_MODEL, config.OLLAMA_CONTEXT, config.OLLAMA_KEEP_ALIVE)
     return manager.ensure_ready(progress)
 
@@ -72,7 +72,7 @@ def confirm_in_console(title: str, summary: str, body: str, accept: str) -> bool
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="JARVIS гласов асистент")
+    parser = argparse.ArgumentParser(description="Орион гласов асистент")
     parser.add_argument("--text", action="store_true", help="въвеждане от клавиатурата вместо микрофон")
     parser.add_argument("--mute", action="store_true", help="без озвучаване на отговорите")
     args = parser.parse_args()
@@ -86,7 +86,7 @@ def main() -> None:
         def get_input() -> str | None:
             return input("\n[Вие] ").strip() or None
     else:
-        from jarvis.listener import Listener  # Импорт тук: текстовият режим не изисква микрофон.
+        from orion.listener import Listener  # Импорт тук: текстовият режим не изисква микрофон.
         listener = Listener(config.LANGUAGE, config.LISTEN_TIMEOUT, config.PHRASE_TIME_LIMIT)
         get_input = listener.listen
 

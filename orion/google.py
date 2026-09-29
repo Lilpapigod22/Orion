@@ -47,7 +47,7 @@ def bridge_code() -> str:
     if not settings.get("secret"):
         settings["secret"] = secrets.token_urlsafe(32)
         _save(settings)
-    return BRIDGE_CODE.read_text(encoding="utf-8").replace("__JARVIS_SECRET__", settings["secret"])
+    return BRIDGE_CODE.read_text(encoding="utf-8").replace("__ORION_SECRET__", settings["secret"])
 
 
 def call(action: str, **params):

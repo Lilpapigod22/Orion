@@ -12,7 +12,7 @@ import subprocess
 import urllib.parse
 from pathlib import Path
 
-from jarvis import jarvis_tool
+from orion import orion_tool
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 WORKDIR = BASE_DIR / "memory" / "claude"  # празна папка — Claude няма достъп до файловете на Орион
@@ -26,7 +26,7 @@ def _cli() -> str | None:
     return shutil.which("claude.cmd") or shutil.which("claude") or (str(npm) if npm.is_file() else None)
 
 
-@jarvis_tool
+@orion_tool
 def ask_claude(question: str) -> str:
     """Пита Claude (по-мощния изкуствен интелект на сър) и връща отговора му. За „попитай Claude…“,
     сложни въпроси, текстове, код, планове — когато сър иска мнението на Claude.
@@ -63,7 +63,7 @@ def ask_claude(question: str) -> str:
             f"Целият отговор е в журнала и е копиран — може да го постави с Ctrl+V.)")
 
 
-@jarvis_tool
+@orion_tool
 def send_to_claude_app(prompt: str) -> str:
     """Отваря приложението Claude с готов въпрос, за да види сър отговора там. За „напиши на Claude…“,
     „прати на Claude…“. Сър го изпраща с Enter.

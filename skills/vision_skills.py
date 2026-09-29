@@ -4,10 +4,10 @@
 """
 from pathlib import Path
 
-from jarvis import jarvis_tool, vision
+from orion import orion_tool, vision
 
 
-@jarvis_tool
+@orion_tool
 def look_at_screen(question: str = "Какво има на екрана?") -> str:
     """Поглежда екрана на сър и отговаря за това, което се вижда — текст, грешки, програми, картинки.
     За „какво има на екрана“, „прочети ми това“, „какво пише тук“, „помогни ми с тази грешка“.
@@ -18,7 +18,7 @@ def look_at_screen(question: str = "Какво има на екрана?") -> st
     return vision.ask_image(vision.grab_screen(), question)
 
 
-@jarvis_tool
+@orion_tool
 def look_at_image(path: str, question: str = "Какво има на снимката?") -> str:
     """Разглежда снимка от компютъра (файл) и отговаря за нея.
 

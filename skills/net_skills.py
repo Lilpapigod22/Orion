@@ -8,7 +8,7 @@ import subprocess
 import time
 import urllib.request
 
-from jarvis import geo, jarvis_tool
+from orion import geo, orion_tool
 
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -24,7 +24,7 @@ def _run(args: list[str], timeout: float = 20) -> str:
     return raw.decode("utf-8", errors="replace")
 
 
-@jarvis_tool
+@orion_tool
 def my_public_ip() -> str:
     """Публичният IP адрес на интернета на сър, доставчикът и приблизителното място."""
     data = geo.get_json("http://ip-api.com/json/?fields=status,query,isp,city,country")
@@ -33,7 +33,7 @@ def my_public_ip() -> str:
     return f"Публичен IP: {data['query']} ({data.get('isp', '')}, {data.get('city', '')}, {data.get('country', '')})."
 
 
-@jarvis_tool
+@orion_tool
 def internet_speed_test() -> str:
     """Измерва скоростта на интернета (изтегляне) и забавянето (пинг) — отнема около 10 секунди."""
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}  # без него Cloudflare отказва
@@ -54,7 +54,7 @@ def internet_speed_test() -> str:
     return f"Изтегляне: {mbps:.0f} Mbps ({verdict}), забавяне около {latency:.0f} ms."
 
 
-@jarvis_tool
+@orion_tool
 def ping_host(host: str = "google.com") -> str:
     """Проверява връзката до сайт или сървър (пинг) — отговаря ли и колко бързо.
 
@@ -69,7 +69,7 @@ def ping_host(host: str = "google.com") -> str:
     return f"{host} отговаря: средно {sum(times) / len(times):.0f} ms (от {min(times)} до {max(times)} ms), {len(times)}/4 отговора."
 
 
-@jarvis_tool
+@orion_tool
 def website_status(url: str) -> str:
     """Работи ли даден сайт в момента и колко бързо отговаря.
 
@@ -92,7 +92,7 @@ def website_status(url: str) -> str:
     return f"{url} {state} (код {code}), отговори за {ms:.0f} ms."
 
 
-@jarvis_tool
+@orion_tool
 def local_network_info() -> str:
     """Локалната мрежа: IP адресите на компютъра и връзките (кабел, Wi-Fi)."""
     import psutil
@@ -106,7 +106,7 @@ def local_network_info() -> str:
     return "Мрежови връзки: " + ("; ".join(parts) or "няма активни") + "."
 
 
-@jarvis_tool
+@orion_tool
 def wifi_info() -> str:
     """Към коя Wi-Fi мрежа е свързан компютърът и колко е силен сигналът."""
     output = _run(["netsh", "wlan", "show", "interfaces"])
@@ -117,7 +117,7 @@ def wifi_info() -> str:
     return f"Wi-Fi: {ssid[1].strip()}" + (f", сигнал {signal[1]}%." if signal else ".")
 
 
-@jarvis_tool
+@orion_tool
 def port_in_use(port: int) -> str:
     """Коя програма е заела даден порт (напр. 3000, 8080, 5432) — за програмисти.
 
@@ -136,7 +136,7 @@ def port_in_use(port: int) -> str:
     return f"Порт {port} е зает от: {', '.join(dict.fromkeys(users))}." if users else f"Порт {port} е свободен."
 
 
-@jarvis_tool
+@orion_tool
 def dns_lookup(domain: str) -> str:
     """Кои IP адреси има даден домейн (DNS).
 
@@ -148,7 +148,7 @@ def dns_lookup(domain: str) -> str:
     return f"{domain}: {', '.join(ips)}" + (f" (основно име {name})" if name != domain else "") + "."
 
 
-@jarvis_tool
+@orion_tool
 def docker_containers() -> str:
     """Кои Docker контейнери работят (за програмисти)."""
     try:

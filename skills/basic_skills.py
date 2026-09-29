@@ -1,8 +1,8 @@
 """
-Основни умения на JARVIS.
+Основни умения на Орион.
 
 Всеки .py файл в папка `skills/` се зарежда автоматично при старт.
-За ново умение: напишете функция с type hints и docstring и сложете @jarvis_tool.
+За ново умение: напишете функция с type hints и docstring и сложете @orion_tool.
 """
 import ast
 import json
@@ -13,10 +13,10 @@ import urllib.parse
 import urllib.request
 from datetime import date, datetime
 
-from jarvis import apps, clock, jarvis_tool, when
+from orion import apps, clock, orion_tool, when
 
 
-@jarvis_tool
+@orion_tool
 def get_current_time(city: str = "") -> str:
     """Часовник и календар: точният час, датата и денят от седмицата — тук или в друг град по света.
     Не е за метеорологичното време.
@@ -50,7 +50,7 @@ def _evaluate(node):
         return node.value
     if isinstance(node, ast.BinOp) and type(node.op) in _OPERATORS:
         left, right = _evaluate(node.left), _evaluate(node.right)
-        # 9**9**9 би смятало часове и би блокирало JARVIS — ограничаваме до ~3000 цифри.
+        # 9**9**9 би смятало часове и би блокирало Орион — ограничаваме до ~3000 цифри.
         if (isinstance(node.op, ast.Pow) and isinstance(left, int) and isinstance(right, int)
                 and abs(left) > 1 and right > 0 and right * math.log2(abs(left)) > 10_000):
             raise ValueError("резултатът е твърде голям за изчисляване")
@@ -60,7 +60,7 @@ def _evaluate(node):
     raise ValueError("позволени са само числа и + - * / // % **")
 
 
-@jarvis_tool
+@orion_tool
 def calculate(expression: str) -> str:
     """Изчислява математически израз точно. Използвай винаги за сметки.
 
@@ -71,10 +71,10 @@ def calculate(expression: str) -> str:
     return f"{expression} = {round(result, 10)}"
 
 
-# --- Програми и сайтове (търсенето е в jarvis/apps.py) -------------------------------
+# --- Програми и сайтове (търсенето е в orion/apps.py) -------------------------------
 # Стартират се само инсталирани програми и само http(s) адреси — моделът не може да
-# изпълни произволна команда. Свои имена добавяте в PROGRAMS и SITES в jarvis/apps.py.
-@jarvis_tool
+# изпълни произволна команда. Свои имена добавяте в PROGRAMS и SITES в orion/apps.py.
+@orion_tool
 def open_program(name: str) -> str:
     """Стартира инсталирана програма или игра — Chrome, калкулатор, бележник, Steam, Discord, Word и др.
 
@@ -84,7 +84,7 @@ def open_program(name: str) -> str:
     return apps.open_program(name)
 
 
-@jarvis_tool
+@orion_tool
 def open_website(url: str) -> str:
     """Отваря уебсайт в браузъра — YouTube, Google, Facebook, abv.bg и др.
 
@@ -147,7 +147,7 @@ def _forecast(city: str, days: list[dict], day: str) -> str:
             f"{description}, вероятност за дъжд до {rain}%.")
 
 
-@jarvis_tool
+@orion_tool
 def get_weather(city: str = "", day: str = "") -> str:
     """Метеорологичното време — сега или прогноза за днес, утре и вдругиден: температура, облаци, дъжд,
     вятър. За „какво е времето“, „студено ли е“, „ще вали ли утре“.

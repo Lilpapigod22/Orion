@@ -1,9 +1,9 @@
 """Управление на мишката."""
 import subprocess
-from jarvis import jarvis_tool
+from orion import orion_tool
 
 
-@jarvis_tool
+@orion_tool
 def mouse_control(action: str, x: int, y: int) -> str:
     """Използвай това умение, когато сър иска да премести мишката или да кликне.
 

@@ -1,11 +1,11 @@
 """
 Рийлове от YouTube: анализ кои моменти от клип харесват най-много (най-гледани, коментари) и
-изрязване на вертикални видеа за YouTube Shorts. Работата е в jarvis/reels.py.
+изрязване на вертикални видеа за YouTube Shorts. Работата е в orion/reels.py.
 """
 import os
 
 import config
-from jarvis import jarvis_tool, reels
+from orion import orion_tool, reels
 
 
 def _url(url: str) -> str:
@@ -17,7 +17,7 @@ def _url(url: str) -> str:
     return found
 
 
-@jarvis_tool
+@orion_tool
 def analyze_youtube_video(url: str, count: int = 5) -> str:
     """Анализира клип от YouTube: кои моменти зрителите гледат най-много и за кои пишат в
     коментарите. За „анализирай този клип“, „кое е най-интересното в това видео“.
@@ -32,7 +32,7 @@ def analyze_youtube_video(url: str, count: int = 5) -> str:
         raise ValueError(str(e)) from e
 
 
-@jarvis_tool
+@orion_tool
 def make_youtube_reels(url: str = "", count: int = config.REEL_COUNT, seconds: int = config.REEL_SECONDS,
                        subtitles: bool = True) -> str:
     """Прави рийлове (YouTube Shorts) от клип в YouTube: намира най-гледаните и най-коментирани
@@ -48,13 +48,13 @@ def make_youtube_reels(url: str = "", count: int = config.REEL_COUNT, seconds: i
     return reels.start(_url(url), count, seconds, subtitles)
 
 
-@jarvis_tool
+@orion_tool
 def reels_status() -> str:
     """Докъде е стигнало правенето на рийлове. За „готови ли са рийловете“, „как върви“."""
     return reels.status()
 
 
-@jarvis_tool
+@orion_tool
 def show_reels() -> str:
     """Отваря папката с готовите рийлове. За „покажи рийловете“, „отвори папката с шортсовете“."""
     folder = reels.last_folder or config.REELS_DIR
