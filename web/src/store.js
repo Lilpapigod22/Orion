@@ -14,6 +14,10 @@ let state = {
   approval: null,                  // code for approval or an action to confirm
   switches: { wake: false, voice: true, test: false },
   maximized: false,
+  live: { traces: [] },            // the live board: the last 20 requests and their steps
+  gauges: {},                      // { gpu, vramUsed, vramTotal, cpu, ram }
+  mood: { kind: null, until: 0 },  // 'happy' | 'confused' for a moment — the eyes show it
+  lastActivity: Date.now(),        // sleepy eyes after 10 minutes without anything
 };
 
 const listeners = new Set();

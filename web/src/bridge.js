@@ -7,6 +7,7 @@
    window.hud exists before React draws anything, so no call from Python is lost.
    ========================================================================== */
 import { focusInput, refocus } from './actions.js';
+import { applyLiveEvent } from './engine/live.js';
 import { mind } from './engine/mind.js';
 import { MODES } from './engine/reactor.js';
 import { voice } from './engine/voice.js';
@@ -69,9 +70,38 @@ export const hud = {
 
   // What Orion is thinking and doing — shown in the 3D network (engine/mind.js).
   toolStart(name, args, module, label) { mind.taskStart(name, args, module, label); },
-  toolDone(name, result, ok) { mind.taskDone(name, result, ok); },
-  live() {},        // the live board (Task 6)
-  setGauges() {},
+  live(event) {
+    const now = Date.now();
+    store.set((s) => {
+      const live = applyLiveEvent(s.live, event, now);
+      const patch = { live, lastActivity: now };
+      if (event.phase === 'skill' && event.state === 'end' && event.ok === false) {
+        patch.mood = { kind: 'confused', until: now + 2500 };
+      }
+      if (event.phase === 'done' && event.ok) {
+        const trace = live.traces.find((t) => t.id === event.trace);
+        if (trace?.steps.some((st) => st.phase === 'skill' && st.ok)) patch.mood = { kind: 'happy', until: now + 1500 };
+      }
+      return patch;
+    });
+  },
+
+  setGauges(gauges) { store.set({ gauges }); },
+
+  toolDone(name, result, ok, ms = null) {
+    mind.taskDone(name, result, ok);
+    if (ms == null) return;
+    store.set((s) => {
+      const log = [...s.log];
+      for (let i = log.length - 1; i >= 0; i--) {
+        if (log[i].kind === 'tool' && log[i].ms == null && log[i].text.startsWith(name)) {
+          log[i] = { ...log[i], ms };
+          break;
+        }
+      }
+      return { log };
+    });
+  },
   thought(text) { mind.think(text); },
   setReminders(items) { mind.setReminders(items); },
 
