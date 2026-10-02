@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { toggleMaximize } from '../actions.js';
 import { store, useStore } from '../store.js';
 import { api, clockTime, STATUS_TEXT } from '../util.js';
+import { Gauges } from './Gauges.jsx';
+import { Jobs } from './Jobs.jsx';
 
 const DRAG = 'pywebview-drag-region';
 
@@ -16,8 +18,6 @@ function Clock() {
 
 export function TopBar() {
   const mode = useStore((s) => s.mode);
-  const test = useStore((s) => s.test);
-  const reels = useStore((s) => s.reels);
   const telemetry = useStore((s) => s.telemetry);
   const maximized = useStore((s) => s.maximized);
   const bar = useRef(null);
@@ -39,9 +39,9 @@ export function TopBar() {
       <div className={`drag-fill ${DRAG}`} />
       <div className={`telemetry ${DRAG}`} aria-label="System status">
         <span className={`status ${DRAG}`}><i className="dot" /><span>{STATUS_TEXT[mode]}</span></span>
-        {test && <span className={`tele-chip ${DRAG}`}>{test}</span>}
-        {reels && <span className={`tele-chip tele-chip--reels ${DRAG}`}>{reels}</span>}
+        <Jobs />
         <span className={`tele-model ${DRAG}`}>{telemetry}</span>
+        <Gauges />
         <Clock />
       </div>
       <div className="winctl">

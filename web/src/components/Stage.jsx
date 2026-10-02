@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { decide, talk } from '../actions.js';
 import { Eyes } from './Eyes.jsx';
 import { mind } from '../engine/mind.js';
+import { Pipeline } from './Pipeline.jsx';
 import { useStore } from '../store.js';
 import { reduceMotion, STATE_LABELS } from '../util.js';
 
@@ -99,6 +100,7 @@ export function Stage() {
         type="button" className="core-hit" aria-label="Talk to Orion (F2)" onClick={talk}
         style={core ? { width: core.core * 0.9, height: core.core * 0.9, left: core.x, top: core.y } : undefined}
       />
+      <Pipeline />
       <p className="state-label">{STATE_LABELS[mode]}</p>
       <Subtitle />
       <BootList />

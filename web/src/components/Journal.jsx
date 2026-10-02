@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CHART, drawChart, fmtPrice } from '../engine/chart.js';
+import { formatMs } from '../engine/live.js';
 import { useStore } from '../store.js';
 import { api, clockTime, reduceMotion, WHO } from '../util.js';
 
@@ -102,6 +103,7 @@ function Entry({ entry }) {
     <li className={`entry entry--${kind}`}>
       <time>{time}</time>
       <b>{WHO[kind] || kind}</b>
+      {entry.ms != null && <small className="entry-ms">{formatMs(entry.ms)}</small>}
       {body}
     </li>
   );

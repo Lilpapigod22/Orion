@@ -106,6 +106,24 @@ async function run() {
   const eyesBox = document.querySelector('.eyes').getBoundingClientRect();
   const stageBox = document.querySelector('.stage').getBoundingClientRect();
   check('the eyes are inside the stage', eyesBox.left >= stageBox.left - 1 && eyesBox.right <= stageBox.right + 1);
+  const ev = (o) => ({ trace: 500, detail: null, key: o.key || o.phase, t: 0, ms: null, ok: null, ...o });
+  hud.live(ev({ phase: 'heard', state: 'end', label: 'Ще вали ли утре?', detail: { source: 'voice', google: 'ще вали ли утре', whisper: 'Ще вали ли утре?' }, ms: 140 }));
+  hud.live(ev({ phase: 'understood', state: 'start', label: 'choosing' }));
+  hud.live(ev({ phase: 'understood', state: 'end', label: 'quick command', detail: { command: 'will_it_rain' }, ms: 2, ok: true }));
+  hud.live(ev({ phase: 'skill', state: 'start', label: 'will_it_rain', key: 'will_it_rain' }));
+  await wait(100);
+  check('pipeline shows the running skill', document.querySelector('.pipe-step[data-phase="skill"]')?.className.includes('is-run'));
+  document.querySelector('.pipe-step[data-phase="heard"]').click();
+  await wait(100);
+  check('heard details show both transcripts', document.querySelector('.step-details')?.textContent.includes('ще вали ли утре'));
+  hud.live(ev({ phase: 'skill', state: 'end', label: 'will_it_rain', key: 'will_it_rain', ms: 380, ok: true }));
+  hud.live(ev({ phase: 'done', state: 'end', label: 'done', ok: true, ms: 900 }));
+  hud.setGauges({ gpu: 21, vramUsed: 7000, vramTotal: 10240, cpu: 9, ram: 51 });
+  await wait(100);
+  check('gauges in the top bar', document.querySelector('.gauges')?.textContent.includes('GPU 21%'));
+  check('the last answer time', document.querySelector('.gauges')?.textContent.includes('last 900 ms'));
+  hud.live(ev({ trace: 999, phase: 'skill', state: 'end', label: 'ghost', key: 'ghost' }));
+  check('events of unknown traces are ignored', !document.body.textContent.includes('ghost'));
   const pre = document.createElement('pre'); pre.id = 'result'; pre.textContent = out.join('\n'); document.body.append(pre);
 }
 window.addEventListener('load', () => setTimeout(run, 100));
