@@ -7,6 +7,8 @@ memory/
 user_settings.json
 # ТАЕН ключ за връзката с Google
 google_settings.json
+# ключът за търговия в Hyperliquid (криптиран) и лимитите
+trading_settings.json
 # личните документи, от които Орион отговаря
 knowledge/
 
