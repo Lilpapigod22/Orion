@@ -74,7 +74,7 @@ import openai  # noqa: E402
 import webview  # noqa: E402
 
 import config  # noqa: E402
-from orion import alerts, apps, confirm, games, google, reels, reflexes, self_test, speech, vision  # noqa: E402
+from orion import alerts, apps, confirm, games, google, live, reels, reflexes, self_test, speech, telemetry, vision  # noqa: E402
 from orion.memory import tool_steps  # noqa: E402
 from orion.reminders import book as reminder_book  # noqa: E402
 from orion.self_improve import forge, lessons  # noqa: E402
@@ -165,6 +165,12 @@ class Orion:
         self.greeted = threading.Event()        # reminders are announced after the greeting
         self.mic_ok = False
         self._was_minimized = False
+        self._tool_started: dict[str, float] = {}   # skill -> start time (journal and live board durations)
+        self._last_heard: dict | None = None        # Google/Whisper texts of the last spoken phrase
+        self._thinking_key = "thinking"
+        self._delta_text, self._delta_sent = "", 0.0
+        self.telemetry: telemetry.Telemetry | None = None
+        live.sink = lambda event: self.hud("live", event)
         self._approval_event: threading.Event | None = None
         self._approval_result = False
         self.start_maximized = False
@@ -211,6 +217,10 @@ class Orion:
             threading.Thread(target=self._boot, daemon=True, name="boot").start()
             threading.Thread(target=self._worker, daemon=True, name="worker").start()
             threading.Thread(target=self._reminder_loop, daemon=True, name="reminders").start()
+        if self.telemetry is None:  # gauges on the live board — once a second while the window is visible
+            self.telemetry = telemetry.Telemetry(lambda gauges: self.hud("setGauges", gauges),
+                                                 lambda: self.window is not None and not self._was_minimized)
+            self.telemetry.start()
         return {"muted": self.muted, "alwaysListen": self.always_listen, "testMode": self.tester.running,
                 "wakeWord": config.WAKE_WORDS[0], "maximized": self.start_maximized}
 
@@ -407,7 +417,7 @@ class Orion:
             try:
                 with self.work_lock:  # waits for a sandbox test already in progress (seconds)
                     if kind == "ask":
-                        self._answer(text)
+                        self._answer(text, source)
                     else:
                         self._speak(text)
             except Exception as e:  # noqa: BLE001
@@ -422,21 +432,26 @@ class Orion:
             if source == "voice":
                 self._continue_conversation()
 
-    def _answer(self, text: str) -> None:
+    def _answer(self, text: str, source: str = "text") -> None:
         self.last_activity = time.time()
+        live.begin(text, source, self._last_heard if source == "voice" else None)
         self.hud("addLog", "user", text)
         print(f"[Sir] {text}")
+        live.start("understood", "choosing")
         # Time, date, opening programs… — instant and error-free, even before the model is ready.
         reflex = reflexes.respond(text)
         if reflex:
+            live.finish("understood", "quick command", {"command": reflex.tool or reflex.action or "time / date"})
             answer = self._run_reflex(text, reflex)
         elif not self.ready:
+            live.finish("understood", "the model is not ready", ok=False)
             answer = f"Моля за момент търпение, сър. {self.boot_problem}"
         else:
-            answer = self._think(text)
+            answer = self._think(text)  # the brain finishes „understood“ (on_step "route")
         print(f"[Orion] {answer}")
         self._push_reminders()  # it may have added or removed a reminder
         self._speak(answer)
+        live.end()
         if reflex and reflex.action == "close" and self.window:
             self.window.destroy()
 
@@ -541,18 +556,40 @@ class Orion:
         self.hud("setState", "thinking")
         try:
             answer = self.brain.think(text, on_tool=self._log_tool, on_result=self._tool_done,
-                                      on_thought=self._thought)
+                                      on_thought=self._thought, on_delta=self._delta, on_step=self._model_step)
         except openai.APIConnectionError:
+            live.fail()
             answer = "Изгубих връзка с езиковия модел, сър. Уверете се, че Ollama работи."
         except Exception as e:  # noqa: BLE001
             traceback.print_exc()
+            live.fail()
             answer = f"Възникна техническа неизправност, сър. {e}"
         self._refresh_telemetry()  # It may have learned a lesson or a new skill.
         if self.ollama:  # Keeps the model in video memory for longer.
             threading.Thread(target=self._touch_model, daemon=True).start()
         return answer or "Нямам какво да добавя, сър."
 
+    def _model_step(self, kind: str, info: dict) -> None:
+        """The brain's progress -> the live board."""
+        if kind == "route":
+            live.finish("understood", "model", info)
+        elif kind == "model_start":
+            self._thinking_key = f"thinking-{info['round']}"
+            self._delta_text, self._delta_sent = "", 0.0
+            live.start("thinking", f"round {info['round'] + 1} · {info['effort']}", info, key=self._thinking_key)
+        elif kind == "model_end":
+            live.finish("thinking", f"{info['tokens']} tokens · {info['tps']} tok/s", info, key=self._thinking_key)
+
+    def _delta(self, kind: str, text: str) -> None:
+        """Streamed pieces of the model's reasoning/answer — at most ~7 updates a second."""
+        self._delta_text = (self._delta_text + text)[-600:]
+        now = time.monotonic()
+        if now - self._delta_sent >= 0.15:
+            self._delta_sent = now
+            live.update("thinking", kind, {"text": self._delta_text, "kind": kind}, key=self._thinking_key)
+
     def _log_tool(self, name: str, arguments: str) -> None:
+        self._tool_started[name] = time.monotonic()
         try:
             args = json.loads(arguments or "{}")
         except ValueError:
@@ -565,6 +602,7 @@ class Orion:
         description = tool.get("schema", {}).get("function", {}).get("description", name)
         label = re.split(r"[.:—(\n]", description)[0].strip()[:42]  # “Creates a strong random password”
         self.hud("toolStart", name, args if isinstance(args, dict) else {}, tool.get("module", ""), label)
+        live.start("skill", name, {"args": args if isinstance(args, dict) else arguments}, key=name)
 
     def _tool_done(self, name: str, result: str) -> None:
         """The skill's result — shown next to its bubble in the 3D network."""
@@ -578,7 +616,10 @@ class Orion:
             shown = "answered"
         else:
             shown = result.splitlines()[0] if result.strip() else "done"
-        self.hud("toolDone", name, shown[:200], ok)
+        began = self._tool_started.pop(name, None)
+        ms = round((time.monotonic() - began) * 1000) if began is not None else None
+        self.hud("toolDone", name, shown[:200], ok, ms)
+        live.finish("skill", name, {"result": shown[:300]}, ok=ok, key=name)
         # The market analysis chart and Claude's full answer — in the journal.
         skills = sys.modules
         if ok and name in ("analyze_market", "analyze_price_file"):
@@ -610,6 +651,13 @@ class Orion:
 
     # --- Speaking ----------------------------------------------------------------------
     def _speak(self, text: str) -> None:
+        live.start("speaking", text[:140])
+        try:
+            self._voice_out(text)
+        finally:
+            live.finish("speaking", text[:140])
+
+    def _voice_out(self, text: str) -> None:
         self.hud("say", text)
         if self.muted:
             return
@@ -704,7 +752,10 @@ class Orion:
         # Whatever was recorded while Orion was speaking or starting to answer is its own voice.
         if audio is None or self._speech_gen != speech_gen or self.busy:
             return None
+        began = time.monotonic()
         text = listener.recognize(audio)
+        google, whisper_text = getattr(listener, "last_heard", (None, None))
+        self._last_heard = {"google": google, "whisper": whisper_text, "ms": round((time.monotonic() - began) * 1000)}
         if not text or self._speech_gen != speech_gen:
             return None
         self.hud("heard", text)

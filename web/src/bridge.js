@@ -70,6 +70,8 @@ export const hud = {
   // What Orion is thinking and doing — shown in the 3D network (engine/mind.js).
   toolStart(name, args, module, label) { mind.taskStart(name, args, module, label); },
   toolDone(name, result, ok) { mind.taskDone(name, result, ok); },
+  live() {},        // the live board (Task 6)
+  setGauges() {},
   thought(text) { mind.think(text); },
   setReminders(items) { mind.setReminders(items); },
 
