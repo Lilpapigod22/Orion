@@ -1,6 +1,6 @@
 """
-Напомняния и таймери. Пазят се в memory/reminders.json, за да оцелеят след рестарт.
-Приложението проверява на всеки няколко секунди кои са настъпили и ги казва на глас.
+Reminders and timers. Stored in memory/reminders.json so they survive a restart.
+The app checks every few seconds which are due and announces them out loud.
 """
 import json
 import threading
@@ -27,7 +27,7 @@ class ReminderBook:
         self.path.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def add(self, text: str, due: datetime, kind: str = "reminder", repeat_minutes: int = 0, times: int = 0) -> dict:
-        """kind: "reminder" (напомняне) или "timer" (таймер). С `repeat_minutes` — повтаря се `times` пъти."""
+        """kind: "reminder" or "timer". With `repeat_minutes` it repeats `times` times."""
         item = {"id": uuid.uuid4().hex[:8], "text": text.strip(), "due": due.isoformat(timespec="seconds"),
                 "kind": kind}
         if repeat_minutes > 0:
@@ -43,14 +43,14 @@ class ReminderBook:
             return self._load()
 
     def pop_due(self, now: datetime | None = None) -> list[dict]:
-        """Маха и връща напомнянията, чийто час е дошъл."""
+        """Removes and returns the reminders that are due."""
         now = (now or datetime.now()).isoformat(timespec="seconds")
         with self._lock:
             items = self._load()
             due = [i for i in items if i["due"] <= now]
             if due:
                 rest = [i for i in items if i["due"] > now]
-                for item in due:  # повтарящите се — отново след `repeat` минути
+                for item in due:  # repeating ones — again after `repeat` minutes
                     if item.get("repeat") and item.get("left", 1) > 1:
                         again = dict(item, left=item["left"] - 1, due=(datetime.fromisoformat(item["due"])
                                      + timedelta(minutes=item["repeat"])).isoformat(timespec="seconds"))
@@ -59,7 +59,7 @@ class ReminderBook:
         return due
 
     def cancel(self, query: str = "") -> list[dict]:
-        """Отменя напомнянията, чийто текст съдържа `query` (празно — всички)."""
+        """Cancels the reminders whose text contains `query` (empty — all of them)."""
         query = query.lower().strip()
         with self._lock:
             items = self._load()

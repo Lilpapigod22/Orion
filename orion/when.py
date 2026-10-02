@@ -1,9 +1,9 @@
 """
-Дати и часове, казани на български: „утре“, „следващия вторник“, „25 октомври“, „3 следобед“,
-„след 20 минути“. Използва се от календара, задачите и напомнянията.
+Dates and times said in Bulgarian: „утре“, „следващия вторник“, „25 октомври“, „3 следобед“,
+„след 20 минути“ (tomorrow, next Tuesday, 25 October, 3 pm, in 20 minutes). Used by the calendar, tasks and reminders.
 
-Моделът подава тези думи както ги е казал сър — изчисляването на датата става тук, в кода,
-защото малките модели често бъркат коя дата е „следващият вторник“.
+The model passes these words as sir said them — the date is worked out here, in code,
+because small models often get wrong which date “next Tuesday” is.
 """
 import re
 from datetime import date, datetime, time, timedelta
@@ -25,13 +25,13 @@ _NUMBER_WORDS = {
 
 
 def _numbers(text: str) -> str:
-    """„двадесет минути“ -> „20 минути“ (прости числа, както ги пише разпознаването на реч)."""
+    """„двадесет минути“ -> „20 минути“ (simple numbers, as speech recognition writes them)."""
     return re.sub(r"\b(" + "|".join(sorted(_NUMBER_WORDS, key=len, reverse=True)) + r")\b",
                   lambda m: str(_NUMBER_WORDS[m.group(1)]), text)
 
 
 def parse_date(text: str, today: date | None = None) -> date | None:
-    """Датата в текста или None. „утре“, „в петък“, „следващата сряда“, „25.10“, „25 октомври“."""
+    """The date in the text, or None. „утре“, „в петък“, „следващата сряда“, „25.10“, „25 октомври“."""
     today = today or date.today()
     t = text.lower().strip()
     if m := re.search(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", t):
@@ -41,7 +41,7 @@ def parse_date(text: str, today: date | None = None) -> date | None:
         year += 2000 if year < 100 else 0
         try:
             result = date(year, int(m[2]), int(m[1]))
-        except ValueError:  # „10.30“ е час, не дата
+        except ValueError:  # „10.30“ is a time, not a date
             continue
         return result.replace(year=result.year + 1) if not m[3] and result < today else result
     if m := re.search(r"\b(\d{1,2})(?:-?[ао]?\s*|-ти\s*|-ви\s*|-ри\s*|\s+)([а-я]{3})[а-я]*\b", t):
@@ -63,18 +63,18 @@ def parse_date(text: str, today: date | None = None) -> date | None:
                 days += 7 if days < 7 and re.search(r"\bседмица", t) else 0
             return today + timedelta(days=days)
     if re.search(r"\bследващата седмица\b", t):
-        return today + timedelta(days=7 - today.weekday())  # следващият понеделник
+        return today + timedelta(days=7 - today.weekday())  # next Monday
     return None
 
 
 def parse_time(text: str) -> time | None:
-    """Часът в текста или None. „15:30“, „в 3 следобед“, „8 и половина вечерта“, „по обяд“."""
+    """The time in the text, or None. „15:30“, „в 3 следобед“, „8 и половина вечерта“, „по обяд“."""
     t = _numbers(text.lower())
     if re.search(r"\bпо обяд\b|\bна обяд\b", t) and not re.search(r"\d", t):
         return time(12, 0)
     patterns = (
         r"\b(\d{1,2}):(\d{2})\b",
-        # „в 10.30“ — с точка само след предлог, иначе „10.10“ би била и дата, и час.
+        # „в 10.30“ — with a dot only after a preposition, otherwise „10.10“ would be both a date and a time.
         r"\b(?:в|към|около|от|до)\s+(\d{1,2})\.(\d{2})\b",
         r"\b(?:в|към|около|от|до)\s+(\d{1,2})(?:\s*ч(?:аса|\.)?)?(?:\s+и\s+(половина|\d{1,2}))?(?![.\d])",
         r"\b(\d{1,2})\s*(?:ч\.|часа)(?:\s+и\s+(половина|\d{1,2}))?",
@@ -92,7 +92,7 @@ def parse_time(text: str) -> time | None:
 
 
 def parse_in(text: str) -> timedelta | None:
-    """Интервал „след/за 20 минути“, „след час и половина“, „2 часа“ или None."""
+    """An interval „след/за 20 минути“, „след час и половина“, „2 часа“ or None."""
     t = _numbers(text.lower())
     if re.search(r"\bполовин час\b", t):
         return timedelta(minutes=30)
@@ -114,7 +114,7 @@ def parse_in(text: str) -> timedelta | None:
 
 
 def parse_moment(text: str, now: datetime | None = None) -> datetime | None:
-    """Точен момент: „след 20 минути“, „в 18:00“ (днес или утре, ако е минал), „утре в 9“."""
+    """An exact moment: „след 20 минути“, „в 18:00“ (today, or tomorrow if it has passed), „утре в 9“."""
     now = now or datetime.now()
     if re.search(r"\b(след|за)\b", text.lower()) or not (parse_date(text, now.date()) or parse_time(text)):
         delta = parse_in(text)
@@ -125,7 +125,7 @@ def parse_moment(text: str, now: datetime | None = None) -> datetime | None:
         return datetime.combine(day, time(9, 0)) if day else None
     result = datetime.combine(day or now.date(), moment)
     if not day and result <= now:
-        # „в 7“, казано в 10 сутринта, е 19:00 днес; ако и то е минало — утре.
+        # „в 7“ said at 10 am is 19:00 today; if that has passed too — tomorrow.
         evening = result + timedelta(hours=12)
         if moment.hour < 12 and evening > now and "сутрин" not in text.lower():
             return evening
@@ -140,5 +140,5 @@ def spoken_date(d: date, today: date | None = None) -> str:
         return "днес"
     if d == today + timedelta(days=1):
         return "утре"
-    prefix = "във" if d.weekday() == 1 else "в"  # „във вторник“, но „в сряда“
+    prefix = "във" if d.weekday() == 1 else "в"  # „във вторник“, but „в сряда“
     return f"{prefix} {WEEKDAYS[d.weekday()]}, {d.day} {MONTHS[d.month - 1]}"

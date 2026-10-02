@@ -18,3 +18,5 @@ __pycache__/
 skills/.history/
 # временни файлове на тест режима
 skills/_selftest_*
+# пакетите за изграждане на прозореца (React) — npm install ги сваля отново
+web/node_modules/

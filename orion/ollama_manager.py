@@ -1,11 +1,11 @@
 """
-Автоматична подготовка на локалния модел в Ollama.
+Automatic set-up of the local model in Ollama.
 
-При старт Орион сам:
-1. стартира Ollama, ако не работи;
-2. изтегля модела, ако липсва (с прогрес);
-3. създава производен модел с по-голям контекст ("orion-<модел>");
-4. зарежда го във видеопаметта, за да е бърз първият отговор.
+At start-up Orion by itself:
+1. starts Ollama if it is not running;
+2. downloads the model if it is missing (with progress);
+3. creates a derived model with a larger context ("orion-<model>");
+4. loads it into video memory so the first answer is fast.
 """
 import json
 import os
@@ -17,7 +17,7 @@ import urllib.request
 from pathlib import Path
 from typing import Callable, Iterator
 
-# progress(съобщение, процент или None)
+# progress(message, percent or None)
 ProgressCallback = Callable[[str, float | None], None]
 
 
@@ -27,14 +27,14 @@ class OllamaError(RuntimeError):
 
 class OllamaManager:
     def __init__(self, base_url: str, model: str, context: int, keep_alive: str = "30m"):
-        # Приложението ползва OpenAI-съвместимия адрес (.../v1); тук ни трябва основният.
+        # The app uses the OpenAI-compatible address (.../v1); here we need the base one.
         self.api = base_url.rstrip("/").removesuffix("/v1")
         self.base_model = model if ":" in model else f"{model}:latest"
         self.model = f"orion-{self.base_model}" if context else self.base_model
         self.context = context
         self.keep_alive = keep_alive
 
-    # --- HTTP помощници --------------------------------------------------------------
+    # --- HTTP helpers ----------------------------------------------------------------
     def _post(self, path: str, payload: dict, timeout: float = 30) -> dict:
         request = urllib.request.Request(
             self.api + path, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}
@@ -62,7 +62,7 @@ class OllamaManager:
         except (urllib.error.URLError, OSError):
             return False
 
-    # --- Стъпки ------------------------------------------------------------------------
+    # --- Steps -------------------------------------------------------------------------
     def _start_server(self) -> None:
         exe = shutil.which("ollama") or str(Path(os.getenv("LOCALAPPDATA", "")) / "Programs/Ollama/ollama.exe")
         if not Path(exe).exists() and not shutil.which("ollama"):
@@ -80,7 +80,7 @@ class OllamaManager:
         return Path(os.getenv("OLLAMA_MODELS") or Path.home() / ".ollama" / "models")
 
     def _download_size(self) -> int | None:
-        """Размерът на модела в байтове според регистъра на Ollama (или None)."""
+        """The model size in bytes according to the Ollama registry (or None)."""
         name, _, tag = self.base_model.partition(":")
         repo = name if "/" in name else f"library/{name}"
         request = urllib.request.Request(
@@ -94,11 +94,11 @@ class OllamaManager:
             return None
 
     def _check_disk_space(self) -> None:
-        """Отказва сваляне, което би напълнило диска (пълен системен диск чупи Windows)."""
+        """Refuses a download that would fill the disk (a full system disk breaks Windows)."""
         folder = self._models_dir()
         folder.mkdir(parents=True, exist_ok=True)
         free = shutil.disk_usage(folder).free
-        needed = (self._download_size() or 10 * 1024**3) + 2 * 1024**3  # + 2 GB резерв
+        needed = (self._download_size() or 10 * 1024**3) + 2 * 1024**3  # + 2 GB reserve
         if free < needed:
             raise OllamaError(
                 f"Няма достатъчно място на диска за {self.base_model}: нужни са "
@@ -113,20 +113,20 @@ class OllamaManager:
                 raise OllamaError(f"Изтеглянето се провали: {event['error']}")
             total, done = event.get("total"), event.get("completed")
             if total and done is not None:
-                progress(f"Изтеглям {self.base_model}", done / total * 100)
+                progress(f"downloading {self.base_model}", done / total * 100)
 
     def ensure_ready(self, progress: ProgressCallback) -> str:
-        """Подготвя модела и връща името, което да се ползва в заявките."""
+        """Prepares the model and returns the name to use in requests."""
         if not self.is_running():
-            progress("Стартирам Ollama", None)
+            progress("starting Ollama", None)
             self._start_server()
 
         if self.base_model not in self.installed_models():
-            progress(f"Изтеглям {self.base_model}", 0)
+            progress(f"downloading {self.base_model}", 0)
             self._pull(progress)
 
         if self.model != self.base_model:
-            # Бързо и безопасно при всеки старт: ползва същите файлове на модела.
+            # Fast and safe at every start: it reuses the same model files.
             result = self._post("/api/create", {
                 "model": self.model, "from": self.base_model,
                 "parameters": {"num_ctx": self.context}, "stream": False,
@@ -134,11 +134,11 @@ class OllamaManager:
             if result.get("status") != "success":
                 raise OllamaError(f"Не успях да създам {self.model}: {result}")
 
-        progress("Зареждам във видеопаметта", None)
+        progress("loading into video memory", None)
         self.touch()
         return self.model
 
     def touch(self, keep_alive: str | None = None, timeout: float = 300) -> None:
-        """Зарежда модела (или удължава престоя му в паметта). keep_alive="0" го освобождава."""
+        """Loads the model (or extends its stay in memory). keep_alive="0" unloads it."""
         self._post("/api/generate", {"model": self.model, "keep_alive": keep_alive or self.keep_alive},
                    timeout=timeout)

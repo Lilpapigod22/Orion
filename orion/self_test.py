@@ -1,25 +1,25 @@
 """
-Тест режим — Орион сам се проверява, намира грешките си и ги поправя.
+Test mode — Orion checks itself, finds its mistakes and fixes them.
 
-Един кръг:
-  1. Умения. Всяко умение от orion/self_test_cases.py се пуска с примерни данни в пясъчник:
-     бележките, напомнянията, известията и портфейлът са временни копия, нищо не се отваря на
-     екрана, клипбордът се връща, всяко потвърждение (писмо, изтриване) се отказва. Опасните
-     умения (изключване, писма, звук, изтриване…) изобщо не се пускат.
-  2. Разбиране. Молби — готови и нови, които Орион сам измисля за уменията си — минават по
-     същия път като истинските (рефлекси -> езиков модел). Проверява се дали е избрал правилното
-     умение. Действията не се изпълняват: вместо тях има манекен, който само ги отбелязва.
-  3. Поправки.
-     - Неразбрана молба: Орион сам добавя ключова дума към подбора на умения (orion/router.py)
-       или пренаписва описанието на умението — само текста, кодът гарантирано остава същият.
-       Промяната остава само ако молбата вече се разбира и старите тестове още минават.
-     - Счупено умение: Орион пише нов код, проверява го в пясъчника с всички тестове на файла и
-       го показва за одобрение. Кодът се изпълнява с пълен достъп до компютъра, затова последната
-       дума е на сър — както при всеки код, който Орион пише.
-  4. Доклад — в журнала, в logs/self_test.md и на глас.
+One round:
+  1. Skills. Every skill in orion/self_test_cases.py is run with sample data in a sandbox:
+     notes, reminders, alerts and the portfolio are temporary copies, nothing opens on
+     screen, the clipboard is restored, every confirmation (email, deletion) is rejected. Dangerous
+     skills (shutdown, email, sound, deletion…) are never run.
+  2. Understanding. Requests — ready-made ones and new ones Orion invents for its skills — go the
+     same way as real ones (reflexes -> language model). The test checks whether it picked the right
+     skill. Actions are not executed: a stub only records them instead.
+  3. Fixes.
+     - A misunderstood request: Orion adds a keyword to skill selection (orion/router.py)
+       or rewrites the skill's description — only the text; the code is guaranteed to stay the same.
+       The change is kept only if the request is now understood and the older tests still pass.
+     - A broken skill: Orion writes new code, checks it in the sandbox against all the file's tests and
+       shows it for approval. The code runs with full access to the computer, so the final
+       say is sir's — as with any code Orion writes.
+  4. Report — in the journal, in logs/self_test.md and out loud.
 
-Орион не пречи на сър: тестовете вървят само когато той мълчи. Ако заговори, текущата заявка
-към модела се прекъсва и тестът продължава по-късно.
+Orion does not get in sir's way: tests only run while he is quiet. If he speaks, the current request
+to the model is cancelled and the test continues later.
 """
 import ast
 import copy
@@ -55,32 +55,32 @@ from .self_test_cases import ASKS, SKILL_CASES, Ask, SkillCase
 from .tools import OrionTools, _parse_docstring, registry
 
 MEMORY_DIR = config.BASE_DIR / "memory"
-STORE = MEMORY_DIR / "self_tests.json"            # молбите и проверките, които Орион е измислил сам
+STORE = MEMORY_DIR / "self_tests.json"            # the requests and checks Orion invented itself
 REPORT = config.BASE_DIR / "logs" / "self_test.md"
 BOX = Path(tempfile.gettempdir()) / "orion_selftest"
 
-ROUND_PAUSE = 10 * 60   # секунди между кръговете, докато тест режимът е включен
-SKILLS_EVERY = 3        # уменията (мрежа, файлове) — на всеки 3 кръга; разбирането — всеки кръг
-NEW_ASKS = 8            # за колко умения Орион измисля нови молби на кръг
-MAX_FIXES = 4           # поправки на кръг — останалите остават за следващия
-IDLE_SECONDS = 20       # толкова след последната молба на сър тестовете още чакат
+ROUND_PAUSE = 10 * 60   # seconds between rounds while test mode is on
+SKILLS_EVERY = 3        # skills (network, files) — every 3 rounds; understanding — every round
+NEW_ASKS = 8            # for how many skills Orion invents new requests per round
+MAX_FIXES = 4           # fixes per round — the rest wait for the next one
+IDLE_SECONDS = 20       # tests still wait this long after sir's last request
 STORE_LIMIT = 150
-MAX_RETRIES = 3         # колко пъти един тест може да бъде прекъснат, преди да се пропусне
-MAX_TEST_LESSONS = 10   # поуки от тест режима (общо са до 40 — останалите са за забележките на сър)
+MAX_RETRIES = 3         # how many times a test may be interrupted before it is skipped
+MAX_TEST_LESSONS = 10   # lessons from test mode (up to 40 in total — the rest are for sir's remarks)
 
-# Пясъчникът подменя файлове на цялата програма. Докато е активен, напомнянията и известията
-# за цени чакат (виж app.py -> _reminder_loop), за да не четат или запишат тестовите копия.
+# The sandbox swaps files for the whole program. While it is active, reminders and price
+# alerts wait (see app.py -> _reminder_loop) so they do not read or write the test copies.
 sandbox_lock = threading.Lock()
 
-# При проверката на разбирането тези умения работят наистина — само четат и не пазят нищо.
-# Всички останали се заменят с манекен, който само отбелязва извикването.
+# During the understanding check these skills really run — they only read and store nothing.
+# All the others are replaced by a stub that only records the call.
 LIVE_TOOLS = {
     "get_current_time", "calculate", "get_weather", "days_until_date", "wikipedia", "convert_currency",
     "convert_units", "search_web", "read_webpage", "market_price", "market_overview", "crypto_market",
     "compare_assets", "top_stock_movers", "crypto_fear_greed", "convert_crypto", "weather_week",
     "weather_hourly", "will_it_rain", "air_quality", "uv_index", "date_after_days", "days_between",
     "weekday_of_date", "age_from_birthday", "sunrise_sunset", "moon_phase", "bulgarian_holidays",
-    "next_holiday", "name_day", "todays_name_days", "random_number", "flip_coin",  # паролата се копира -> манекен
+    "next_holiday", "name_day", "todays_name_days", "random_number", "flip_coin",  # the password is copied -> stub
     "roll_dice", "pick_random", "count_text", "encode_base64", "decode_base64", "hash_text",
     "convert_number_base", "roman_numeral", "convert_timestamp", "number_stats", "percent_change",
     "split_bill", "loan_payment", "compound_interest", "vat_calculator", "discount_price", "savings_goal",
@@ -90,15 +90,15 @@ LIVE_TOOLS = {
     "list_skills", "list_lessons", "radio_stations",
 }
 STUB = "Изпълнено успешно."
-# За тях Орион не измисля молби: самоусъвършенстването се проверява отделно, а не чрез себе си.
+# Orion invents no requests for these: self-improvement is checked separately, not through itself.
 NOT_ASKED = {"learn_lesson", "forget_lesson", "create_skill", "improve_skill", "undo_skill_change",
              "recent_errors", "list_lessons", "remember"}
-# Мрежови проблеми не са бъг в кода — умението се проверява пак, но не се „поправя“.
+# Network problems are not a code bug — the skill is re-checked but not “fixed”.
 NETWORK_RE = re.compile(
     r"URLError|timed out|TimeoutError|ConnectionError|Connection(Reset|Refused|Aborted)|getaddrinfo|"
     r"RemoteDisconnected|HTTP Error (5\d\d|429)|SSLError|IncompleteRead|No route to host|"
     r"temporarily unavailable|Max retries|ReadTimeout|не отговори за", re.IGNORECASE)
-# Думи, които са във всякакви молби — не стават за ключова дума на група умения.
+# Words found in all kinds of requests — not usable as a keyword for a skill group.
 STOP_WORDS = {
     "може", "можеш", "можете", "моля", "искам", "искаш", "колко", "какво", "какъв", "каква", "какви",
     "кажи", "кажете", "митко", "някак", "днес", "утре", "вчера", "сега", "мога", "моят", "моята", "моите",
@@ -171,22 +171,22 @@ FIX_TASK = """Тест режимът откри грешка в умение. �
 
 
 class Stopped(Exception):
-    """Сър изключи тест режима."""
+    """Sir turned test mode off."""
 
 
 class Interrupted(Exception):
-    """Сър заговори — текущият тест се прекъсва и се пуска пак по-късно."""
+    """Sir started talking — the current test is cancelled and re-run later."""
 
 
 class StoppableClient:
-    """OpenAI клиент за тест режима. Отговорът идва на части (stream) и между всеки две части
-    се проверява дали сър не е заговорил — тогава потокът се затваря, Ollama спира да генерира
-    и отговорът на сър не чака теста. Връща същия вид отговор като обикновения клиент
-    (content, tool_calls, reasoning), за да може и Brain да го ползва."""
+    """An OpenAI client for test mode. The answer arrives in parts (stream) and between every two parts
+    it checks whether sir has started talking — then the stream is closed, Ollama stops generating
+    and sir's answer does not wait for the test. Returns the same kind of answer as the normal client
+    (content, tool_calls, reasoning), so Brain can use it too."""
 
     def __init__(self, check: "Callable[[], type[Exception] | None]"):
         self._client = OpenAI(base_url=config.LLM_BASE_URL, api_key=config.LLM_API_KEY, timeout=240, max_retries=0)
-        self._check = check  # None — продължи; Interrupted/Stopped — спри
+        self._check = check  # None — carry on; Interrupted/Stopped — stop
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
 
     def _stop_if_needed(self) -> None:
@@ -233,7 +233,7 @@ def _count(n: int, one: str, many: str) -> str:
 
 
 def _json_in(text: str, opener: str):
-    """Първият JSON масив/обект в отговора на модела (или None)."""
+    """The first JSON array/object in the model's answer (or None)."""
     closer = "]" if opener == "[" else "}"
     text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.DOTALL)
     start, end = text.find(opener), text.rfind(closer)
@@ -246,12 +246,12 @@ def _json_in(text: str, opener: str):
 
 
 # =====================================================================================
-#  Пясъчник
+#  Sandbox
 # =====================================================================================
 class Sandbox:
-    """Докато е активен, уменията пипат само временни копия: файловете с данни от memory/ са
-    в BOX, нищо не се отваря на екрана, запомнените списъци и клипбордът се връщат след това,
-    а всяко потвърждение (писмо, изтриване) се отказва."""
+    """While active, skills only touch temporary copies: the data files from memory/ are
+    in BOX, nothing opens on screen, remembered lists and the clipboard are restored afterwards,
+    and every confirmation (email, deletion) is rejected."""
 
     SKIP = {"orion.self_test", "orion.router", "orion.self_improve"}
 
@@ -281,8 +281,8 @@ class Sandbox:
 
     def _enter(self) -> None:
         BOX.mkdir(parents=True, exist_ok=True)
-        # Отварянето на файлове и сайтове се спира навсякъде — и там, където модулът си го е
-        # запазил под друго име (напр. `open_path = os.startfile`).
+        # Opening files and websites is blocked everywhere — including where a module saved it
+        # under another name (e.g. `open_path = os.startfile`).
         openers = {id(f) for f in (getattr(os, "startfile", None), webbrowser.open, webbrowser.open_new,
                                    webbrowser.open_new_tab) if f}
         for name, module in list(sys.modules.items()):
@@ -296,7 +296,7 @@ class Sandbox:
                 elif isinstance(value, Path) and value.suffix == ".json" and MEMORY_DIR in value.parents:
                     self._set(module, attr, BOX / value.name)
                 elif name.startswith("skills.") or name == "orion.folders":
-                    if attr.startswith(("last_", "_last")):  # „последният списък с файлове/писма…“
+                    if attr.startswith(("last_", "_last")):  # “the last list of files/emails…”
                         self._attrs.append((module, attr, value))
                     if isinstance(value, (list, dict, set)):
                         self._containers.append((value, copy.copy(value)))
@@ -309,7 +309,7 @@ class Sandbox:
         try:
             import pyperclip
             self._clipboard = pyperclip.paste()
-        except Exception:  # noqa: BLE001 — без клипборд тестът пак върви
+        except Exception:  # noqa: BLE001 — the test still runs without a clipboard
             self._clipboard = None
 
     def _leave(self) -> None:
@@ -329,7 +329,7 @@ class Sandbox:
                 pass
 
 
-# Умение, което прави нещо навън (писмо, изтриване, отваряне…), не се пуска с измислени данни.
+# A skill that does something outside (email, deletion, opening…) is never run with invented data.
 ACTION_WORDS = re.compile(
     r"изпра|прати|праща|пише на|трие|изтри|премахва|маха|купува|плаща|публикува|качва|изключва|рестарт|"
     r"затваря|отваря|пуска|стартира|печат|принт|запис|създава|добавя|сменя|променя|"
@@ -337,25 +337,25 @@ ACTION_WORDS = re.compile(
 
 
 def _may_invent(name: str) -> bool:
-    """Може ли Орион сам да измисли и пусне проверка на умението: само ако го е написал сам
-    (готовите умения имат ръчни проверки в self_test_cases.py) и то само чете — без запис на
-    файлове, програми, изпращане на данни и думи за действие в описанието."""
+    """Whether Orion may invent and run a check for the skill itself: only if it wrote it itself
+    (the built-in skills have hand-written checks in self_test_cases.py) and it only reads — no writing
+    files, no programs, no sending data and no action words in the description."""
     path = registry.source_file(name)
     if name in NOT_ASKED or name not in registry.names() or not path or not path.exists():
         return False
-    if not any(forge.history_dir.glob(f"{path.stem}__*.created")):  # не е писано от Орион
+    if not any(forge.history_dir.glob(f"{path.stem}__*.created")):  # not written by Orion
         return False
     code = path.read_text(encoding="utf-8")
     problems, warnings, _ = validate_skill_code(code, set())
     if problems or set(warnings) - {"достъп до интернет"}:
         return False
-    if re.search(r"startfile|\b(?:data|method)\s*=|urlopen\([^)]*,\s*[^t)]", code):  # отваряне, изпращане на данни
+    if re.search(r"startfile|\b(?:data|method)\s*=|urlopen\([^)]*,\s*[^t)]", code):  # opening, sending data
         return False
     return not ACTION_WORDS.search(registry._tools[name]["schema"]["function"]["description"])
 
 
 def _call(tools, name: str, args: dict, timeout: float = 60.0) -> str:
-    """Умението в отделна нишка — ако увисне, тестът продължава (и отбелязва грешката)."""
+    """The skill on a separate thread — if it hangs, the test moves on (and records the error)."""
     box: dict[str, str] = {}
     worker = threading.Thread(target=lambda: box.update(result=tools.call(name, args)), daemon=True,
                               name=f"selftest-{name}")
@@ -365,7 +365,7 @@ def _call(tools, name: str, args: dict, timeout: float = 60.0) -> str:
 
 
 def _problem(case: SkillCase, result: str) -> str | None:
-    """Какво не е наред с резултата (или None)."""
+    """What is wrong with the result (or None)."""
     if result.startswith("Грешка"):
         return result.split(": ", 1)[-1]
     if not result.strip():
@@ -380,11 +380,11 @@ def _resolved(args: dict) -> dict:
 
 
 # =====================================================================================
-#  Регистърът, който вижда тестовият „мозък“
+#  The registry the test “brain” sees
 # =====================================================================================
 class TestTools:
-    """Истински са само LIVE_TOOLS, останалите умения са манекени. По желание — други описания
-    на уменията, за да се провери поправка на описание, преди да се запише."""
+    """Only LIVE_TOOLS are real, the other skills are stubs. Optionally — different descriptions
+    of the skills, to test a description fix before it is saved."""
 
     def __init__(self, descriptions: dict[str, str] | None = None):
         self.descriptions = descriptions or {}
@@ -448,10 +448,10 @@ def _evaluate(ask: Ask, used: list[str], answer: str, via: str) -> AskResult:
 
 
 # =====================================================================================
-#  Поправка на описание: само текстът на docstring-а, кодът остава същият
+#  Description fix: only the docstring text; the code stays the same
 # =====================================================================================
 def _shape(code: str) -> str:
-    """Кодът без docstring-ите — за доказателство, че е променен само текстът."""
+    """The code without docstrings — to prove that only the text changed."""
     tree = ast.parse(code)
     for node in ast.walk(tree):
         body = getattr(node, "body", None)
@@ -463,7 +463,7 @@ def _shape(code: str) -> str:
 
 
 def replace_description(code: str, func: str, description: str) -> str:
-    """Същият файл, но с ново описание на умението `func` (секцията „Args:“ остава)."""
+    """The same file, but with a new description for the skill `func` (the “Args:” section stays)."""
     tree = ast.parse(code)
     fn = next((n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == func), None)
     if fn is None or not fn.body or not isinstance(fn.body[0], ast.Expr) \
@@ -485,13 +485,13 @@ def replace_description(code: str, func: str, description: str) -> str:
         lines.append(f'{indent}"""')
     source = code.splitlines()
     new_code = "\n".join(source[:doc.lineno - 1] + lines + source[doc.end_lineno:]) + "\n"
-    if _shape(new_code) != _shape(code):  # не бива да се случи — но ако се случи, нищо не се записва
+    if _shape(new_code) != _shape(code):  # should never happen — but if it does, nothing is saved
         raise ValueError("промяната засяга не само описанието")
     return new_code
 
 
 # =====================================================================================
-#  Доклад
+#  Report
 # =====================================================================================
 @dataclass
 class Report:
@@ -499,12 +499,12 @@ class Report:
     started: datetime = field(default_factory=datetime.now)
     skills_total: int = 0
     skills_ok: int = 0
-    skill_failures: list[tuple[SkillCase, str, bool]] = field(default_factory=list)  # (тест, проблем, мрежа)
+    skill_failures: list[tuple[SkillCase, str, bool]] = field(default_factory=list)  # (test, problem, network)
     asks_total: int = 0
     asks_ok: int = 0
     ask_failures: list[AskResult] = field(default_factory=list)
     new_asks: int = 0
-    fixes: list[tuple[str, str]] = field(default_factory=list)  # („сам“/„одобрена“/…, описание)
+    fixes: list[tuple[str, str]] = field(default_factory=list)  # („сам“/„одобрена“/…, description)
     untested: list[str] = field(default_factory=list)
     stopped: bool = False
 
@@ -550,12 +550,12 @@ class Report:
 
 
 # =====================================================================================
-#  Тест режимът
+#  Test mode
 # =====================================================================================
 class SelfTester:
-    """`host` е приложението (app.py -> Orion): brain, work_lock, hud(), say(), test_idle(),
-    approve_test_fix(). work_lock е ключалката, която държи и worker-ът, докато отговаря на сър:
-    така тест в пясъчника и истинска молба никога не вървят едновременно."""
+    """`host` is the app (app.py -> Orion): brain, work_lock, hud(), say(), test_idle(),
+    approve_test_fix(). work_lock is the lock the worker also holds while answering sir:
+    so a sandbox test and a real request never run at the same time."""
 
     def __init__(self, host):
         self.host = host
@@ -565,9 +565,9 @@ class SelfTester:
         self.last_report: Report | None = None
         self.rounds = 0
 
-    # --- Включване ---------------------------------------------------------------------------
+    # --- Switching on ------------------------------------------------------------------------
     def start(self) -> bool:
-        """Включва тест режима. False — ако вече работи."""
+        """Turns test mode on. False if it is already running."""
         if self.enabled and self.thread and self.thread.is_alive():
             return False
         self.enabled = True
@@ -582,11 +582,11 @@ class SelfTester:
     def running(self) -> bool:
         return bool(self.enabled and self.thread and self.thread.is_alive())
 
-    # --- Връзка с прозореца ------------------------------------------------------------------
+    # --- Link to the window ------------------------------------------------------------------
     def _hud(self, fn: str, *args) -> None:
         try:
             self.host.hud(fn, *args)
-        except Exception:  # noqa: BLE001 — прозорецът може да се затваря
+        except Exception:  # noqa: BLE001 — the window may be closing
             pass
 
     def _log(self, text: str) -> None:
@@ -603,22 +603,22 @@ class SelfTester:
     def _task_done(self, key: str, text: str, ok: bool) -> None:
         self._hud("toolDone", key, text[:200], ok)
 
-    # --- Изчакване на сър ---------------------------------------------------------------------
+    # --- Waiting for sir ----------------------------------------------------------------------
     def _wait_idle(self) -> None:
-        """Чака, докато сър не говори и Орион не работи. Stopped — ако тест режимът е изключен."""
+        """Waits until sir is not talking and Orion is idle. Stopped — if test mode was turned off."""
         while self.enabled and not self.host.test_idle():
             time.sleep(0.5)
         if not self.enabled:
             raise Stopped()
 
     def _stop_reason(self) -> type[Exception] | None:
-        """За StoppableClient: спира заявката, ако сър е заговорил или е изключил тест режима."""
+        """For StoppableClient: stops the request if sir started talking or turned test mode off."""
         if not self.enabled:
             return Stopped
         return None if self.host.test_idle() else Interrupted
 
     def _retrying(self, action, *args):
-        """Изпълнява `action`; ако сър го прекъсне — изчаква тишина и опитва пак."""
+        """Runs `action`; if sir interrupts it — waits for quiet and tries again."""
         for _ in range(MAX_RETRIES):
             self._wait_idle()
             try:
@@ -635,7 +635,7 @@ class SelfTester:
             **({"reasoning_effort": effort} if config.LLM_REASONING_EFFORT and effort else {}))
         return re.sub(r"<think>.*?</think>", "", reply.choices[0].message.content or "", flags=re.DOTALL).strip()
 
-    # --- Главният цикъл -----------------------------------------------------------------------
+    # --- The main loop -----------------------------------------------------------------------
     def _loop(self) -> None:
         while self.enabled:
             self.rounds += 1
@@ -644,7 +644,7 @@ class SelfTester:
                 self._round(report)
             except Stopped:
                 report.stopped = True
-            except Exception as e:  # noqa: BLE001 — грешка в самия тест не бива да спира Орион
+            except Exception as e:  # noqa: BLE001 — an error in the test itself must not stop Orion
                 traceback.print_exc()
                 self._log(f"Самопроверката спря заради грешка: {type(e).__name__}: {e}")
                 report.stopped = True
@@ -669,7 +669,7 @@ class SelfTester:
         if first:
             report.untested = self._untested(store)
 
-    # --- 1. Умения ----------------------------------------------------------------------------
+    # --- 1. Skills ----------------------------------------------------------------------------
     def _skill_cases(self, store: dict) -> list[SkillCase]:
         names = set(registry.names())
         cases = [c for c in SKILL_CASES if c.tool in names and (c.needs != "google" or google.is_connected())]
@@ -679,7 +679,7 @@ class SelfTester:
     def _check_skills(self, report: Report, store: dict) -> None:
         self._invent_skill_cases(store)
         cases = self._skill_cases(store)
-        # По модули: тестовете на един файл вървят заедно в един пясъчник (запис -> четене).
+        # By module: the tests of one file run together in one sandbox (write -> read).
         modules: dict[str, list[SkillCase]] = {}
         for case in cases:
             modules.setdefault(registry._tools[case.tool]["module"], []).append(case)
@@ -693,11 +693,11 @@ class SelfTester:
             with self.host.work_lock, Sandbox():
                 for case in group:
                     done += 1
-                    self._progress(f"умения {done}/{len(cases)}")
+                    self._progress(f"skills {done}/{len(cases)}")
                     problem = self._run_skill_case(case, f"test:{done}")
                     if problem:
                         failed.append((case, problem))
-        # Мрежата понякога се бави — неуспелите се проверяват още веднъж.
+        # The network is sometimes slow — failed ones are checked once more.
         for case, problem in failed:
             self._wait_idle()
             with self.host.work_lock, Sandbox():
@@ -715,16 +715,16 @@ class SelfTester:
             if case.setup:
                 case.setup(BOX)
             result = _call(tools, case.tool, _resolved(case.args))
-        except Exception as e:  # noqa: BLE001 — счупена подготовка = неуспешен тест
+        except Exception as e:  # noqa: BLE001 — broken set-up = failed test
             result = f"Грешка при подготовката: {type(e).__name__}: {e}"
         problem = _problem(case, result)
         self._task_done(key, "работи" if problem is None else problem, problem is None)
         return problem
 
     def _invent_skill_cases(self, store: dict) -> None:
-        """Новите умения, които Орион е написал сам, нямат готова проверка — той измисля данни
-        за тест. Само ако умението само чете (виж _may_invent): иначе би изпратило, изтрило или
-        отворило нещо наистина."""
+        """New skills Orion wrote itself have no ready-made check — it invents data
+        for a test. Only if the skill only reads (see _may_invent): otherwise it would really send,
+        delete or open something."""
         covered = {c.tool for c in SKILL_CASES} | {s["tool"] for s in store["skills"]} | set(store["no_case"])
         for name in registry.names():
             if name in covered:
@@ -743,7 +743,7 @@ class SelfTester:
                 store["skills"].append({"tool": name, "args": args})
                 self._log(f"Написах си нова проверка: {name}({json.dumps(args, ensure_ascii=False)})")
 
-    # --- 2. Разбиране -------------------------------------------------------------------------
+    # --- 2. Understanding ---------------------------------------------------------------------
     def _all_asks(self, store: dict) -> list[Ask]:
         names = set(registry.names())
         asks = [a for a in ASKS if not a.expect or set(a.expect) & names]
@@ -759,7 +759,7 @@ class SelfTester:
         self._log(f"Проверявам дали разбирам {_count(len(asks), 'молба', 'молби')} "
                   f"({report.new_asks} от тях измислих сега).")
         for i, ask in enumerate(asks, 1):
-            self._progress(f"разбиране {i}/{len(asks)}")
+            self._progress(f"understanding {i}/{len(asks)}")
             key = f"test:ask:{i}"
             main = ask.expect[0] if ask.expect else "list_skills"
             self._task(key, main, f"разбирам ли „{ask.phrase}“")
@@ -781,23 +781,23 @@ class SelfTester:
 
     def _run_ask(self, ask: Ask, descriptions: dict[str, str] | None = None,
                  routes: dict[str, list[str]] | None = None, lesson: str | None = None) -> AskResult:
-        """Молбата минава по пътя на истинските: рефлекс -> модел. Действията са манекени.
-        descriptions/routes/lesson — поправка за проба, преди да се запише."""
+        """The request goes the way real ones do: reflex -> model. Actions are stubs.
+        descriptions/routes/lesson — a fix on trial before it is saved."""
         tools = TestTools(descriptions)
         reflex = reflexes.respond(ask.phrase)
         if reflex and reflex.tool:
             result = tools.call(reflex.tool, reflex.arguments_json)
             return _evaluate(ask, tools.calls, reflex.answer or result, "рефлекс")
-        if reflex and not reflex.action:  # час, дата, ден
+        if reflex and not reflex.action:  # time, date, day
             return _evaluate(ask, ["get_current_time"], reflex.answer, "рефлекс")
         if reflex:
             return _evaluate(ask, [], f"({reflex.action})", "рефлекс")
-        answer = self._test_brain(tools, routes, lesson).think(ask.phrase)  # Interrupted, ако сър заговори
+        answer = self._test_brain(tools, routes, lesson).think(ask.phrase)  # Interrupted if sir starts talking
         return _evaluate(ask, tools.calls, answer, "модел")
 
     def _test_brain(self, tools: TestTools, routes: dict | None, lesson: str | None = None) -> Brain:
         source = self.host.brain
-        def with_lesson() -> str:  # поуката за проба — след научените досега
+        def with_lesson() -> str:  # the lesson on trial — after the ones learned so far
             base = source.extra_prompt() if source.extra_prompt else ""
             if not base:
                 return f"Поуки от минали грешки — спазвай ги винаги, те са по-важни от примерите:\n1. {lesson}"
@@ -815,8 +815,8 @@ class SelfTester:
         return brain
 
     def _second_opinion(self, result: AskResult, store: dict) -> AskResult:
-        """Измислената молба е получила друго умение — може би и то е вярно („времето утре“
-        -> get_weather вместо will_it_rain). Орион преценява; ако е вярно, го приема занапред."""
+        """The invented request got a different skill — maybe that is right too („времето утре“
+        -> get_weather instead of will_it_rain). Orion judges; if it is right, it is accepted from now on."""
         used = next((u for u in result.used if u in registry.names()), None)
         if not used:
             return result
@@ -834,7 +834,7 @@ class SelfTester:
         return AskResult(result.ask, result.used, result.answer, None, result.via)
 
     def _invent_asks(self, store: dict) -> int:
-        """Орион сам измисля нови молби за уменията, които досега са били най-малко проверявани."""
+        """Orion invents new requests for the skills that have been tested least so far."""
         coverage: dict[str, int] = {}
         for ask in [*ASKS, *(Ask(s["phrase"], tuple(s["expect"])) for s in store["asks"])]:
             for tool in ask.expect[:1]:
@@ -845,7 +845,7 @@ class SelfTester:
         known = {s["phrase"].lower() for s in store["asks"]} | {a.phrase.lower() for a in ASKS}
         added = 0
         for i, name in enumerate(candidates[:NEW_ASKS], 1):
-            self._progress(f"пиша нови тестове {i}/{NEW_ASKS}")
+            self._progress(f"writing new tests {i}/{NEW_ASKS}")
             description = registry._tools[name]["schema"]["function"]["description"][:500]
             try:
                 phrases = _json_in(self._retrying(self._complete, GENERATE_PROMPT.format(
@@ -859,7 +859,7 @@ class SelfTester:
                 if (not 6 <= len(phrase) <= 160 or not re.search(r"[а-яА-Я]", phrase)
                         or name in phrase or phrase.lower() in known):
                     continue
-                try:  # безсмислена молба („Заправи гласа на пълна сила“) би довела до безсмислена „поправка“
+                try:  # a nonsense request („Заправи гласа на пълна сила“) would lead to a nonsense “fix”
                     sensible = self._retrying(self._complete, SENSIBLE_PROMPT.format(
                         name=name, description=description[:300], phrase=phrase), 0.0)
                 except Interrupted:
@@ -881,14 +881,14 @@ class SelfTester:
                 item["passed" if result.ok else "failed"] += 1
                 item["last"] = "ok" if result.ok else result.problem
 
-    # --- 3. Поправки --------------------------------------------------------------------------
+    # --- 3. Fixes -----------------------------------------------------------------------------
     def _fix(self, report: Report, store: dict) -> None:
         budget = MAX_FIXES
-        # Разбирането: по едно умение наведнъж (няколко неразбрани молби за едно умение — една поправка).
+        # Understanding: one skill at a time (several misunderstood requests for one skill — one fix).
         by_tool: dict[str, list[AskResult]] = {}
         for result in report.ask_failures:
             if result.problem.startswith("грешен отговор") and set(result.used) & set(result.ask.expect):
-                # Умението е правилното — сгрешен е самият отговор (напр. факт). Описание не помага.
+                # The skill is the right one — the answer itself is wrong (e.g. a fact). A description does not help.
                 report.fixes.append(("неуспешна", f"„{result.ask.phrase}“ — използвах правилното умение, "
                                                   f"но отговорих грешно: {result.answer[:140]}"))
             elif result.ask.expect and result.via == "модел":
@@ -904,7 +904,7 @@ class SelfTester:
                 self._fix_understanding(tool, results, report, store)
             except Interrupted:
                 report.fixes.append(("неуспешна", f"{tool}: поправката беше прекъсната — ще опитам пак."))
-        # Кодът на уменията.
+        # The skills' code.
         broken: dict[str, list[tuple[SkillCase, str]]] = {}
         for case, problem, network in report.skill_failures:
             if not network:
@@ -926,7 +926,7 @@ class SelfTester:
         return True
 
     def _regressions(self, tools: set[str], store: dict, exclude: set[str], words: list[str] | None = None) -> list[Ask]:
-        """Молбите, които една поправка може да засегне — трябва да продължат да минават."""
+        """The requests a fix might affect — they must keep passing."""
         asks = [a for a in self._all_asks(store) if a.phrase not in exclude]
         near = [a for a in asks if set(a.expect) & tools]
         if words:
@@ -938,15 +938,15 @@ class SelfTester:
         module = registry._tools.get(tool, {}).get("module", "")
         if not path or path.name in forge.PROTECTED:
             return
-        self._progress(f"поправям · {tool}")
+        self._progress(f"fixing · {tool}")
         self._hud("thought", f"Не разбрах „{results[0].ask.phrase}“ — търся защо и как да се поправя.")
         target, phrases = results[0].ask, {r.ask.phrase for r in results}
         wrong = {u for r in results for u in r.used if u in registry.names() and u != tool}
-        # Сравнява се само с молбите, които в този кръг са минали.
+        # Compared only with the requests that passed in this round.
         failing = {r.ask.phrase for r in report.ask_failures}
         regressions = self._regressions({tool, *wrong}, store, failing)
 
-        # а) Групата на умението е била скрита за тази молба -> ключова дума за подбора.
+        # a) The skill's group was hidden for this request -> a keyword for selection.
         routes = None
         if module in router.excluded_modules(target.phrase):
             word = self._keyword(target.phrase, tool, module)
@@ -960,8 +960,8 @@ class SelfTester:
                     self._log(f"✓ Поправих: думата „{word}“ вече показва уменията за {tool}.")
                     return
 
-        # б) Ново описание на умението и в) поука. Когато моделът изобщо не вика умение (сам
-        # „измисля“ паролата, сам превежда), описанието рядко помага — първо се пробва поуката.
+        # b) A new description for the skill and c) a lesson. When the model calls no skill at all (it
+        # “invents” the password, translates by itself), a description rarely helps — the lesson is tried first.
         what = "; ".join(sorted({r.problem for r in results}))
         fix = dict(tool=tool, target=target, phrases=phrases, wrong=wrong, what=what,
                    regressions=regressions, routes=routes, path=path, module=module)
@@ -977,7 +977,7 @@ class SelfTester:
                                           f"която да минава всички тестове."))
 
     def _try_description(self, fix: dict, report: Report) -> bool:
-        """Ново описание на умението — само текстът, кодът остава същият."""
+        """A new description for the skill — only the text; the code stays the same."""
         tool, path, routes = fix["tool"], fix["path"], fix["routes"]
         old = registry._tools[tool]["schema"]["function"]["description"]
         others = "\n".join(f"Сбърка го с {w}: {registry._tools[w]['schema']['function']['description'][:200]}"
@@ -1003,7 +1003,7 @@ class SelfTester:
                 continue
             self._wait_idle()
             with self.host.work_lock:
-                if path.read_text(encoding="utf-8") != code:  # междувременно е променен — следващия път
+                if path.read_text(encoding="utf-8") != code:  # changed in the meantime — next time
                     return False
                 forge._archive(path, ".bak", code)
                 path.write_text(new_code, encoding="utf-8")
@@ -1020,8 +1020,8 @@ class SelfTester:
         return False
 
     def _try_lesson(self, fix: dict, report: Report) -> bool:
-        """Поука — правило, което се добавя към инструкциите на Орион (като поуките от забележките
-        на сър). Най-много MAX_TEST_LESSONS от тест режима, за да не изтласкат поуките на сър."""
+        """A lesson — a rule added to Orion's instructions (like the lessons from sir's
+        remarks). At most MAX_TEST_LESSONS from test mode, so they do not push out sir's lessons."""
         tool = fix["tool"]
         if sum(1 for item in lessons.all() if item.get("source") == "тест") >= MAX_TEST_LESSONS:
             return False
@@ -1042,11 +1042,11 @@ class SelfTester:
         return True
 
     def _keyword(self, phrase: str, tool: str, module: str) -> str | None:
-        """Една дума от молбата, която да показва групата умения занапред (напр. „засечи“)."""
+        """One word from the request that will show the skill group from now on (e.g. „засечи“)."""
         group = [n for n, t in registry._tools.items() if t["module"] == module][:8]
         word = self._retrying(self._complete, KEYWORD_PROMPT.format(phrase=phrase, tools=", ".join(group)), 0.0)
         word = re.sub(r"[^\w-]", "", word.split()[0] if word.split() else "").lower()
-        stem = word[:max(4, len(word) - 2)] if len(word) > 5 else word  # „засечи“ -> „засе“ хваща и „засечете“
+        stem = word[:max(4, len(word) - 2)] if len(word) > 5 else word  # „засечи“ -> „засе“ also matches „засечете“
         others = [a.phrase.lower() for a in ASKS if a.expect and registry._tools.get(a.expect[0], {}).get("module") != module]
         if (len(stem) < 4 or stem not in phrase.lower() or word in STOP_WORDS or stem in STOP_WORDS
                 or sum(stem in o for o in others) > 1):
@@ -1061,11 +1061,11 @@ class SelfTester:
         own = {n for n in registry.names() if registry.source_file(n) == path}
         problems, _, _ = validate_skill_code(old_code, set(registry.names()) - own)
         case, problem = failures[0]
-        if problems:  # файл от ядрото (ctypes, winreg…) — моделът няма право да го пише
+        if problems:  # a core file (ctypes, winreg…) — the model may not write it
             report.fixes.append(("ядро", f"{tool}: {problem[:160]} — файлът {path.name} използва системни модули "
                                          f"и не го пренаписвам сам."))
             return
-        self._progress(f"поправям кода · {tool}")
+        self._progress(f"fixing the code · {tool}")
         self._hud("thought", f"Умението {tool} е счупено — пиша нова версия и я проверявам в пясъчник.")
         cases = [c for c in self._skill_cases(store) if c.tool in own]
         error = next((e for e in reversed(registry.errors) if e["tool"] == tool), None)
@@ -1094,7 +1094,7 @@ class SelfTester:
                                           f"проверките."))
 
     def _write_code(self, task: str, own: set[str], old_code: str):
-        """Като в работилницата за умения (self_improve.py), но заявката се прекъсва, ако сър заговори."""
+        """As in the skill forge (self_improve.py), but the request is cancelled if sir starts talking."""
         taken = set(registry.names()) - own
         prompt = task
         for attempt in range(1, forge.MAX_ATTEMPTS + 1):
@@ -1110,9 +1110,9 @@ class SelfTester:
         return None, [], [], forge.MAX_ATTEMPTS
 
     def _verify_code(self, path: Path, code: str, cases: list[SkillCase]) -> list[tuple[SkillCase, str]]:
-        """Зарежда новия код като отделен, временен модул (истинското умение не се пипа) и пуска
-        всички проверки на файла в пясъчника. Връща неуспелите."""
-        temp = path.with_name(f"_selftest_{path.stem}.py")  # „_“ — не се зарежда като умение
+        """Loads the new code as a separate, temporary module (the real skill is untouched) and runs
+        all the file's checks in the sandbox. Returns the failed ones."""
+        temp = path.with_name(f"_selftest_{path.stem}.py")  # “_” — not loaded as a skill
         name = f"skills._selftest_{path.stem}"
         tools = OrionTools()
         self._wait_idle()
@@ -1127,7 +1127,7 @@ class SelfTester:
                 module = importlib.util.module_from_spec(spec)
                 sys.modules[name] = module
                 spec.loader.exec_module(module)
-            except BaseException as e:  # noqa: BLE001 — кодът не се зарежда
+            except BaseException as e:  # noqa: BLE001 — the code does not load
                 return [(cases[0] if cases else SkillCase("?"), f"не се зарежда: {type(e).__name__}: {e}")]
             finally:
                 orion.orion_tool, orion.tools.orion_tool = saved
@@ -1144,7 +1144,7 @@ class SelfTester:
                 sys.modules.pop(name, None)
 
     def _propose(self, proposal: Proposal, tool: str, cases: list[SkillCase], report: Report) -> None:
-        """Кодът се включва само с „Одобри и включи“ от сър. После — още една проверка."""
+        """The code is only enabled with sir's “Approve and enable”. Then — one more check."""
         self._wait_idle()
         with self.host.work_lock:
             approved = self.host.approve_test_fix(proposal)
@@ -1164,7 +1164,7 @@ class SelfTester:
         self._log(f"✓ Поправката на {tool} е включена.")
         self.host.refresh()
 
-    # --- Край на кръга ------------------------------------------------------------------------
+    # --- End of the round ---------------------------------------------------------------------
     def _untested(self, store: dict) -> list[str]:
         covered = {c.tool for c in self._skill_cases(store)}
         return [n for n in registry.names() if n not in covered]
@@ -1180,14 +1180,14 @@ class SelfTester:
         self._log(f"Кръг {report.number}: {summary} Пълният доклад: logs/self_test.md")
         if self.enabled:
             nxt = datetime.now() + timedelta(seconds=ROUND_PAUSE)
-            self._progress(f"следваща проверка в {nxt:%H:%M}")
-        # На глас: първият кръг и всеки, в който има нещо ново за сър.
+            self._progress(f"next check at {nxt:%H:%M}")
+        # Out loud: the first round and any round with something new for sir.
         news = report.count("сам", "одобрена", "неуспешна", "ядро") or report.skill_failures
         if not report.stopped and (report.number == 1 or news):
             self.host.say(f"Самопроверката приключи, сър: {summary[0].lower() + summary[1:]}")
 
     def summary(self) -> str:
-        """За „как мина теста“."""
+        """For „как мина теста“ (how did the test go)."""
         if not self.last_report:
             if self.running:
                 return "Самопроверката още тече, сър. Ще Ви кажа резултата, когато приключи."
@@ -1198,7 +1198,7 @@ class SelfTester:
             text += f" Например не разбрах „{r.ask_failures[0].ask.phrase}“."
         return text
 
-    # --- Молбите, които Орион е измислил сам ---------------------------------------------------
+    # --- The requests Orion invented itself ---------------------------------------------------
     @staticmethod
     def _load_store() -> dict:
         try:
@@ -1210,7 +1210,7 @@ class SelfTester:
     @staticmethod
     def _save_store(store: dict) -> None:
         asks = store["asks"]
-        if len(asks) > STORE_LIMIT:  # отпадат най-старите, които винаги са минавали
+        if len(asks) > STORE_LIMIT:  # the oldest ones that always passed are dropped
             steady = [a for a in asks if a.get("failed", 0) == 0 and a.get("passed", 0) >= 2]
             drop = {id(a) for a in steady[:len(asks) - STORE_LIMIT]}
             store["asks"] = [a for a in asks if id(a) not in drop]

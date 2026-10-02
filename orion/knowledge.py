@@ -1,13 +1,13 @@
 """
-Система за Знания (опростен RAG — Retrieval-Augmented Generation).
+Knowledge system (a simplified RAG — Retrieval-Augmented Generation).
 
-1. Чете всички .txt / .md / .pdf файлове от папката `knowledge/`.
-2. Нарязва ги на парчета (chunks) от ~800 символа.
-3. При всеки въпрос намира най-релевантните парчета (BM25 търсене по ключови думи)
-   и ги подава на модела като контекст.
+1. Reads all .txt / .md / .pdf files in the `knowledge/` folder.
+2. Splits them into chunks of ~800 characters.
+3. For each question finds the most relevant chunks (BM25 keyword search)
+   and passes them to the model as context.
 
-Файловете се презареждат автоматично, когато се добави/промени нещо в папката —
-не е нужно да рестартирате Орион.
+The files are reloaded automatically when something in the folder is added or changed —
+there is no need to restart Orion.
 """
 import math
 import re
@@ -17,7 +17,7 @@ from pathlib import Path
 
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf"}
 
-# Често срещани думи, които не носят смисъл при търсене.
+# Common words that carry no meaning for search.
 _STOPWORDS = {
     "и", "в", "на", "за", "с", "от", "да", "се", "е", "не", "че", "по", "до", "как", "какво",
     "кой", "коя", "кое", "кои", "ли", "са", "съм", "си", "ще", "то", "ми", "ти", "му", "ни",
@@ -25,7 +25,7 @@ _STOPWORDS = {
 }
 
 
-# Членове и окончания, които се махат, преди думите да се сравнят (най-дългите първо).
+# Articles and endings removed before words are compared (longest first).
 _SUFFIXES = sorted(
     ("ът", "ят", "ия", "ии", "ите", "ата", "ята", "ето", "ото", "ове", "ов", "ища", "ище",
      "ият", "а", "я", "о", "е", "и", "ъ"),
@@ -34,10 +34,10 @@ _SUFFIXES = sorted(
 
 
 def _stem(word: str) -> str:
-    """Груб български стемър: маха едно окончание и оставя първите 5 букви.
+    """A rough Bulgarian stemmer: removes one ending and keeps the first 5 letters.
 
-    Така „екипа“ и „екипът“ -> „екип“, „проекта“ и „проект“ -> „проек“ —
-    просто, но ефективно за търсене без тежки NLP библиотеки.
+    So „екипа“ and „екипът“ -> „екип“, „проекта“ and „проект“ -> „проек“ —
+    simple, but effective for search without heavy NLP libraries.
     """
     for suffix in _SUFFIXES:
         if word.endswith(suffix) and len(word) - len(suffix) >= 3:
@@ -53,9 +53,9 @@ def _tokenize(text: str) -> list[str]:
 
 def _read_file(path: Path) -> str:
     if path.suffix.lower() == ".pdf":
-        from pypdf import PdfReader  # Импорт тук: pypdf е нужен само ако имате PDF-и.
+        from pypdf import PdfReader  # Import here: pypdf is only needed if you have PDFs.
         return "\n".join(page.extract_text() or "" for page in PdfReader(path).pages)
-    # Бележките може да са записани от Notepad в UTF-16 или в старата кирилска кодировка cp1251.
+    # Notes may have been saved by Notepad in UTF-16 or in the old Cyrillic encoding cp1251.
     data = path.read_bytes()
     if data.startswith((b"\xff\xfe", b"\xfe\xff")):
         return data.decode("utf-16")
@@ -66,7 +66,7 @@ def _read_file(path: Path) -> str:
 
 
 def _split_into_chunks(text: str, chunk_size: int) -> list[str]:
-    """Нарязва по параграфи, като ги групира до `chunk_size` символа."""
+    """Splits by paragraphs, grouping them up to `chunk_size` characters."""
     chunks, current = [], ""
     for paragraph in re.split(r"\n\s*\n", text):
         paragraph = paragraph.strip()
@@ -75,7 +75,7 @@ def _split_into_chunks(text: str, chunk_size: int) -> list[str]:
         if current and len(current) + len(paragraph) > chunk_size:
             chunks.append(current)
             current = ""
-        # Много дълъг параграф се реже на части.
+        # A very long paragraph is cut into parts.
         while len(paragraph) > chunk_size:
             chunks.append(paragraph[:chunk_size])
             paragraph = paragraph[chunk_size:]
@@ -104,7 +104,7 @@ class KnowledgeBase:
         self._doc_freq: Counter = Counter()
         self._avg_len = 1.0
 
-    # --- Зареждане ---------------------------------------------------------------
+    # --- Loading --------------------------------------------------------------------
     def _files(self) -> list[Path]:
         return sorted(p for p in self.folder.rglob("*") if p.suffix.lower() in SUPPORTED_EXTENSIONS)
 
@@ -113,7 +113,7 @@ class KnowledgeBase:
         return len(self._files())
 
     def _current_signature(self) -> tuple:
-        """Отпечатък на папката — ако се промени, знанията се презареждат."""
+        """A fingerprint of the folder — if it changes, the knowledge is reloaded."""
         return tuple((str(p), p.stat().st_mtime, p.stat().st_size) for p in self._files())
 
     def reload_if_changed(self) -> None:
@@ -137,11 +137,11 @@ class KnowledgeBase:
         self._avg_len = sum(sum(c.tokens.values()) for c in self.chunks) / max(len(self.chunks), 1)
         print(f"[Знания] Заредени {len(self.chunks)} парчета от {len(self._files())} файла.")
 
-    # --- Търсене (BM25) ------------------------------------------------------------
+    # --- Search (BM25) -------------------------------------------------------------
     def search(self, query: str) -> list[Chunk]:
         self.reload_if_changed()
 
-        # Малко знания -> моделът получава всичко. Така няма риск търсенето да пропусне нещо.
+        # Little knowledge -> the model gets all of it. No risk of the search missing something.
         if sum(len(c.text) for c in self.chunks) <= self.full_context_chars:
             return list(self.chunks)
 
@@ -168,7 +168,7 @@ class KnowledgeBase:
         return [chunk for _, chunk in scored[: self.top_k]]
 
     def build_context(self, query: str) -> str:
-        """Готов текстов блок за добавяне към системния промпт (или празен низ)."""
+        """A ready text block to add to the system prompt (or an empty string)."""
         results = self.search(query)
         if not results:
             return ""

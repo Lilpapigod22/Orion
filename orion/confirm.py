@@ -1,11 +1,11 @@
 """
-Потвърждение от сър преди действия, които не могат да се върнат — изпращане на писмо,
-изтриване на събитие. Приложението показва прозорче с бутони; конзолата пита „д/н“.
+Confirmation from sir before actions that cannot be undone — sending an email,
+deleting an event. The app shows a dialog with buttons; the console asks „д/н“ (y/n).
 """
 from typing import Callable
 
-# (заглавие, кратко описание, пълен текст, надпис на бутона) -> одобрено ли е.
-# Сменя се от app.py / main.py. По подразбиране — отказ: нищо не става без сър.
+# (title, short summary, full text, button label) -> approved or not.
+# Replaced by app.py / main.py. Default — reject: nothing happens without sir.
 handler: Callable[[str, str, str, str], bool] = lambda title, summary, body, accept: False
 
 

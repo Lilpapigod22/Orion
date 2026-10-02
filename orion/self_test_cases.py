@@ -1,9 +1,9 @@
 """
-Готовите тестове на тест режима (виж orion/self_test.py).
+The ready-made tests of test mode (see orion/self_test.py).
 
-SKILL_CASES — всяко умение се пуска с примерни данни в пясъчник и резултатът се проверява.
-ASKS        — молби, както ги казва сър; проверява се дали Орион избира правилното умение.
-Новите молби, които Орион измисля сам, се пазят в memory/self_tests.json.
+SKILL_CASES — each skill is run with sample data in a sandbox and the result is checked.
+ASKS        — requests as sir says them; the test checks whether Orion picks the right skill.
+New requests Orion invents itself are kept in memory/self_tests.json.
 """
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,26 +14,26 @@ from typing import Callable
 class SkillCase:
     tool: str
     args: dict = field(default_factory=dict)
-    expect: str | None = None                     # регулярен израз, който резултатът трябва да съдържа
-    setup: Callable[[Path], None] | None = None   # подготовка в пясъчника (напр. тестов файл)
-    needs: str | None = None                      # "google" — само ако Google е свързан
+    expect: str | None = None                     # a regex the result must contain
+    setup: Callable[[Path], None] | None = None   # set-up in the sandbox (e.g. a test file)
+    needs: str | None = None                      # "google" — only if Google is connected
 
 
 @dataclass
 class Ask:
     phrase: str
-    expect: tuple[str, ...]      # кои умения е правилно да извика; () — разговор, без действие
-    answer: str | None = None    # регулярен израз, който отговорът трябва да съдържа
-    source: str = "готов"        # "готов" или "мой" (измислен от Орион)
+    expect: tuple[str, ...]      # which skills are correct to call; () — conversation, no action
+    answer: str | None = None    # a regex the answer must contain
+    source: str = "готов"        # "готов" (ready-made) or "мой" (invented by Orion)
 
 
-# --- Подготовка в пясъчника -------------------------------------------------------------------
+# --- Sandbox set-up ----------------------------------------------------------------------------
 def _one_file(box: Path) -> None:
-    """Тестов документ, избран като „файл номер 1“ (както след търсене)."""
+    """A test document selected as “file number 1” (as after a search)."""
     import shutil
 
     from . import folders
-    shutil.rmtree(box / "в", ignore_errors=True)  # папката, в която се копира и мести
+    shutil.rmtree(box / "в", ignore_errors=True)  # the folder files are copied and moved into
     (box / "в").mkdir(parents=True)
     path = box / "бележка.txt"
     path.write_text("Тестов документ за Орион.", encoding="utf-8")
@@ -41,7 +41,7 @@ def _one_file(box: Path) -> None:
 
 
 def _picture(box: Path) -> None:
-    """Снимка с надпис — за проверка на зрението."""
+    """An image with text — to check vision."""
     from PIL import Image, ImageDraw, ImageFont
     image = Image.new("RGB", (480, 200), "white")
     try:
@@ -52,25 +52,25 @@ def _picture(box: Path) -> None:
     image.save(box / "снимка.png")
 
 
-# --- Умения ------------------------------------------------------------------------------------
-# „{box}“ в аргументите става пътят до пясъчника. Не са тук (не се пускат наистина): изключване,
-# звук, музика, отваряне на програми и сайтове, писма, календар (запис), изтриване, настройки,
-# писане в други програми, Claude и тестът на скоростта (сваля много данни).
+# --- Skills ------------------------------------------------------------------------------------
+# „{box}“ in the arguments becomes the sandbox path. Not here (never really run): shutdown,
+# sound, music, opening programs and websites, email, calendar (writing), deletion, settings,
+# typing into other programs, Claude and the speed test (downloads a lot of data).
 C = SkillCase
 SKILL_CASES = [
-    # Основни
+    # Core
     C("get_current_time"), C("get_current_time", {"city": "Лондон"}),
     C("calculate", {"expression": "17*23"}, r"391"),
     C("calculate", {"expression": "240 * 15 / 100"}, r"36"),
     C("get_weather", {"city": "София"}, r"°"), C("get_weather", {"city": "Варна", "day": "утре"}),
     C("days_until_date", {"date_str": "2026-12-25"}, r"\d"),
-    # Справки
+    # Look-ups
     C("wikipedia", {"topic": "Витоша"}, r"(?i)витоша"),
     C("convert_currency", {"amount": 100, "from_currency": "EUR", "to_currency": "USD"}, r"\d"),
     C("convert_units", {"value": 10, "from_unit": "км", "to_unit": "мили"}, r"6[.,]2"),
     C("search_web", {"query": "времето в София"}),
     C("read_webpage", {"url": "https://bg.wikipedia.org/wiki/Витоша"}, r"(?i)витоша"),
-    # Пазари и търговия
+    # Markets and trading
     C("market_price", {"asset": "биткойн"}, r"\d"), C("analyze_market", {"asset": "злато"}),
     C("market_overview"), C("crypto_market"),
     C("compare_assets", {"assets": "биткойн, злато, S&P 500"}), C("top_stock_movers"), C("crypto_fear_greed"),
@@ -80,7 +80,7 @@ SKILL_CASES = [
     C("portfolio_add", {"asset": "биткойн", "amount": 0.1, "buy_price": 60000}),
     C("portfolio_show", {}, r"(?i)биткойн|bitcoin|btc"), C("portfolio_remove", {"asset": "биткойн"}),
     C("list_games"),
-    # Дати и време
+    # Dates and time
     C("date_after_days", {"days": 100}), C("days_between", {"first_date": "1.1.2026"}, r"\d"),
     C("weekday_of_date", {"date_text": "25 декември"}), C("age_from_birthday", {"birthday": "15.03.1990"}, r"\d"),
     C("sunrise_sunset", {"city": "Варна"}, r"\d:\d\d|\d\d:\d\d"), C("moon_phase"),
@@ -90,26 +90,27 @@ SKILL_CASES = [
     C("set_timer", {"duration": "10 минути"}), C("list_reminders", {}, r"(?i)тест"),
     C("pomodoro", {"minutes": 25}), C("repeating_reminder", {"what": "да пиете вода", "every_minutes": 60, "times": 3}),
     C("cancel_reminder", {"what": ""}),
-    # Прогноза
+    # Forecast
     C("weather_week", {"city": "София"}), C("weather_hourly", {"city": "Пловдив"}),
     C("will_it_rain", {"day": "утре"}), C("air_quality", {"city": "София"}), C("uv_index"),
-    # Бележки и списъци
+    # Notes and lists
     C("save_note", {"text": "Тест от Орион", "title": "тест"}), C("list_notes", {}, r"(?i)тест"),
     C("read_note", {"search": "тест"}, r"(?i)тест"),
     C("add_to_list", {"items": "мляко, хляб и яйца"}), C("show_list", {}, r"(?i)мляко"),
     C("remove_from_list", {"items": "хляб"}), C("all_lists"), C("clear_list"),
     C("delete_note", {"search": "тест"}),
-    # Компютър (само четене; клипбордът се връща след теста)
+    # Computer (read-only; the clipboard is restored after the test)
     C("system_status"), C("copy_to_clipboard", {"text": "Тест от Орион"}),
     C("read_clipboard", {}, r"Тест от Орион"), C("find_files", {"query": "бележка"}),
     C("list_open_windows"), C("running_programs"), C("resource_hogs"),
     C("installed_programs", {"search": "Windows"}), C("windows_version", {}, r"Windows"),
     C("device_settings"), C("audio_outputs"),
-    # Мрежа
+    # Network
     C("my_public_ip", {}, r"\d+\.\d+\.\d+\.\d+|:"), C("ping_host", {"host": "google.com"}),
     C("website_status", {"url": "abv.bg"}), C("local_network_info"), C("wifi_info"),
     C("port_in_use", {"port": 11434}), C("dns_lookup", {"domain": "google.com"}), C("docker_containers"),
-    # Файлове (в пясъчника)
+    C("find_free_videos", {"topic": "nature timelapse", "count": 2}, r"Намерих|Не намерих"),
+    # Files (in the sandbox)
     C("create_folder", {"name": "Орион тест", "location": "{box}"}), C("folder_size", {"location": "{box}"}),
     C("read_document", {"number": 1}, r"Тестов документ", setup=_one_file),
     C("rename_file", {"number": 1, "new_name": "документ"}, setup=_one_file),
@@ -117,9 +118,9 @@ SKILL_CASES = [
     C("move_file_to", {"number": 1, "destination": "{box}/в"}, setup=_one_file),
     C("recent_files", {"days": 1}), C("latest_download"), C("largest_files", {"location": "изтегляния"}),
     C("my_documents"),
-    # Зрение
+    # Vision
     C("look_at_image", {"path": "{box}/снимка.png", "question": "Какво пише на снимката?"}, r"42", setup=_picture),
-    # Места, езици, музика
+    # Places, languages, music
     C("country_info", {"country": "Япония"}, r"(?i)токио"), C("country_info", {"country": "Germany"}),
     C("distance_between", {"from_city": "София", "to_city": "Бургас"}, r"\d"),
     C("translate_text", {"text": "Добър ден, как сте?", "to_language": "английски"}, r"(?i)good|hello|how"),
@@ -127,7 +128,7 @@ SKILL_CASES = [
     C("detect_language", {"text": "Merci beaucoup"}, r"(?i)френски"),
     C("define_word", {"word": "serendipity"}), C("define_word", {"word": "свян"}),
     C("radio_stations"),
-    # Инструменти
+    # Tools
     C("generate_password", {"length": 20}), C("random_number", {"minimum": 1, "maximum": 6}, r"[1-6]"),
     C("flip_coin"), C("roll_dice", {"count": 2}), C("pick_random", {"options": "пица, суши или бургер"}),
     C("count_text", {"text": "Здравей, свят! Как си?"}, r"4"), C("encode_base64", {"text": "Орион"}, r"0J7RgNC40L7QvQ"),
@@ -137,7 +138,7 @@ SKILL_CASES = [
     C("convert_timestamp", {"value": "1790000000"}, r"20\d\d"), C("number_stats", {"numbers": "12, 15, 9, 22"}, r"14[.,]5"),
     C("percent_change", {"old_value": 80, "new_value": 100}, r"25"),
     C("split_bill", {"total": 120, "people": 4, "tip_percent": 10}, r"33"),
-    # Калкулатори
+    # Calculators
     C("loan_payment", {"amount": 100000, "annual_rate": 3, "years": 20}, r"554"),
     C("compound_interest", {"principal": 1000, "annual_rate": 5, "years": 10, "monthly_deposit": 100}, r"\d"),
     C("vat_calculator", {"amount": 120, "includes_vat": True}, r"100"),
@@ -145,15 +146,15 @@ SKILL_CASES = [
     C("savings_goal", {"goal": 5000, "months": 10}, r"500"),
     C("fuel_cost", {"distance_km": 400, "consumption_per_100km": 6.5, "price_per_liter": 1.35, "people": 2}, r"\d"),
     C("bmi_calculator", {"weight_kg": 80, "height_cm": 180}, r"24[.,]7"),
-    # Асистент и самоусъвършенстване (само четене)
+    # Assistant and self-improvement (read-only)
     C("list_skills", {"group": "пазари"}), C("daily_briefing"), C("list_lessons"), C("recent_errors"),
-    # Google (само четене)
+    # Google (read-only)
     C("calendar_events", {"day": "днес"}, needs="google"), C("tasks_list", needs="google"),
 ]
 del C
 
 
-# --- Разбиране ---------------------------------------------------------------------------------
+# --- Understanding -----------------------------------------------------------------------------
 A = Ask
 ASKS = [
     A("Колко е 17 по 23?", ("calculate",), r"391"),
@@ -205,5 +206,9 @@ ASKS = [
     A("Как се казваш?", (), r"Орион"),
     A("Направи ми 3 рийла от https://www.youtube.com/watch?v=aqz-KE-bpKQ", ("make_youtube_reels",)),
     A("Готови ли са рийловете?", ("reels_status", "show_reels")),
+    A("Намери ми видеа без авторски права за космоса", ("find_free_videos",)),
+    A("Потърси свободни клипове за котки", ("find_free_videos",)),
+    A("Рийл", ("auto_reels",)),
+    A("Направи ми рийл за космоса", ("auto_reels",)),
 ]
 del A

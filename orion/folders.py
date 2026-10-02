@@ -1,11 +1,11 @@
 """
-Папките на сър (Документи, Изтегляния, Работен плот…) и последният списък с файлове,
-за да работи „отвори втория“, „изтрий първия“ след търсене.
+Sir's folders (Documents, Downloads, Desktop…) and the last list of files,
+so that „отвори втория“ (open the second), „изтрий първия“ (delete the first) work after a search.
 """
 import os
 from pathlib import Path
 
-# Последно показаните файлове (от търсене, „най-големите“, „последните“…).
+# The files shown last (from a search, “largest”, “recent”…).
 last_found: list[Path] = []
 
 ALIASES = {
@@ -18,7 +18,7 @@ ALIASES = {
 
 
 def known() -> dict[str, Path]:
-    """Истинските папки на Windows (може да са преместени в OneDrive или на друг диск)."""
+    """The real Windows folders (they may have been moved to OneDrive or another drive)."""
     folders = {}
     try:
         import winreg
@@ -41,7 +41,7 @@ def known() -> dict[str, Path]:
 
 
 def resolve(name: str) -> Path | None:
-    """„изтегляния“, „работния плот“ или пълен път -> папка."""
+    """„изтегляния“ (downloads), „работния плот“ (desktop) or a full path -> folder."""
     from .apps import normalize
     raw = name.strip().strip('"')
     if raw and os.path.isdir(raw):
@@ -52,7 +52,7 @@ def resolve(name: str) -> Path | None:
 
 
 def pick(number: int) -> Path:
-    """Файл номер `number` от последния списък."""
+    """File number `number` from the last list."""
     if not last_found:
         raise LookupError("първо потърсете файловете — нямам списък")
     if not 1 <= number <= len(last_found):

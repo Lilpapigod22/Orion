@@ -1,14 +1,14 @@
 """
-Разбиране на разговорния български.
+Understanding colloquial Bulgarian.
 
-Сър говори както се говори: „кво“, „шъ“, „нема“, „блутута“, „десктопа“, „двайсет и пет“.
-Разпознаването на реч пише английските думи на кирилица („уърдовски файл“, „пи ди еф“).
-`normalize()` превръща тези форми в думите, които рефлексите и езиковият модел разбират
-най-добре. Сменят се само цели думи и само там, където смисълът е еднозначен.
+Sir talks the way people talk: „кво“, „шъ“, „нема“, „блутута“, „десктопа“, „двайсет и пет“.
+Speech recognition writes English words in Cyrillic („уърдовски файл“, „пи ди еф“).
+`normalize()` turns these forms into the words the reflexes and the language model understand
+best. Only whole words are replaced, and only where the meaning is unambiguous.
 """
 import re
 
-# Разговорни и диалектни форми -> книжовни.
+# Colloquial and dialect forms -> standard ones.
 COLLOQUIAL = {
     "кво": "какво", "к'во": "какво", "квото": "каквото", "шъ": "ще", "ша": "ще", "щъ": "ще",
     "нема": "няма", "немам": "нямам", "немаш": "нямаш", "немате": "нямате", "немаме": "нямаме",
@@ -22,7 +22,7 @@ COLLOQUIAL = {
     "скиловете": "уменията", "скилс": "умения",
 }
 
-# Английски названия, както ги пише разпознаването на реч -> истинското име.
+# English names as speech recognition writes them -> the real name.
 _TERMS = [
     (r"(?:word|уърд|уорд|ворд)(?:овск(?:и|ия|ият|а|ата|о|ото)|а|ът)?", "Word"),
     (r"(?:excel|ексел|ексъл|иксел)(?:ск(?:и|ия|ият|а|ата|о|ото)|а|ът)?", "Excel"),
@@ -35,11 +35,11 @@ _TERMS = [
 ]
 _TERM_RES = [(re.compile(rf"(?<![\w-]){p}(?![\w-])", re.IGNORECASE), r) for p, r in _TERMS]
 
-# Звуци на колебание: „ъъъ“, „ммм“, „ами“ в началото.
+# Hesitation sounds: „ъъъ“, „ммм“, „ами“ at the start.
 _HESITATION_RE = re.compile(r"(?<!\w)(?:ъ{2,}|м{3,}|е{3,}|а{3,})(?!\w)[,.]?\s*", re.IGNORECASE)
 _LEADING_RE = re.compile(r"^\s*(?:ами|абе|ъ|ъм)[\s,]+", re.IGNORECASE)
 
-# --- Числа с думи -> цифри ----------------------------------------------------------------------
+# --- Numbers in words -> digits -----------------------------------------------------------------
 UNITS = {"нула": 0, "един": 1, "една": 1, "едно": 1, "два": 2, "две": 2, "три": 3, "четири": 4,
          "пет": 5, "шест": 6, "седем": 7, "осем": 8, "девет": 9}
 TEENS = {"десет": 10, "единадесет": 11, "единайсет": 11, "дванадесет": 12, "дванайсет": 12,
@@ -54,7 +54,7 @@ HUNDREDS = {"сто": 100, "двеста": 200, "триста": 300, "четир
             "шестстотин": 600, "седемстотин": 700, "осемстотин": 800, "деветстотин": 900}
 _SMALL = UNITS | TEENS | TENS | HUNDREDS
 _SCALES = {"хиляда": 1000, "хиляди": 1000, "милион": 1_000_000, "милиона": 1_000_000}
-# След тези думи едно малко число („една минута“, „пет процента“) е количество, не член.
+# After these words a small number („една минута“, „пет процента“) is a quantity, not an article.
 _UNIT_WORDS = re.compile(
     r"(?:секунд|минут|час|ден|дни|дена|седмиц|месец|годин|процент|%|градус|пъти|лев|лева|евро|долар|"
     r"км|километ|метр|метър|стотинк|страниц|слайд|ред|колон)", re.IGNORECASE)
@@ -78,8 +78,8 @@ def _value(words: list[str]) -> int:
 
 
 def _continues(last: str, following: str) -> bool:
-    """Продължава ли `following` числото: „сто двайсет“, „двайсет и пет“, „две хиляди“ — да;
-    „пет шест“, „пет и шест“ — не (това са две числа)."""
+    """Whether `following` continues the number: „сто двайсет“, „двайсет и пет“, „две хиляди“ — yes;
+    „пет шест“, „пет и шест“ — no (those are two numbers)."""
     last, following = last.lower(), following.lower()
     if following in _SCALES:
         return last not in _SCALES
@@ -94,7 +94,7 @@ def _continues(last: str, following: str) -> bool:
 
 def numbers_to_digits(text: str) -> str:
     """„намали звука с двайсет“ -> „намали звука с 20“, „две хиляди и двайсет и шест“ -> „2026“.
-    Самотните „един/една/две…“ остават думи („един приятел“), освен пред мерна единица."""
+    A lone „един/една/две…“ stays a word („един приятел“), except before a unit."""
     tokens = _TOKEN.findall(text)
     out: list[str] = []
     i = 0
@@ -105,12 +105,12 @@ def numbers_to_digits(text: str) -> str:
             continue
         words, end = [tokens[i]], i + 1
         while True:
-            # „сто двайсет“ — думите са една до друга
+            # „сто двайсет“ — the words are next to each other
             if (end + 1 < len(tokens) and tokens[end].isspace()
                     and _continues(words[-1], tokens[end + 1])):
                 words.append(tokens[end + 1])
                 end += 2
-            # „двайсет и пет“ — с „и“ между тях
+            # „двайсет и пет“ — with „и“ between them
             elif (end + 3 < len(tokens) and tokens[end].isspace() and tokens[end + 1].lower() == "и"
                   and tokens[end + 2].isspace() and _continues(words[-1], tokens[end + 3])):
                 words.append(tokens[end + 3])
@@ -130,7 +130,7 @@ def numbers_to_digits(text: str) -> str:
 
 
 def normalize(text: str) -> str:
-    """Молбата на сър на „книжовен“ български — за рефлексите и за езиковия модел."""
+    """Sir's request in “standard” Bulgarian — for the reflexes and the language model."""
     if not text:
         return text
     text = _HESITATION_RE.sub("", text)

@@ -1,9 +1,9 @@
 """
-Модул за Мислене (AI ядро).
+Thinking module (the AI core).
 
-Свързва се с LLM чрез OpenAI-съвместимо API — работи и с OpenAI, и с локален Ollama.
-Цикълът е:
-    въпрос -> търсене в знанията -> LLM -> (извикване на умения -> LLM)* -> отговор
+Talks to the LLM through an OpenAI-compatible API — works with both OpenAI and a local Ollama.
+The loop is:
+    question -> knowledge search -> LLM -> (skill calls -> LLM)* -> answer
 """
 import json
 import re
@@ -19,8 +19,8 @@ from .memory import ConversationMemory
 from .tools import OrionTools
 
 
-# Вътрешна бележка, когато Орион се върти в кръг — кара го да спре и да помисли,
-# вместо да повтаря едно и също.
+# An internal note for when Orion goes round in circles — makes it stop and think
+# instead of repeating the same thing.
 REFLECTION = (
     "[Вътрешна бележка за Орион — не е от сър] Умението „{tool}“ не се справя или повтаряш "
     "същото извикване. Спри и помисли: подходящо ли е изобщо това умение за задачата? "
@@ -28,8 +28,8 @@ REFLECTION = (
     "ако умението има истински бъг в това, за което е предназначено. Не повтаряй същото извикване."
 )
 
-# Малките модели понякога „казват“, че са отворили програма или проверили пощата, без да
-# извикат умение. Такъв отговор не стига до сър — моделът получава шанс да го направи наистина.
+# Small models sometimes “say” they opened a program or checked the mail without
+# calling a skill. Such an answer never reaches sir — the model gets a chance to really do it.
 ACTION_CLAIM_RE = re.compile(
     r"(?<!да )\b(отварям|отворих|отворен[аио]?|стартирам|стартирах|стартиран[аио]?|пускам|пуснах|"
     r"пуснат[аио]?|включвам|включих|включен[аио]?|затварям|затворих|запомн(?:их|ям|ен[аио]?)|"
@@ -40,11 +40,11 @@ ACTION_CLAIM_RE = re.compile(
     r"|\b(?:ще|нека)\s+(?:Ви\s+)?(?:добавя|запиша|поставя|отворя|пусна|изпратя|напомня|сложа|отговоря)\b",
     re.IGNORECASE,
 )
-# „Проверявам пощата…“ без умение е измислица; след check_email е истина.
+# „Проверявам пощата…“ (checking the mail) without a skill is made up; after check_email it is true.
 LOOKUP_CLAIM_RE = re.compile(
     r"(?<!да )\b(проверявам|проверих|търся|потърсих)\b|\b(?:ще|нека)\s+(?:проверя|потърся)\b", re.IGNORECASE)
 CLAIM_RE = re.compile(f"{ACTION_CLAIM_RE.pattern}|{LOOKUP_CLAIM_RE.pattern}", re.IGNORECASE)
-# Умения, които само четат. Всички останали (и новите, написани от Орион) се броят за действия.
+# Read-only skills. All others (including new ones written by Orion) count as actions.
 READ_ONLY_TOOLS = {
     "get_current_time", "calculate", "get_weather", "days_until_date", "calendar_events", "check_email",
     "read_email", "tasks_list", "list_reminders", "search_web", "read_webpage", "list_lessons", "recent_errors",
@@ -60,11 +60,11 @@ FAKE_ACTION = (
     "умение, така че нищо не се е случило. Извикай подходящото умение сега — или кажи честно, "
     "че не можеш да го направиш. Не е нужно да записваш поука за това."
 )
-# Молби, за които почти винаги трябва умение: (дума в молбата, кои умения, проста проверка,
-# която Орион прави сам, ако моделът не я направи и след бележка). USER_TEXT = молбата на сър.
+# Requests that almost always need a skill: (word in the request, which skills, a simple check
+# Orion runs itself if the model still does not after a note). USER_TEXT = sir's request.
 USER_TEXT = object()
 INTENT_TOOLS = [
-    # Думите са тесни нарочно: „пощенски код“ и „математическа задача“ не са за пощата и задачите.
+    # The words are narrow on purpose: „пощенски код“ (postcode) and „математическа задача“ (maths problem) are not about mail and tasks.
     (re.compile(r"писм|\bпоща(?:та)?\b|имейл|\bмейл|gmail", re.IGNORECASE),
      "check_email, read_email, send_email или reply_email", ("check_email", {})),
     (re.compile(r"календар|\bсрещ[аи]\s+(?:ми\b|с)|събити|ангажимент", re.IGNORECASE),
@@ -76,11 +76,11 @@ INTENT_TOOLS = [
     (re.compile(r"таймер|засечи", re.IGNORECASE), "set_timer", None),
     (re.compile(r"новин|курс[ъа]?\b|цена|цени|резултат|потърси|провери в интернет|какво става", re.IGNORECASE),
      "search_web", ("search_web", {"query": USER_TEXT})),
-    # „Кажи ми, когато биткойнът стигне…“ — известие, не справка (иначе подсказката води към цените).
+    # „Кажи ми, когато биткойнът стигне…“ — an alert, not a look-up (otherwise the hint points to prices).
     (re.compile(r"кажи ми,? когато|уведоми ме|известие за|известия за цени|\bстигне\b|надмине|падне под",
                 re.IGNORECASE),
      "set_price_alert, list_price_alerts или cancel_price_alert", None),
-    # „пазарите“, но не „пазарския списък“.
+    # „пазарите“ (the markets), but not „пазарския списък“ (the shopping list).
     (re.compile(r"акци|крипт|биткойн|анализ|\bпазар(ите|а|ът)?\b|цената на|курса на|курсът на|графика",
                 re.IGNORECASE),
      "market_price, analyze_market, market_overview, crypto_market или analyze_price_file",
@@ -90,7 +90,7 @@ INTENT_TOOLS = [
     (re.compile(r"списък|списъка|бележк", re.IGNORECASE),
      "add_to_list, show_list, remove_from_list, save_note или list_notes", None),
     (re.compile(r"какво можеш|какво умееш|какви умения", re.IGNORECASE), "list_skills", ("list_skills", {})),
-    # Факти за хора, места и събития — от Уикипедия, не по памет (малкият модел си измисля).
+    # Facts about people, places and events — from Wikipedia, not from memory (the small model makes things up).
     (re.compile(r"\bкой е\b|\bкоя е\b|\bкои са\b|\bкога (е|са)\b|къде се намира|разкажи ми за|"
                 r"колко (жители|души|висок|голям)", re.IGNORECASE),
      "wikipedia или search_web", ("wikipedia", {"topic": USER_TEXT})),
@@ -125,12 +125,12 @@ class Brain:
         deep_reasoning_effort: str | None = None,
     ):
         self.client = OpenAI(base_url=base_url, api_key=api_key)
-        # За модели с режим на мислене: "none" = отговаря веднага, "low"/"high" = мисли преди това.
+        # For models with a thinking mode: "none" = answers at once, "low"/"high" = thinks first.
         self.reasoning_effort = reasoning_effort
-        # За сложни въпроси („защо“, „обясни“, „сравни“…) — по-задълбочено мислене.
+        # For complex questions („защо“, „обясни“, „сравни“… — why, explain, compare) — deeper thinking.
         self.deep_reasoning_effort = deep_reasoning_effort or reasoning_effort
-        # Вика се след всеки отговор с (въпрос, предишен отговор, използвани умения);
-        # връща научена поука или None (виж orion/self_improve.py -> Reflector).
+        # Called after every answer with (question, previous answer, skills used);
+        # returns a learned lesson or None (see orion/self_improve.py -> Reflector).
         self.after_turn = after_turn
         self.model = model
         self.persona = persona
@@ -139,10 +139,10 @@ class Brain:
         self.tools = tools
         self.knowledge = knowledge
         self.memory = memory
-        # Допълнителни правила, които се четат наново при всеки въпрос (напр. научените поуки).
+        # Extra rules re-read on every question (e.g. the learned lessons).
         self.extra_prompt = extra_prompt
-        self._on_result: Callable[[str, str], None] | None = None  # задава се от think()
-        # Думи за проба при подбора на умения (само тест режимът — виж orion/router.py).
+        self._on_result: Callable[[str, str], None] | None = None  # set by think()
+        # Trial words for skill selection (test mode only — see orion/router.py).
         self.route_extra: dict[str, list[str]] | None = None
 
     def _system_prompt(self, user_text: str) -> str:
@@ -150,40 +150,40 @@ class Brain:
         extra = self.extra_prompt() if self.extra_prompt else ""
         if extra:
             prompt += f"\n\n{extra}"
-        # Предишният въпрос също участва в търсенето, за да работят уточнения като
-        # „А кой е в екипа?“ след въпрос за конкретен проект.
+        # The previous question also takes part in the search so that follow-ups like
+        # „А кой е в екипа?“ (and who is on the team?) work after a question about a project.
         context = self.knowledge.build_context(f"{self.memory.last_user_text()} {user_text}")
         if context:
             prompt += f"\n\n{context}"
-        # Денят от седмицата се дава наготово — малките модели не могат да го изчислят от датата.
+        # The day of the week is given ready-made — small models cannot work it out from the date.
         now = datetime.now()
         return f"{prompt}\n\nСега е {clock.date_text(now)}, часът е {clock.time_text(now)}."
 
     def _effort_for(self, user_text: str) -> str | None:
-        """Колко да мисли моделът: простите молби — бързо, сложните въпроси — задълбочено."""
+        """How much the model should think: simple requests — quickly, complex questions — in depth."""
         if self.reasoning_effort and (DEEP_RE.search(user_text) or len(user_text) > 140):
             return self.deep_reasoning_effort
         return self.reasoning_effort
 
     def _missed_tool(self, user_text: str, answer: str, used: set[str]) -> str | None:
-        """Бележка към модела, ако е отговорил без умение там, където то е нужно (или None)."""
-        # „media_control с action pause“ — написал е извикването като текст, вместо да го направи.
+        """A note to the model if it answered without a skill where one was needed (or None)."""
+        # „media_control with action pause“ — it wrote the call as text instead of making it.
         if any(re.search(rf"\b{re.escape(name)}\b", answer) for name in self.tools.names()):
             return FAKE_ACTION
-        # Въпросите не са твърдения: „Отварям ли го?“ пита сър, не казва, че е отворил.
+        # Questions are not claims: „Отварям ли го?“ (shall I open it?) asks sir, it does not say it opened it.
         statements = re.sub(r"[^.!?\n]*\?", " ", answer)
         if not used:
             tools = [names for pattern, names, _ in INTENT_TOOLS if pattern.search(user_text)]
             if tools:
                 return MISSED_TOOL.format(tools="; ".join(tools))
             return FAKE_ACTION if CLAIM_RE.search(statements) else None
-        # Прочел е пощата, но „изпраща отговор“, без да е извикал reply_email — пак е измислица.
+        # It read the mail but “sends a reply” without calling reply_email — still made up.
         acted = any(name not in READ_ONLY_TOOLS for name in used)
         return FAKE_ACTION if not acted and ACTION_CLAIM_RE.search(statements) else None
 
     @staticmethod
     def _default_call(user_text: str) -> tuple[str, str] | None:
-        """(умение, аргументи) за проста проверка, която Орион прави сам, ако моделът не я направи."""
+        """(skill, arguments) for a simple check Orion runs itself if the model does not."""
         for pattern, _, default in INTENT_TOOLS:
             if default and pattern.search(user_text):
                 name, arguments = default
@@ -192,8 +192,8 @@ class Brain:
         return None
 
     def _run_calls(self, calls, messages, steps, seen_calls, failures, on_tool, content: str = ""):
-        """Изпълнява [(id, умение, аргументи)] и добавя извикването и резултатите в разговора.
-        Връща [(умение, повторено ли е, брой грешки)]."""
+        """Runs [(id, skill, arguments)] and adds the call and the results to the conversation.
+        Returns [(skill, whether repeated, error count)]."""
         request = {"role": "assistant", "content": content, "tool_calls": [
             {"id": call_id, "type": "function", "function": {"name": name, "arguments": arguments}}
             for call_id, name, arguments in calls]}
@@ -208,7 +208,7 @@ class Brain:
             if self._on_result:
                 self._on_result(name, result)
             messages.append({"role": "tool", "tool_call_id": call_id, "content": result})
-            # В паметта — съкратено: целите писма и страници не са нужни за следващите въпроси.
+            # Shortened in memory: whole emails and pages are not needed for later questions.
             steps.append({"role": "tool", "tool_call_id": call_id, "content": result[:600]})
             repeated = (name, arguments) in seen_calls
             seen_calls.add((name, arguments))
@@ -220,11 +220,11 @@ class Brain:
     def think(self, user_text: str, on_tool: Callable[[str, str], None] | None = None,
               on_result: Callable[[str, str], None] | None = None,
               on_thought: Callable[[str], None] | None = None) -> str:
-        """Връща отговора на Орион. Наблюдатели (за 3D мрежата в прозореца):
-        `on_tool(name, arguments)` — преди всяко умение, `on_result(name, result)` — след него,
-        `on_thought(text)` — разсъжденията на модела, когато мисли."""
+        """Returns Orion's answer. Observers (for the 3D network in the window):
+        `on_tool(name, arguments)` — before each skill, `on_result(name, result)` — after it,
+        `on_thought(text)` — the model's reasoning while it thinks."""
         self._on_result = on_result
-        # Само уменията, които имат смисъл за тази молба — с по-малко избор моделът греши по-рядко.
+        # Only the skills that make sense for this request — with fewer choices the model errs less.
         hidden = router.excluded_modules(user_text, self.memory.last_user_text(), self.route_extra)
         messages = [
             {"role": "system", "content": self._system_prompt(user_text)},
@@ -234,17 +234,17 @@ class Brain:
         answer = "Извинете, сър, изглежда се заплетох в собствените си схеми."
         failures: Counter[str] = Counter()
         seen_calls: set[tuple[str, str]] = set()
-        steps: list[dict] = []  # извикванията на умения и резултатите им — отиват и в паметта
+        steps: list[dict] = []  # skill calls and their results — they also go into memory
         reflected: str | bool = False
         reflection_sent = False
         caught_bluff = forced = False
         for round_index in range(self.max_tool_rounds + 1):
-            # Наново при всеки кръг: умение, създадено току-що, трябва да е достъпно веднага.
+            # Again on every round: a skill created just now must be available at once.
             tool_schemas = self.tools.schemas(hidden)
-            # В последния кръг умения не се предлагат — моделът трябва да отговори с това, което има.
+            # No skills are offered in the last round — the model must answer with what it has.
             offer_tools = bool(tool_schemas) and round_index < self.max_tool_rounds
-            # Мисли само докато решава какво да направи. След резултат от умение отговаря направо:
-            # иначе qwen3.5 слага отговора си в „мисленето“ и оставя самия отговор празен.
+            # It only thinks while deciding what to do. After a skill result it answers directly:
+            # otherwise qwen3.5 puts its answer into the “thinking” and leaves the answer itself empty.
             effort = (self._effort_for(user_text) if not seen_calls else self.reasoning_effort and "none")
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -258,11 +258,11 @@ class Brain:
             if reasoning and on_thought:
                 on_thought(reasoning)
 
-            # Моделът не иска умения -> това е крайният отговор.
+            # The model wants no skills -> this is the final answer.
             if not message.tool_calls or not offer_tools:
-                # Моделите с режим на мислене понякога оставят разсъжденията си в текста.
+                # Models with a thinking mode sometimes leave their reasoning in the text.
                 content = re.sub(r"<think>.*?</think>", "", message.content or "", flags=re.DOTALL)
-                content = re.sub(r"</?think>", "", content).strip()  # и самотни етикети
+                content = re.sub(r"</?think>", "", content).strip()  # and stray tags
                 used = {name for name, _ in seen_calls}
                 note = self._missed_tool(user_text, content, used) if offer_tools else None
                 if note and not caught_bluff:
@@ -271,7 +271,7 @@ class Brain:
                     messages += [{"role": "assistant", "content": content}, {"role": "user", "content": note}]
                     continue
                 if note and not used and not forced:
-                    # И след бележката — без умение. Простите проверки (поща, задачи…) Орион прави сам.
+                    # Still no skill after the note. Simple checks (mail, tasks…) Orion runs itself.
                     forced = True
                     call = self._default_call(user_text)
                     if call:
@@ -279,28 +279,28 @@ class Brain:
                         self._run_calls([("forced-1", *call)], messages, steps, seen_calls, failures, on_tool)
                         continue
                 if note and CLAIM_RE.search(re.sub(r"[^.!?\n]*\?", " ", content)):
-                    content = HONEST_FAILURE  # По-добре честно „не успях“, отколкото измислен резултат.
+                    content = HONEST_FAILURE  # Better an honest “I did not manage” than a made-up result.
                 answer = content or answer
                 break
 
-            # Моделът иска да изпълни едно или повече умения.
+            # The model wants to run one or more skills.
             calls = [(c.id, c.function.name, c.function.arguments) for c in message.tool_calls]
             for name, repeated, failed in self._run_calls(calls, messages, steps, seen_calls, failures,
                                                           on_tool, content=message.content or ""):
                 if (repeated or failed >= 2) and not reflected:
                     reflected = name
 
-            # След всички резултати от кръга (API-то изисква те да са непосредствено след извикването).
+            # After all the round's results (the API requires them right after the call).
             if reflected and not reflection_sent:
                 reflection_sent = True
                 messages.append({"role": "user", "content": REFLECTION.format(tool=reflected)})
 
         previous_answer = self.memory.last_assistant_text()
-        # Паметта пази и уменията, които е използвал: иначе в следващите въпроси моделът
-        # „подражава“ на стари отговори без умения и започва да си измисля резултатите.
+        # Memory also keeps the skills it used: otherwise in later questions the model
+        # “imitates” old answers without skills and starts making up results.
         self.memory.add_turn(user_text, answer, steps)
 
-        # Рефлексия: ако сър е направил забележка, Орион извлича поука за следващите разговори.
+        # Reflection: if sir made a remark, Orion extracts a lesson for future conversations.
         if self.after_turn:
             tools_used = [name for name, _ in seen_calls]
             lesson = self.after_turn(user_text, previous_answer, tools_used)

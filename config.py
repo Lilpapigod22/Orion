@@ -84,7 +84,12 @@ WHISPER_MIN_FREE_VRAM_MB = 1500                    # иначе Whisper би з�
 REELS_DIR = Path(r"D:\OrionData\reels")            # готовите рийлове — на D:, видеата са големи
 REEL_COUNT = 3                                     # колко рийла по подразбиране
 REEL_SECONDS = 45                                  # дължина на рийл (YouTube Shorts: до 3 минути)
-REEL_TITLE_LANGUAGE = "български"                  # на какъв език Орион пише заглавията и хаштаговете
+REEL_TITLE_LANGUAGE = ""                           # език на заглавията и хаштаговете; "" — езикът на клипа (без превод)
+# „Рийл“: Орион сам избира клип — търси по няколко от тези теми (на английски свободните клипове са повече).
+REEL_TOPICS = ["space", "science", "wildlife", "nature documentary", "technology", "history", "ocean",
+               "physics explained", "podcast", "interview", "космос", "наука", "подкаст", "история"]
+REEL_FREE_ONLY = True                             # рийлове само от клипове с Creative Commons (свободни за ползване)
+REEL_SUBTITLES = False                            # текст върху видеото (субтитри и заглавие) — само ако сър го поиска
 # Модел за намиране на лица (OpenCV YuNet, 0.2 MB) — за кадрирането на рийловете по лицата.
 FACE_MODEL = Path(r"D:\OrionData\models\face_detection_yunet_2023mar.onnx")
 

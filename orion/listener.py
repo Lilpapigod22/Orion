@@ -1,9 +1,9 @@
 """
-Модул за Слушане (Speech-to-Text).
+Listening module (Speech-to-Text).
 
-Използва `speech_recognition` с безплатното Google Web Speech API.
-Записът (capture) и разпознаването (recognize) са отделни стъпки, за да може
-микрофонът да се освободи, докато текстът се разпознава по интернет.
+Uses `speech_recognition` with the free Google Web Speech API.
+Recording (capture) and recognition (recognize) are separate steps so that
+the microphone is released while the text is recognised online.
 """
 import threading
 
@@ -15,7 +15,7 @@ from . import speech
 
 
 def _candidate_devices() -> list[int | None]:
-    """Микрофонът по подразбиране, после всички останали входни устройства (напр. на уеб камерата)."""
+    """The default microphone, then all other input devices (e.g. the webcam's)."""
     devices: list[int | None] = [None]
     try:
         import pyaudio
@@ -24,12 +24,12 @@ def _candidate_devices() -> list[int | None]:
             for i in range(audio.get_device_count()):
                 info = audio.get_device_info_by_index(i)
                 api = audio.get_host_api_info_by_index(info["hostApi"])["name"]
-                # MME е най-съвместимият драйвер; „Sound Mapper“ е същото като „по подразбиране“.
+                # MME is the most compatible driver; “Sound Mapper” is the same as “default”.
                 if info["maxInputChannels"] > 0 and api == "MME" and "Mapper" not in info["name"]:
                     devices.append(i)
         finally:
             audio.terminate()
-    except Exception:  # noqa: BLE001 — без pyaudio остава само „по подразбиране“
+    except Exception:  # noqa: BLE001 — without pyaudio only “default” remains
         pass
     return devices
 
@@ -41,13 +41,13 @@ class Listener:
         self.phrase_time_limit = phrase_time_limit
         self.recognizer = sr.Recognizer()
         self.recognizer.dynamic_energy_threshold = True
-        # Колко тишина означава „свърших“. По подразбиране е 0.8 с — прекъсва при всяка пауза за мисъл.
+        # How much silence means “I'm done”. The default is 0.8 s — it cuts in at every pause for thought.
         self.recognizer.pause_threshold = config.LISTEN_PAUSE_SECONDS
         self.recognizer.non_speaking_duration = min(0.8, config.LISTEN_PAUSE_SECONDS)
-        # Без това заявката към Google може да виси вечно при прекъснат интернет.
+        # Without this the request to Google can hang forever if the internet drops.
         self.recognizer.operation_timeout = 10
 
-        # Първият микрофон, който наистина се отваря. Калибриране спрямо фоновия шум — веднъж.
+        # The first microphone that actually opens. Calibrated against background noise — once.
         errors = []
         for device in _candidate_devices():
             try:
@@ -58,12 +58,12 @@ class Listener:
                 self.microphone = microphone
                 self.device = device
                 return
-            except Exception as e:  # noqa: BLE001 — пробваме следващия
+            except Exception as e:  # noqa: BLE001 — try the next one
                 errors.append(f"{device}: {e}")
         raise OSError("нито един микрофон не се отваря (" + "; ".join(errors) + ")")
 
     def capture(self, timeout: float | None = None) -> sr.AudioData | None:
-        """Записва една фраза от микрофона. None, ако никой не заговори навреме."""
+        """Records one phrase from the microphone. None if nobody speaks in time."""
         with self.microphone as source:
             print("[Слушане] Слушам...")
             try:
@@ -74,8 +74,8 @@ class Listener:
                 return None
 
     def recognize(self, audio: sr.AudioData) -> str | None:
-        """Превръща записа в текст: Google и Whisper едновременно, после по-добрият (orion/speech.py).
-        None, ако не е разпозната реч."""
+        """Turns the recording into text: Google and Whisper at the same time, then the better one (orion/speech.py).
+        None if no speech was recognised."""
         pcm = audio.get_raw_data(convert_rate=16000, convert_width=2)
         heard: dict[str, str | None] = {}
         thread = threading.Thread(target=lambda: heard.update(whisper=self._whisper(pcm)), daemon=True)
@@ -84,13 +84,13 @@ class Listener:
         try:
             google = self.recognizer.recognize_google(audio, language=self.language)
         except sr.UnknownValueError:
-            pass  # Звук имаше, но не беше разпозната реч.
-        except (sr.RequestError, OSError) as e:  # OSError включва TimeoutError
+            pass  # There was sound, but no speech was recognised.
+        except (sr.RequestError, OSError) as e:  # OSError includes TimeoutError
             google_error = True
             print(f"[Слушане] Google не отговаря: {e}")
         thread.join(timeout=10)
         whisper_text = heard.get("whisper")
-        # Google не чу реч — вярваме му: Whisper понякога „чува“ думи в шума (дори „Орион“ от подсказката).
+        # Google heard no speech — trust it: Whisper sometimes “hears” words in noise (even “Орион” from its prompt).
         if not google and not google_error:
             return None
         text = speech.choose(google, whisper_text)
@@ -103,11 +103,11 @@ class Listener:
     def _whisper(pcm: bytes) -> str | None:
         try:
             return speech.whisper(pcm)
-        except Exception as e:  # noqa: BLE001 — остава Google
+        except Exception as e:  # noqa: BLE001 — Google remains
             print(f"[Слушане] Whisper: {e}")
             return None
 
     def listen(self, timeout: float | None = None) -> str | None:
-        """Записва и разпознава една фраза (използва се от конзолния режим)."""
+        """Records and recognises one phrase (used by the console mode)."""
         audio = self.capture(timeout)
         return self.recognize(audio) if audio else None

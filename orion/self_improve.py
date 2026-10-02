@@ -1,16 +1,16 @@
 """
-Самоусъвършенстване на Орион.
+Orion's self-improvement.
 
-1. Поуки (LessonBook) — когато сър поправи Орион, поуката се записва в memory/lessons.json
-   и се добавя към персонажа при всеки разговор. Така грешката не се повтаря.
+1. Lessons (LessonBook) — when sir corrects Orion, the lesson is saved in memory/lessons.json
+   and added to the persona in every conversation. So the mistake is not repeated.
 
-2. Работилница за умения (SkillForge) — Орион сам пише нови умения и поправя съществуващи:
-       пише код -> проверява го -> при проблем чете грешката и опитва отново (до 3 пъти)
-       -> показва кода на сър за одобрение -> архивира старата версия -> зарежда новата без рестарт.
-   Всяка промяна може да се върне с undo().
+2. The skill forge (SkillForge) — Orion writes new skills and fixes existing ones by itself:
+       writes code -> checks it -> on a problem reads the error and tries again (up to 3 times)
+       -> shows the code to sir for approval -> archives the old version -> loads the new one without a restart.
+   Every change can be reverted with undo().
 
-Защо се иска одобрение: кодът, написан от модела, се изпълнява с пълен достъп до компютъра.
-Проверките по-долу хващат грешки и опасни конструкции, но последната дума е на човек.
+Why approval is required: code written by the model runs with full access to the computer.
+The checks below catch errors and dangerous constructs, but a human has the final say.
 """
 import ast
 import difflib
@@ -28,7 +28,7 @@ from .tools import OrionTools, registry
 
 
 # =====================================================================================
-#  Поуки
+#  Lessons
 # =====================================================================================
 class LessonBook:
     def __init__(self, path: Path, limit: int = 40):
@@ -47,14 +47,14 @@ class LessonBook:
         self.path.write_text(json.dumps(lessons, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def add(self, text: str, source: str = "") -> int:
-        """`source` — „тест“ за поуките от тест режима (orion/self_test.py)."""
+        """`source` — „тест“ for lessons from test mode (orion/self_test.py)."""
         text = text.strip()
         with self._lock:
             lessons = self.all()
             if text and all(l["text"].lower() != text.lower() for l in lessons):
                 lessons.append({"text": text, "date": f"{datetime.now():%d.%m.%Y %H:%M}",
                                 **({"source": source} if source else {})})
-                self._save(lessons[-self.limit:])  # Най-старите отпадат при препълване.
+                self._save(lessons[-self.limit:])  # The oldest drop off when full.
             return len(lessons)
 
     def remove(self, number: int) -> str | None:
@@ -75,12 +75,12 @@ class LessonBook:
 
 
 # =====================================================================================
-#  Проверка на код (статична — нищо не се изпълнява)
+#  Code check (static — nothing is executed)
 # =====================================================================================
 ALLOWED_PARAM_TYPES = {"str", "int", "float", "bool"}
 FORBIDDEN_CALLS = {"eval", "exec", "compile", "__import__", "globals", "locals", "breakpoint"}
 FORBIDDEN_MODULES = {"importlib", "ctypes", "winreg", "pickle", "marshal"}
-# Безопасни извиквания, разрешени на най-горно ниво (напр. PATTERN = re.compile(...)).
+# Safe calls allowed at the top level (e.g. PATTERN = re.compile(...)).
 SAFE_TOPLEVEL_CALLS = {"Path", "dict", "list", "set", "tuple", "frozenset", "range", "compile", "join"}
 RISKY = {
     "subprocess": "стартира програми/команди",
@@ -108,7 +108,7 @@ def _is_tool_decorator(node: ast.expr) -> bool:
 
 
 def validate_skill_code(code: str, taken_names: set[str]) -> tuple[list[str], list[str], list[str]]:
-    """Връща (проблеми, предупреждения, имена на уменията). Проблемите спират кода."""
+    """Returns (problems, warnings, skill names). Problems block the code."""
     problems, warnings = [], []
     try:
         tree = ast.parse(code)
@@ -181,7 +181,7 @@ def validate_skill_code(code: str, taken_names: set[str]) -> tuple[list[str], li
 
 
 def _undefined_names(code: str) -> list[str]:
-    """Хваща имена, които се ползват, но не са дефинирани/импортирани (напр. изтрит `import json`)."""
+    """Catches names that are used but not defined/imported (e.g. a deleted `import json`)."""
     try:
         import pyflakes.api
         import pyflakes.messages
@@ -192,7 +192,7 @@ def _undefined_names(code: str) -> list[str]:
         def __init__(self):
             self.problems = []
 
-        def unexpectedError(self, filename, message):  # noqa: N802 — интерфейс на pyflakes
+        def unexpectedError(self, filename, message):  # noqa: N802 — the pyflakes interface
             pass
 
         def syntaxError(self, filename, message, line, offset, text):  # noqa: N802
@@ -209,13 +209,13 @@ def _undefined_names(code: str) -> list[str]:
 
 
 def _normalized(code: str) -> str:
-    """Код без празни редове и крайни интервали — за сравнение „променено ли е нещо“."""
+    """Code without blank lines and trailing spaces — to compare whether anything changed."""
     return "\n".join(line.rstrip() for line in code.strip().splitlines() if line.strip())
 
 
 def modernize(code: str) -> str:
-    """Код от времето, когато пакетът се казваше „jarvis“ -> „orion“ (архивирани версии на
-    умения, навик на модела)."""
+    """Code from when the package was called “jarvis” -> “orion” (archived versions of
+    skills, the model's habit)."""
     code = re.sub(r"^from jarvis import (.*)$",
                   lambda m: "from orion import " + m[1].replace("jarvis_tool", "orion_tool"), code, flags=re.MULTILINE)
     code = re.sub(r"^from jarvis\.", "from orion.", code, flags=re.MULTILINE)
@@ -230,7 +230,7 @@ def extract_code(reply: str) -> str:
 
 
 # =====================================================================================
-#  Работилница за умения
+#  The skill forge
 # =====================================================================================
 CODER_PROMPT = '''Ти си внимателен Python програмист. Пишеш умения (плъгини) за гласовия асистент Орион.
 Среда: Windows 11, Python 3.12. Отговаряш САМО с един ```python блок, който съдържа ЦЕЛИЯ файл.
@@ -280,7 +280,7 @@ def get_exchange_rate(currency: str) -> str:
 
 @dataclass
 class Proposal:
-    """Предложение за промяна, което сър одобрява или отказва."""
+    """A proposed change that sir approves or rejects."""
     kind: str                  # "create" | "improve"
     title: str
     reason: str
@@ -307,7 +307,7 @@ class ForgeError(RuntimeError):
 
 class SkillForge:
     MAX_ATTEMPTS = 3
-    # Самата система за самоусъвършенстване не може да се пренаписва сама.
+    # The self-improvement system itself cannot rewrite itself.
     PROTECTED = {"self_improvement.py"}
 
     def __init__(self, registry: OrionTools, skills_dir: Path):
@@ -317,19 +317,19 @@ class SkillForge:
         self.client = None
         self.model = None
         self.reasoning_effort = None
-        # Сменят се от приложението: прозорец с бутони / въпрос в конзолата.
+        # Replaced by the app: a dialog with buttons / a question in the console.
         self.approve: Callable[[Proposal], bool] = lambda proposal: False
         self.progress: Callable[[str], None] = lambda message: print(f"[Самоусъвършенстване] {message}")
 
     def configure(self, client, model: str, reasoning_effort: str | None = None) -> None:
         self.client, self.model = client, model
-        self.reasoning_effort = reasoning_effort  # при модели с мислене — колко да мисли над кода
+        self.reasoning_effort = reasoning_effort  # for thinking models — how much to think about the code
 
     def thinking(self, effort: str | None) -> dict:
-        """Параметърът за мислене — само ако моделът го поддържа (зададено е в config)."""
+        """The thinking parameter — only if the model supports it (set in config)."""
         return {"reasoning_effort": effort} if self.reasoning_effort and effort else {}
 
-    # --- Генериране с автоматична самопоправка ------------------------------------------
+    # --- Generation with automatic self-correction --------------------------------------
     def _write_code(self, task: str, own_names: set[str],
                     old_code: str | None = None) -> tuple[str, list[str], list[str], int]:
         if self.client is None:
@@ -358,14 +358,14 @@ class SkillForge:
             ]
         raise ForgeError("Не успях да напиша код, който минава проверките: " + "; ".join(problems[:3]))
 
-    # --- Архив ------------------------------------------------------------------------------
+    # --- Archive ----------------------------------------------------------------------------
     def _archive(self, path: Path, suffix: str, content: str = "") -> None:
         self.history_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         (self.history_dir / f"{path.stem}__{stamp}{suffix}").write_text(content, encoding="utf-8")
 
     def _activate(self, proposal: Proposal) -> list[str]:
-        """Записва файла и го зарежда. При неуспех връща старата версия."""
+        """Writes the file and loads it. On failure restores the old version."""
         path = proposal.file
         if proposal.old_code is None:
             self._archive(path, ".created")
@@ -393,7 +393,7 @@ class SkillForge:
         return (f"Умението е {verb}: {', '.join(names)}. СЕГА го извикай, за да изпълниш молбата "
                 f"на сър, и отговори с истинския му резултат — не измисляй резултата.")
 
-    # --- Публични операции (викат се от уменията в skills/self_improvement.py) -------------------
+    # --- Public operations (called by the skills in skills/self_improvement.py) ---------------------
     def create(self, name: str, description: str) -> str:
         stem = re.sub(r"[^a-z0-9_]+", "_", name.strip().lower()).strip("_") or "new_skill"
         if stem[0].isdigit():
@@ -455,13 +455,13 @@ class SkillForge:
         return "\n".join(f"{e['time']} {e['tool']}: {e['error']}" for e in errors)
 
 
-# Общи инстанции — ползват ги уменията (skills/self_improvement.py), ядрото и приложението.
+# Shared instances — used by the skills (skills/self_improvement.py), the core and the app.
 lessons = LessonBook(config.BASE_DIR / "memory" / "lessons.json")
 forge = SkillForge(registry, config.SKILLS_DIR)
 
 
 # =====================================================================================
-#  Рефлексия — учене от забележки, независимо дали моделът се е сетил да извика learn_lesson
+#  Reflection — learning from remarks, whether or not the model remembered to call learn_lesson
 # =====================================================================================
 CORRECTION_RE = re.compile(
     r"\b(грешиш|грешно|сгреши|объркал|не е вярно|не е така|не е правилно|не така|не прави|не казвай|"
@@ -494,8 +494,8 @@ class Reflector:
         self.forge = forge
 
     def after_turn(self, user_text: str, previous_answer: str, tools_used: list[str]) -> str | None:
-        """Връща научената поука (или None). Вика се след всеки отговор."""
-        # Поправките на код се правят от работилницата, не са поуки за поведението.
+        """Returns the learned lesson (or None). Called after every answer."""
+        # Code fixes are made by the forge; they are not behaviour lessons.
         handled = {"learn_lesson", "create_skill", "improve_skill", "undo_skill_change", "remember"}
         if handled & set(tools_used) or not CORRECTION_RE.search(user_text) or self.forge.client is None:
             return None
@@ -505,7 +505,7 @@ class Reflector:
                 messages=[{"role": "user", "content": LESSON_PROMPT.format(answer=previous_answer[:600],
                                                                           user=user_text)}],
             ).choices[0].message.content or ""
-        except Exception as e:  # noqa: BLE001 — рефлексията никога не бива да чупи разговора
+        except Exception as e:  # noqa: BLE001 — reflection must never break the conversation
             print(f"[Рефлексия] {e}")
             return None
         lesson = re.sub(r"<think>.*?</think>", "", reply, flags=re.DOTALL).strip().strip("\"'«»„“ ")

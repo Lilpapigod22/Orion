@@ -1,9 +1,9 @@
 """
-Разпознаване на реч: Google + Whisper (локално, на видеокартата) едновременно.
+Speech recognition: Google + Whisper (locally, on the graphics card) at the same time.
 
-Двете се допълват: Google пише по-добре българските думи, Whisper — английските имена
-(„Steam“, „Hearts of Iron“), които Google чува като „снимка“. Whisper работи само ако на
-видеокартата има място — иначе остава само Google и нищо не се забавя.
+They complement each other: Google writes Bulgarian words better, Whisper English names
+(„Steam“, „Hearts of Iron“), which Google hears as „снимка“. Whisper only runs if there is
+room on the graphics card — otherwise only Google is used and nothing slows down.
 """
 import os
 import re
@@ -15,9 +15,9 @@ import config
 
 _model = None
 _loading = threading.Lock()
-status = "изключен"  # показва се при старт: „Whisper на видеокартата“ / „само Google“ / причина
+status = "off"  # shown at start-up in the window: “Google + Whisper” / “Google only” / the reason
 
-# Фрази, които Whisper „чува“ в тишина или шум (от субтитрите, на които е учен).
+# Phrases Whisper “hears” in silence or noise (from the subtitles it was trained on).
 _HALLUCINATIONS = re.compile(r"субтитри|абонирайте|благодаря за вниманието|продължение следва|"
                              r"amara\.org|www\.|\.com\b", re.IGNORECASE)
 
@@ -33,20 +33,20 @@ def _free_vram_mb() -> int:
 
 
 def load() -> None:
-    """Зарежда Whisper (веднъж). Вика се във фонова нишка, след като езиковият модел е в паметта."""
+    """Loads Whisper (once). Called on a background thread after the language model is in memory."""
     global _model, status
     if config.STT_ENGINE == "google":
-        status = "само Google"
+        status = "Google only"
         return
     with _loading:
         if _model is not None:
             return
         free = _free_vram_mb()
         if free < config.WHISPER_MIN_FREE_VRAM_MB:
-            status = f"само Google (видеокартата е пълна: {free} MB свободни)"
+            status = f"Google only (graphics card full: {free} MB free)"
             return
         try:
-            for sub in ("cublas", "cudnn", "cuda_nvrtc"):  # библиотеките на CUDA са на диск D:
+            for sub in ("cublas", "cudnn", "cuda_nvrtc"):  # the CUDA libraries are on drive D:
                 folder = Path(config.CUDA_LIBS) / sub / "bin"
                 if folder.is_dir():
                     os.add_dll_directory(str(folder))
@@ -55,13 +55,13 @@ def load() -> None:
             _model = WhisperModel(config.WHISPER_MODEL, device="cuda", compute_type="int8_float16",
                                   download_root=str(config.WHISPER_DIR))
             status = "Google + Whisper"
-        except Exception as e:  # noqa: BLE001 — без Whisper слушането продължава с Google
-            status = f"само Google (Whisper: {type(e).__name__})"
+        except Exception as e:  # noqa: BLE001 — without Whisper, listening carries on with Google
+            status = f"Google only (Whisper: {type(e).__name__})"
             print(f"[Слушане] Whisper не се зареди: {e}")
 
 
 def _vocabulary() -> str:
-    """Подсказка за Whisper: имената, които сър казва — игри, програми, градове."""
+    """A prompt for Whisper: the names sir says — games, programs, cities."""
     try:
         from . import games
         game_names = ", ".join(g.name for g in games.installed()[:12])
@@ -74,7 +74,7 @@ def _vocabulary() -> str:
 
 
 def whisper(pcm16: bytes) -> str | None:
-    """Текстът от Whisper за 16 kHz / 16-bit моно запис, или None."""
+    """Whisper's text for a 16 kHz / 16-bit mono recording, or None."""
     if _model is None:
         return None
     import numpy as np
@@ -89,14 +89,14 @@ def whisper(pcm16: bytes) -> str | None:
 
 
 def available() -> bool:
-    """Зареден ли е Whisper (нужен е за прекъсването с глас)."""
+    """Whether Whisper is loaded (needed for voice interruption)."""
     return _model is not None
 
 
 def words(pcm16: bytes) -> list[tuple[str, float, float]]:
-    """Думите в кратък запис — (дума, начало, край в секунди). Бързо (без подсказка и с beam 1):
-    за прекъсването с глас, докато Орион говори. Без подсказка, защото Whisper „чува“ думите
-    от подсказката в шума."""
+    """The words in a short recording — (word, start, end in seconds). Fast (no prompt, beam 1):
+    for voice interruption while Orion speaks. No prompt, because Whisper “hears” the prompt's
+    words in noise."""
     if _model is None:
         return []
     import numpy as np
@@ -114,8 +114,8 @@ _cpu_model = None
 
 
 def _model_for_files():
-    """Моделът за дълги записи: на видеокартата, ако е зареден; иначе — на процесора (по-бавно,
-    но видеокартата често е заета от езиковия модел и отворените програми)."""
+    """The model for long recordings: on the graphics card if loaded; otherwise on the processor (slower,
+    but the graphics card is often busy with the language model and open programs)."""
     global _cpu_model
     if _model is not None:
         return _model
@@ -128,20 +128,20 @@ def _model_for_files():
 
 
 def release_cpu_model() -> None:
-    """Освобождава паметта (~1 GB) след рийловете."""
+    """Frees the memory (~1 GB) after the reels."""
     global _cpu_model
     _cpu_model = None
 
 
 def transcribe(audio, language: str | None = None) -> tuple[str, list[tuple[str, float, float]]]:
-    """Дълъг запис (float32, 16 kHz) -> (език, [(дума, начало, край)]). Езикът се разпознава сам —
-    за субтитрите на рийловете (клиповете от YouTube може да са на всякакъв език)."""
+    """A long recording (float32, 16 kHz) -> (language, [(word, start, end)]). The language is detected automatically —
+    for the reels' subtitles (YouTube videos can be in any language)."""
     try:
         model = _model_for_files()
-    except Exception as e:  # noqa: BLE001 — без субтитри рийлът пак става
+    except Exception as e:  # noqa: BLE001 — the reel still works without subtitles
         print(f"[Слушане] Whisper за файлове не се зареди: {e}")
         return "", []
-    # Без vad_filter: той изрязва пеенето с музика като „не реч“ и песните остават без субтитри.
+    # No vad_filter: it cuts singing with music as “not speech” and songs end up without subtitles.
     segments, info = model.transcribe(audio, language=language, beam_size=5, word_timestamps=True,
                                       condition_on_previous_text=False)
     found = [(w.word.strip(), w.start, w.end)
@@ -152,13 +152,13 @@ def transcribe(audio, language: str | None = None) -> tuple[str, list[tuple[str,
 
 
 _WORD = re.compile(r"\w+", re.UNICODE)
-# Английско име — и когато е залепено за българско окончание („Wordовски“, „Steam-а“).
+# An English name — also when glued to a Bulgarian ending („Wordовски“, „Steam-а“).
 _LATIN = re.compile(r"(?<![A-Za-zА-Яа-яЁё])[A-Za-z][A-Za-z']{2,}")
 
 
 def choose(google: str | None, whisper_text: str | None) -> str | None:
-    """По-добрият от двата резултата. Google — освен ако е орязал изречението или е изпуснал
-    английско име, което Whisper е чул („отвори ми снимка“ срещу „отвори ми Steam“)."""
+    """The better of the two results. Google — unless it cut the sentence short or missed
+    an English name Whisper heard („отвори ми снимка“ vs „отвори ми Steam“)."""
     if not google or not whisper_text:
         return google or whisper_text
     g_words, w_words = _WORD.findall(google), _WORD.findall(whisper_text)

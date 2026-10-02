@@ -1,9 +1,9 @@
 """
-Връзка с Google (Gmail, Календар, Задачи) през малък скрипт в акаунта на сър.
+Connection to Google (Gmail, Calendar, Tasks) through a small script in sir's account.
 
-Скриптът (integrations/google_bridge.gs) работи като уеб приложение в Google Apps Script
-и приема само заявки с тайния ключ от google_settings.json. Така не е нужен проект в
-Google Cloud, а достъпът не изтича. Настройка: „Орион, свържи Google“ (виж README.md).
+The script (integrations/google_bridge.gs) runs as a web app in Google Apps Script
+and only accepts requests with the secret key from google_settings.json. So no Google Cloud
+project is needed and access does not expire. Set-up: „Орион, свържи Google“ (see README.md).
 """
 import json
 import re
@@ -13,7 +13,7 @@ import urllib.request
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SETTINGS_FILE = BASE_DIR / "google_settings.json"   # таен ключ + адрес на моста (само на този компютър)
+SETTINGS_FILE = BASE_DIR / "google_settings.json"   # secret key + bridge address (only on this computer)
 BRIDGE_CODE = BASE_DIR / "integrations" / "google_bridge.gs"
 URL_RE = re.compile(r"https://script\.google\.com/(?:a/macros/[\w.\-]+|macros)/s/[\w\-]+/exec")
 
@@ -22,7 +22,7 @@ NOT_CONNECTED = ("Google още не е свързан, сър. Кажете „
 
 
 class GoogleError(Exception):
-    """Грешка от Google, която сър трябва да чуе (напр. липсваща услуга или изтекъл достъп)."""
+    """An error from Google that sir should hear about (e.g. a missing service or expired access)."""
 
 
 def _settings() -> dict:
@@ -42,7 +42,7 @@ def is_connected() -> bool:
 
 
 def bridge_code() -> str:
-    """Кодът на моста с тайния ключ (създава ключа при първо извикване)."""
+    """The bridge code with the secret key (creates the key on first call)."""
     settings = _settings()
     if not settings.get("secret"):
         settings["secret"] = secrets.token_urlsafe(32)
@@ -51,14 +51,14 @@ def bridge_code() -> str:
 
 
 def call(action: str, **params):
-    """Изпълнява действие в моста и връща резултата. Хвърля GoogleError при проблем."""
+    """Runs an action in the bridge and returns the result. Raises GoogleError on a problem."""
     settings = _settings()
     if not (settings.get("url") and settings.get("secret")):
         raise GoogleError(NOT_CONNECTED)
     body = json.dumps({"secret": settings["secret"], "action": action, "params": params}).encode("utf-8")
     request = urllib.request.Request(settings["url"], data=body, headers={"Content-Type": "application/json"})
     try:
-        # Google отговаря с пренасочване; urllib го следва сам (като GET, както Google очаква).
+        # Google answers with a redirect; urllib follows it (as a GET, as Google expects).
         with urllib.request.urlopen(request, timeout=40) as response:
             raw = response.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as e:
@@ -82,7 +82,7 @@ def call(action: str, **params):
 
 
 def connect(url: str) -> dict:
-    """Запазва адреса на моста и проверява връзката. Връща {email, calendar}."""
+    """Saves the bridge address and checks the connection. Returns {email, calendar}."""
     match = URL_RE.search(url)
     if not match:
         raise GoogleError("Това не прилича на адрес на уеб приложение от Google Apps Script "
@@ -96,7 +96,7 @@ def connect(url: str) -> dict:
     try:
         return call("ping")
     except GoogleError:
-        settings["url"] = previous  # Не пазим адрес, който не работи.
+        settings["url"] = previous  # Do not keep an address that does not work.
         _save(settings)
         raise
 

@@ -1,6 +1,6 @@
 """
-Места и прогноза: градове по име (Open-Meteo), къде е сър (по IP), разстояния, прогнозата
-по часове и дни, качеството на въздуха. Всичко е безплатно и без регистрация.
+Places and forecasts: cities by name (Open-Meteo), where sir is (by IP), distances, the forecast
+by hour and day, air quality. All free and without sign-up.
 """
 import json
 import math
@@ -11,7 +11,7 @@ from functools import lru_cache
 
 USER_AGENT = "Orion/1.0 (personal voice assistant)"
 
-# Код на времето (WMO) -> описание.
+# Weather code (WMO) -> description.
 WEATHER_CODES = {
     0: "ясно", 1: "предимно ясно", 2: "разкъсана облачност", 3: "облачно", 45: "мъгла", 48: "мъгла със скреж",
     51: "слаб ръмеж", 53: "ръмеж", 55: "силен ръмеж", 56: "леден ръмеж", 57: "леден ръмеж",
@@ -39,7 +39,7 @@ def get_json(url: str) -> dict:
 
 @lru_cache(maxsize=64)
 def find(name: str) -> Place:
-    """Град или място по име („Варна“, „Paris“)."""
+    """A city or place by name („Варна“, „Paris“)."""
     data = get_json("https://geocoding-api.open-meteo.com/v1/search?count=1&language=bg&format=json&name="
                     + urllib.parse.quote(name.strip()))
     results = data.get("results") or []
@@ -51,7 +51,7 @@ def find(name: str) -> Place:
 
 @lru_cache(maxsize=1)
 def here() -> Place:
-    """Къде е сър — по IP адреса (с точност до града). Ако няма връзка — София."""
+    """Where sir is — by IP address (accurate to the city). Without a connection — Sofia."""
     try:
         data = get_json("http://ip-api.com/json/?lang=ru&fields=status,city,country,lat,lon")
         if data.get("status") == "success":
@@ -66,7 +66,7 @@ def place(name: str = "") -> Place:
 
 
 def distance_km(a: Place, b: Place) -> float:
-    """Разстояние по права линия (формула на хаверсинус)."""
+    """Straight-line distance (haversine formula)."""
     r = 6371.0
     p1, p2 = math.radians(a.lat), math.radians(b.lat)
     dp, dl = p2 - p1, math.radians(b.lon - a.lon)

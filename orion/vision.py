@@ -1,21 +1,21 @@
 """
-Зрение: Орион гледа екрана или снимка и отговаря на въпрос за нея.
+Vision: Orion looks at the screen or an image and answers a question about it.
 
-Моделът qwen3.5 разбира и картинки. Снимката на екрана остава на този компютър —
-изпраща се само на локалния модел в Ollama, не в интернет.
+The qwen3.5 model understands images too. The screenshot stays on this computer —
+it is only sent to the local model in Ollama, not to the internet.
 """
 import base64
 import io
 import time
 from typing import Callable
 
-# Задават се от приложението (app.py / main.py) при старт.
+# Set by the app (app.py / main.py) at start-up.
 client = None
 model: str | None = None
-# Прозорецът на Орион се скрива за миг, за да не закрива това, което сър гледа.
+# Orion's window hides for a moment so it does not cover what sir is looking at.
 hide_window: Callable[[], None] = lambda: None
 show_window: Callable[[], None] = lambda: None
-minimize_window: Callable[[], None] = lambda: None  # за писане в друга програма
+minimize_window: Callable[[], None] = lambda: None  # for typing into another program
 
 SYSTEM = ("Ти си Орион, асистентът на сър. Гледаш картина и отговаряш на въпроса му на български, "
           "учтиво, на „Вие“, "
@@ -29,11 +29,11 @@ def configure(llm_client, llm_model: str) -> None:
 
 
 def grab_screen(max_side: int = 1400):
-    """Снимка на основния екран (без прозореца на Орион), смалена за модела."""
+    """A screenshot of the main screen (without Orion's window), scaled down for the model."""
     from PIL import ImageGrab
     hide_window()
     try:
-        time.sleep(0.35)  # Windows довършва скриването
+        time.sleep(0.35)  # Windows finishes hiding it
         image = ImageGrab.grab()
     finally:
         show_window()
@@ -42,7 +42,7 @@ def grab_screen(max_side: int = 1400):
 
 
 def ask_image(image, question: str) -> str:
-    """Отговорът на модела за картинка (PIL Image)."""
+    """The model's answer about an image (PIL Image)."""
     if client is None:
         raise RuntimeError("езиковият модел още не е готов")
     buffer = io.BytesIO()

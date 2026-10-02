@@ -1,7 +1,7 @@
 """
-Модул за Говорене (Text-to-Speech).
+Speaking module (Text-to-Speech).
 
-Използва `pyttsx3` — работи офлайн със системните гласове (SAPI5 на Windows).
+Uses `pyttsx3` — works offline with the system voices (SAPI5 on Windows).
 """
 import pyttsx3
 
@@ -14,7 +14,7 @@ class Speaker:
 
     @staticmethod
     def _find_voice(hint: str) -> str | None:
-        """Намира системен глас, чието име, id или език съдържа `hint`."""
+        """Finds a system voice whose name, id or language contains `hint`."""
         engine = pyttsx3.init()
         hint = hint.lower()
         try:
@@ -33,8 +33,8 @@ class Speaker:
         print(f"[Орион] {text}")
         if self.muted or not text:
             return
-        # Нов engine за всяко изречение: заобикаля известен бъг в pyttsx3 на Windows,
-        # при който runAndWait() „замръзва“ след първото извикване.
+        # A new engine for every sentence: works around a known pyttsx3 bug on Windows
+        # where runAndWait() “freezes” after the first call.
         engine = pyttsx3.init()
         engine.setProperty("rate", self.rate)
         if self.voice_id:

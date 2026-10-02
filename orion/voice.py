@@ -1,8 +1,8 @@
 """
-Неврален глас чрез `edge-tts` — същите естествени гласове като „Прочети на глас“ в Microsoft Edge.
+Neural voice via `edge-tts` — the same natural voices as “Read aloud” in Microsoft Edge.
 
-Връща MP3 байтове; приложението ги пуска в прозореца, където реакторът
-пулсира в ритъма на гласа. Изисква интернет — без него се ползва pyttsx3.
+Returns MP3 bytes; the app plays them in the window, where the reactor
+pulses with the voice. Needs the internet — without it pyttsx3 is used.
 """
 import asyncio
 import re
@@ -11,9 +11,9 @@ import edge_tts
 
 
 def clean_for_speech(text: str) -> str:
-    """Маха markdown символи, които гласът би прочел буквално."""
+    """Removes markdown symbols the voice would read out literally."""
     text = re.sub(r"[*_#`>|~]+", "", text)
-    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)  # [текст](линк) -> текст
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)  # [text](link) -> text
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -29,12 +29,12 @@ class NeuralVoice:
         return b"".join(chunks)
 
     def synthesize(self, text: str) -> bytes | None:
-        """MP3 аудио или None, ако синтезът е невъзможен (напр. няма интернет)."""
+        """MP3 audio, or None if synthesis is impossible (e.g. no internet)."""
         text = clean_for_speech(text)
         if not text:
             return None
         try:
             return asyncio.run(self._synthesize(text)) or None
-        except Exception as e:  # noqa: BLE001 — всяка грешка -> резервен глас
+        except Exception as e:  # noqa: BLE001 — any error -> fallback voice
             print(f"[Глас] Невралният глас е недостъпен: {e}")
             return None

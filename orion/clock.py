@@ -1,4 +1,4 @@
-"""Дата и час на български — едно място за мозъка, рефлексите и умението get_current_time."""
+"""Date and time in Bulgarian — one place for the brain, the reflexes and the get_current_time skill."""
 from datetime import datetime
 
 WEEKDAYS = ("понеделник", "вторник", "сряда", "четвъртък", "петък", "събота", "неделя")
@@ -23,13 +23,13 @@ def time_text(now: datetime | None = None) -> str:
 
 
 def in_place(name: str, capital: bool = False) -> str:
-    """„във Варна“, „в Токио“ — „във“ пред „в“ и „ф“. С `capital` — „Във Варна“ за начало на изречение."""
+    """„във Варна“, „в Токио“ — „във“ before „в“ and „ф“. With `capital` — „Във Варна“ at the start of a sentence."""
     name = name.strip()
     preposition = "във" if name[:1].lower() in "вфvf" else "в"
     return f"{preposition.capitalize() if capital else preposition} {name}"
 
 
-# Град или държава -> часова зона. Непознатите се търсят и в пълния списък на зоните по английското име.
+# City or country -> time zone. Unknown ones are also looked up in the full zone list by English name.
 CITY_ZONES = {
     **dict.fromkeys(["токио", "tokyo", "япония"], "Asia/Tokyo"),
     **dict.fromkeys(["ню йорк", "new york", "вашингтон", "washington", "маями", "miami", "бостън", "boston",
@@ -84,7 +84,7 @@ CITY_ZONES = {
 
 
 def zone_for(place: str):
-    """Часовата зона (ZoneInfo) на град или държава, или None."""
+    """The time zone (ZoneInfo) of a city or country, or None."""
     from zoneinfo import ZoneInfo, available_timezones
     name = place.lower().strip().removeprefix("в ").removeprefix("във ").strip()
     if name in CITY_ZONES:

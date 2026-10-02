@@ -1,16 +1,16 @@
 """
-Писател: Орион пише текста на документи, таблици и презентации.
+Writer: Orion writes the text of documents, spreadsheets and presentations.
 
-Отделна заявка към същия езиков модел, само с правила за писане. В разговора моделът мисли
-за уменията и пише по едно-две изречения; тук пише целия документ — подреден, на книжовен
-български и в опростения markdown, който orion/documents.py превръща във Word, PDF, Excel…
+A separate request to the same language model, with writing rules only. In conversation the model thinks
+about skills and writes a sentence or two; here it writes the whole document — well organised, in standard
+Bulgarian and in the simplified markdown that orion/documents.py turns into Word, PDF, Excel…
 """
 import re
 from datetime import datetime
 
 from . import clock
 
-# Задават се от приложението (app.py / main.py) при старт.
+# Set by the app (app.py / main.py) at start-up.
 client = None
 model: str | None = None
 _effort: str | None = None
@@ -78,7 +78,7 @@ def configure(llm_client, llm_model: str, reasoning_effort: str | None = None) -
 
 
 def _clean(text: str) -> str:
-    """Маха разсъжденията, ``` и въведения от рода на „Ето документа:“."""
+    """Removes reasoning, ``` and preambles like „Ето документа:“ (here is the document)."""
     text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.DOTALL)
     text = re.sub(r"^\s*```[a-z]*\s*$", "", text, flags=re.MULTILINE | re.IGNORECASE)
     lines = text.strip().splitlines()
@@ -91,8 +91,8 @@ def _clean(text: str) -> str:
 
 
 def compose(kind: str, request: str, slides: int = 6) -> str:
-    """Текстът на документа („document“), таблицата („spreadsheet“) или презентацията
-    („presentation“) по молбата на сър — в опростен markdown."""
+    """The text of the document („document“), the spreadsheet („spreadsheet“) or the presentation
+    („presentation“) as sir asked — in simplified markdown."""
     if client is None:
         raise RuntimeError("езиковият модел още не е готов")
     rules = {"document": DOCUMENT, "spreadsheet": SPREADSHEET,
@@ -104,7 +104,7 @@ def compose(kind: str, request: str, slides: int = 6) -> str:
         temperature=0.4,
         max_tokens=4000,
         messages=[{"role": "system", "content": system}, {"role": "user", "content": request}],
-        # Без „мислене“: иначе qwen3.5 понякога оставя самия текст в разсъжденията си.
+        # No “thinking”: otherwise qwen3.5 sometimes leaves the text itself in its reasoning.
         **({"reasoning_effort": "none"} if _effort else {}),
     )
     text = _clean(reply.choices[0].message.content)

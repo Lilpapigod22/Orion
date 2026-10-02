@@ -1,136 +1,24 @@
 /* ==========================================================================
-   Мрежата на Орион — 3D холограма на мисленето му.
+   Orion's network — a 3D hologram of its thinking.
 
-   В центъра е ядрото (реакторът, който пулсира с гласа). Около него —
-   балончета за всяка способност, свързани с ядрото, и облак от неврони.
-   Когато Орион използва умение, импулс тръгва от ядрото към балончето и до
-   него изскача балонче-задача с това, което прави, после — с резултата.
-   Мислите на модела се появяват до ядрото. Мрежата се върти с мишката.
+   In the centre is the core (the reactor that pulses with the voice). Around it are
+   bubbles for each ability, linked to the core, and a cloud of neurons.
+   When Orion uses a skill, a pulse travels from the core to the bubble and a
+   task bubble pops up next to it with what it is doing, then with the result.
+   The model's thoughts appear next to the core. Drag with the mouse to rotate.
 
-   Всичко е нарисувано в canvas с перспективна проекция — без библиотеки.
+   Drawn on a canvas with perspective projection — no libraries. React gives it the
+   canvas (<Stage>, attach) and Python's events arrive through window.hud (bridge.js).
    ========================================================================== */
-'use strict';
+import { talk } from '../actions.js';
+import { clockTime, reduceMotion } from '../util.js';
+import { MODULE_NODES, NODES, TASK_TEXT } from './nodes.js';
+import { MODES, reactor } from './reactor.js';
+import { voice } from './voice.js';
 
 const TAU = Math.PI * 2;
 
-// Способностите на Орион. `tools` — кои умения светят това балонче.
-const NODES = [
-  { id: 'ear', label: 'Слух', about: 'Чува Ви, когато кажете „Орион“ или натиснете F2.' },
-  { id: 'voice', label: 'Глас', about: 'Гласът, с който Ви отговаря.' },
-  { id: 'clock', label: 'Часовник', tools: ['get_current_time', 'days_until_date'],
-    about: 'Час, дата, ден от седмицата и часът по света.' },
-  { id: 'weather', label: 'Прогноза', tools: ['get_weather'], about: 'Времето навън във всеки град.' },
-  { id: 'calc', label: 'Сметки', tools: ['calculate', 'convert_units', 'convert_currency'],
-    about: 'Точни изчисления, мерни единици и валути по днешния курс.' },
-  { id: 'apps', label: 'Програми', tools: ['open_program', 'open_website', 'list_games'],
-    about: 'Отваря програми, игри (Steam, Riot, Epic) и сайтове.' },
-  { id: 'markets', label: 'Пазари', tools: ['market_price', 'analyze_market', 'analyze_price_file', 'market_overview', 'crypto_market'],
-    about: 'Акции, крипто, валути, злато — цени и технически анализ с графика. Не е инвестиционен съвет.' },
-  { id: 'claude', label: 'Claude', tools: ['ask_claude', 'send_to_claude_app'],
-    about: 'Пита Claude за сложни задачи или му пише в приложението.' },
-  { id: 'tools', label: 'Инструменти', about: 'Пароли, зар и монета, QR кодове, кодиране, статистика, проценти.' },
-  { id: 'net', label: 'Мрежа', about: 'Скорост на интернета, IP, пинг, работи ли сайт, портове, Docker.' },
-  { id: 'places', label: 'Места', about: 'Държави, разстояния, маршрути и „какво има наблизо“ в Google Maps.' },
-  { id: 'web', label: 'Интернет', tools: ['search_web', 'read_webpage', 'wikipedia'],
-    about: 'Търси в интернет, чете страници и проверява фактите в Уикипедия.' },
-  { id: 'media', label: 'Музика', tools: ['play_on_youtube', 'media_control', 'set_volume', 'change_volume', 'mute_sound'],
-    about: 'Пуска песни в YouTube, пауза и следваща песен, силата на звука. Реже рийлове от клипове.' },
-  { id: 'system', label: 'Система', tools: ['system_status', 'close_program', 'power_action'],
-    about: 'Състоянието на компютъра, затваряне на програми, заключване и изключване.' },
-  { id: 'screen', label: 'Зрение', tools: ['look_at_screen', 'look_at_image', 'take_screenshot', 'read_clipboard', 'copy_to_clipboard'],
-    about: 'Гледа екрана и снимки, чете копирания текст. Снимките остават на компютъра.' },
-  { id: 'files', label: 'Файлове', tools: ['open_folder', 'find_files', 'open_file'],
-    about: 'Намира и отваря файлове и папки.' },
-  { id: 'mail', label: 'Поща', tools: ['check_email', 'read_email', 'send_email', 'reply_email'],
-    about: 'Gmail: чете, отговаря и изпраща — само след Вашето „Изпрати“.' },
-  { id: 'calendar', label: 'Календар', tools: ['calendar_events', 'calendar_add_event', 'calendar_delete_event'],
-    about: 'Google Календар: срещи и събития.' },
-  { id: 'tasks', label: 'Задачи', tools: ['tasks_list', 'tasks_add', 'tasks_complete'],
-    about: 'Google Задачи: какво имате да свършите.' },
-  { id: 'reminders', label: 'Напомняния', tools: ['set_reminder', 'set_timer', 'list_reminders', 'cancel_reminder'],
-    about: 'Напомняния и таймери — казва ги на глас.' },
-  { id: 'memory', label: 'Памет', tools: ['remember', 'learn_lesson', 'list_lessons', 'forget_lesson'],
-    about: 'Запомня факти за Вас и поуки от грешките си.' },
-  { id: 'evolve', label: 'Развитие', tools: ['create_skill', 'improve_skill', 'undo_skill_change', 'recent_errors'],
-    about: 'Пише и поправя собствените си умения — след Вашето одобрение.' },
-];
-
-// Групите умения (модулите в skills/) -> балончето, което светва за тях.
-const MODULE_NODES = {
-  'skills.util_skills': 'tools', 'skills.finance_skills': 'calc', 'skills.notes_skills': 'memory',
-  'skills.time_skills': 'clock', 'skills.weather_skills': 'weather', 'skills.net_skills': 'net',
-  'skills.file_skills': 'files', 'skills.windows_skills': 'system', 'skills.places_skills': 'places',
-  'skills.media_skills': 'media', 'skills.trading_skills': 'markets', 'skills.language_skills': 'web',
-  'skills.assistant_skills': 'memory', 'skills.reels_skills': 'media',
-};
-
-const shortUrl = (url = '') => url.replace(/^https?:\/\/(www\.)?/, '').split(/[/?#]/)[0];
-const quoted = (s = '') => `„${String(s).slice(0, 34)}${String(s).length > 34 ? '…' : ''}“`;
-
-// Какво прави умението — надписът на балончето-задача.
-const TASK_TEXT = {
-  get_current_time: (a) => (a.city ? `часът в ${a.city}` : 'точният час'),
-  days_until_date: (a) => `дни до ${a.date_str}`,
-  get_weather: (a) => (a.city ? `времето в ${a.city}` : 'времето навън'),
-  calculate: (a) => a.expression,
-  make_youtube_reels: (a) => `рийлове · ${a.count || 3} × ${a.seconds || 45} с`,
-  analyze_youtube_video: () => 'най-гледаните моменти',
-  open_program: (a) => `отварям ${a.name}`,
-  open_website: (a) => `отварям ${shortUrl(a.url)}`,
-  search_web: (a) => `търся ${quoted(a.query)}`,
-  read_webpage: (a) => `чета ${shortUrl(a.url)}`,
-  check_email: (a) => (a.search ? `писма: ${a.search}` : 'нови писма'),
-  read_email: (a) => `чета писмо ${a.number || 1}`,
-  send_email: (a) => `писмо до ${a.to}`,
-  reply_email: (a) => `отговор на писмо ${a.number}`,
-  calendar_events: (a) => `календар · ${a.day || 'днес'}`,
-  calendar_add_event: (a) => `записвам ${quoted(a.title)}`,
-  calendar_delete_event: (a) => `изтривам ${quoted(a.title)}`,
-  tasks_list: () => 'списъкът със задачи',
-  tasks_add: (a) => `задача ${quoted(a.title)}`,
-  tasks_complete: (a) => `свършено: ${a.title}`,
-  set_reminder: (a) => `напомняне ${a.when_text}`,
-  set_timer: (a) => `таймер ${a.duration}`,
-  list_reminders: () => 'чакащи напомняния',
-  cancel_reminder: (a) => `отменям ${a.what || 'всички'}`,
-  remember: () => 'запомням',
-  learn_lesson: () => 'уча поука',
-  list_lessons: () => 'поуките ми',
-  forget_lesson: () => 'забравям поука',
-  create_skill: () => 'пиша ново умение',
-  improve_skill: (a) => `поправям ${a.tool_name || 'умение'}`,
-  undo_skill_change: () => 'връщам промяна',
-  recent_errors: () => 'последните грешки',
-  wikipedia: (a) => `Уикипедия: ${a.topic}`,
-  convert_units: (a) => `${a.value} ${a.from_unit} → ${a.to_unit}`,
-  convert_currency: (a) => `${a.amount} ${a.from_currency} → ${a.to_currency}`,
-  play_on_youtube: (a) => `пускам ${quoted(a.query)}`,
-  media_control: (a) => ({ play: 'пусни', pause: 'пауза', next: 'следваща', previous: 'предишна', stop: 'стоп' }[a.action] || a.action),
-  set_volume: (a) => `звук ${a.level}%`,
-  change_volume: (a) => `звук ${a.amount > 0 ? '+' : ''}${a.amount}%`,
-  mute_sound: (a) => (a.mute === false ? 'звукът обратно' : 'заглушавам'),
-  system_status: () => 'състояние на компютъра',
-  close_program: (a) => `затварям ${a.name}`,
-  power_action: (a) => ({ lock: 'заключвам', sleep: 'приспивам', shutdown: 'изключване', restart: 'рестарт', cancel: 'отменям изключването' }[a.action] || a.action),
-  look_at_screen: () => 'гледам екрана',
-  look_at_image: () => 'гледам снимката',
-  take_screenshot: () => 'снимка на екрана',
-  read_clipboard: () => 'чета копираното',
-  copy_to_clipboard: () => 'копирам',
-  open_folder: (a) => `папка ${a.name}`,
-  find_files: (a) => `търся файл ${quoted(a.query)}`,
-  open_file: (a) => `отварям файл ${a.number || 1}`,
-  list_games: () => 'игрите ми',
-  market_price: (a) => `цена: ${a.asset}`,
-  analyze_market: (a) => `анализ ${a.asset} · ${a.timeframe || '1d'}`,
-  analyze_price_file: (a) => `анализ на ${a.file_name}`,
-  market_overview: () => 'пазарите днес',
-  crypto_market: () => 'крипто пазарът',
-  ask_claude: (a) => `питам Claude: ${quoted(a.question)}`,
-  send_to_claude_app: () => 'пиша в Claude',
-};
-
-// Възпроизводим „случаен“ генератор — мрежата изглежда еднакво при всяко пускане.
+// A reproducible “random” generator — the network looks the same on every start.
 function seeded(seed) {
   return () => {
     seed = (seed + 0x6D2B79F5) | 0;
@@ -140,7 +28,7 @@ function seeded(seed) {
   };
 }
 
-// Равномерно разпределени точки по сфера (спирала на Фибоначи).
+// Evenly spread points on a sphere (Fibonacci spiral).
 function sphere(n, radius, { jitter = 0, squash = 1, rand = Math.random } = {}) {
   const golden = Math.PI * (3 - Math.sqrt(5));
   return Array.from({ length: n }, (_, i) => {
@@ -151,30 +39,29 @@ function sphere(n, radius, { jitter = 0, squash = 1, rand = Math.random } = {}) 
   });
 }
 
-const mind = {
-  canvas: $('mind'),
-  ctx: $('mind').getContext('2d'),
+export const mind = {
+  canvas: null, ctx: null, stage: null, onLayout: null, raf: 0, observer: null, unbind: null,
   w: 0, h: 0, dpr: 1, R: 100, cx: 0, cy: 0, coreSize: 0,
   yaw: 0.35, pitch: 0.34, spin: 0, drag: null, hover: null, pinned: null,
-  t: 0, last: performance.now(), build: 0,
+  t: 0, last: 0, build: 0,
   nodes: [], neurons: [], links: [], signals: [], pulses: [], tasks: [], reminders: [], thought: null,
-  proj: new Map(),
+  proj: new Map(), toolNode: new Map(),
 
+  // The network itself — built once, so events from Python work even before the canvas exists.
   init() {
     const rand = seeded(7);
-    // Балончетата са като корона около ядрото: в кръг, редуващо се по-горе и по-долу —
-    // така не се застъпват и мрежата изглежда като орбита.
+    // The bubbles form a crown around the core: in a circle, alternating higher and lower —
+    // so they do not overlap and the network looks like an orbit.
     this.nodes = NODES.map((node, i) => {
       const a = (i / NODES.length) * TAU;
-      const r = (i % 2 ? 1.04 : 1.3) + (rand() - 0.5) * 0.08;  // два пръстена — надписите не се застъпват
+      const r = (i % 2 ? 1.04 : 1.3) + (rand() - 0.5) * 0.08;  // two rings — labels do not overlap
       const y = (i % 2 ? 0.3 : -0.26) + (rand() - 0.5) * 0.1;
       return { ...node, pos: [Math.cos(a) * r, y, Math.sin(a) * r], act: 0, lastDone: -99, index: i };
     });
-    this.toolNode = new Map();
     for (const node of this.nodes) for (const tool of node.tools || []) this.toolNode.set(tool, node);
 
     this.neurons = sphere(200, 1.75, { jitter: 0.2, squash: 0.72, rand });
-    // Всеки неврон се свързва с най-близките си съседи — така се получава мрежата.
+    // Each neuron links to its nearest neighbours — that is what makes the network.
     const seen = new Set();
     this.neurons.forEach((a, i) => {
       this.neurons
@@ -187,30 +74,45 @@ const mind = {
           if (!seen.has(key)) { seen.add(key); this.links.push([i, j]); }
         });
     });
+  },
 
-    this.bindPointer();
+  // React gives the canvas and the stage; onLayout({ x, y, size }) places the core button.
+  attach(canvas, stage, onLayout) {
+    this.detach();
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.stage = stage;
+    this.onLayout = onLayout;
+    this.unbind = this.bindPointer();
     this.resize();
-    new ResizeObserver(() => this.resize()).observe(document.querySelector('.stage'));
-    requestAnimationFrame((now) => this.frame(now));
+    this.observer = new ResizeObserver(() => this.resize());
+    this.observer.observe(stage);
+    this.last = performance.now();
+    const loop = (now) => { this.frame(now); this.raf = requestAnimationFrame(loop); };
+    this.raf = requestAnimationFrame(loop);
+  },
+
+  detach() {
+    cancelAnimationFrame(this.raf);
+    this.observer?.disconnect();
+    this.unbind?.();
+    this.canvas = this.ctx = this.stage = this.observer = this.unbind = null;
   },
 
   resize() {
-    const rect = this.canvas.parentElement.getBoundingClientRect();
+    const rect = this.stage.getBoundingClientRect();
     this.dpr = window.devicePixelRatio || 1;
     this.w = rect.width;
     this.h = rect.height;
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
-    // Долу остава място за надписа и субтитрите.
+    // Room is left at the bottom for the label and subtitles.
     this.R = Math.max(90, Math.min(this.w * 0.27, (this.h - 160) * 0.4));
     this.cx = this.w / 2;
-    this.cy = Math.max(this.R * 1.05, (this.h - 170) / 2 + 22);  // горните балончета да не излизат
+    this.cy = Math.max(this.R * 1.05, (this.h - 170) / 2 + 22);  // keep the top bubbles on screen
     this.coreSize = this.R * 0.86;
     reactor.resize(this.coreSize);
-    const hit = $('reactor-btn').style;
-    hit.width = hit.height = `${this.coreSize * 0.62}px`;
-    hit.left = `${this.cx}px`;
-    hit.top = `${this.cy}px`;
+    this.onLayout?.({ x: this.cx, y: this.cy, size: this.coreSize * 0.62 });
   },
 
   // --- 3D ----------------------------------------------------------------------------------
@@ -225,15 +127,15 @@ const mind = {
     return { x: this.cx + x1 * f * this.R, y: this.cy + y2 * f * this.R, s: f, z: z2 };
   },
 
-  // По-далечното е по-бледо: z е от -1.7 (най-близо) до 1.7 (най-далеч).
+  // Farther is fainter: z runs from -1.7 (nearest) to 1.7 (farthest).
   depthAlpha: (z) => Math.max(0.12, Math.min(1, 0.62 - z * 0.33)),
 
-  // --- Кадър ----------------------------------------------------------------------------------
+  // --- Frame ----------------------------------------------------------------------------------
   frame(now) {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.t += dt;
-    reactor.frame(now, dt);
+    reactor.frame(dt);
     this.build = Math.min(1, this.build + dt / 2.4);
 
     const motion = reduceMotion ? 0 : 1;
@@ -244,7 +146,6 @@ const mind = {
     }
     this.update(dt, motion);
     this.draw();
-    requestAnimationFrame((n) => this.frame(n));
   },
 
   update(dt, motion) {
@@ -260,14 +161,14 @@ const mind = {
       node.act += (target - node.act) * Math.min(1, dt * 6);
     }
 
-    // Искри по мрежата: когато мисли — буря, иначе — тих фон.
+    // Sparks across the network: a storm while thinking, otherwise a quiet background.
     const rate = (thinking ? 34 : voice.playing ? 10 : 3) * (motion || 0.3);
     for (let n = rate * dt + Math.random() - 0.5; n > 0.5; n--) {
       this.signals.push({ link: this.links[(Math.random() * this.links.length) | 0], t: 0, v: 0.8 + Math.random() * 1.6 });
     }
     this.signals = this.signals.filter((s) => (s.t += dt * s.v) < 1);
 
-    // Импулси ядро -> балонче, докато умението работи.
+    // Pulses core -> bubble while the skill is running.
     for (const task of this.tasks) {
       if (task.state === 'run' && this.t - (task.lastPulse || 0) > 0.28) {
         task.lastPulse = this.t;
@@ -286,7 +187,7 @@ const mind = {
     ctx.clearRect(0, 0, this.w, this.h);
     const P = (p) => this.project(p);
 
-    // 1. Невронният облак — линии в четири слоя по дълбочина (по-малко рисуване = по-бързо).
+    // 1. The neuron cloud — lines in four depth layers (less drawing = faster).
     const pts = this.neurons.map(P);
     const shown = Math.floor(this.links.length * build);
     ctx.lineWidth = 0.7;
@@ -308,7 +209,7 @@ const mind = {
       ctx.fillRect(p.x - 0.8 * p.s, p.y - 0.8 * p.s, 1.6 * p.s, 1.6 * p.s);
     }
 
-    // 2. Искрите по мрежата.
+    // 2. The sparks across the network.
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (const s of this.signals) {
@@ -324,10 +225,10 @@ const mind = {
     }
     ctx.restore();
 
-    // 3. Орбитите (задната половина — преди ядрото).
+    // 3. The orbits (back half — before the core).
     this.drawRings(rgba, 'back');
 
-    // 4. Връзките ядро -> балонче и импулсите по тях.
+    // 4. Core -> bubble links and the pulses along them.
     const nodes = this.nodes.map((node) => ({ node, p: P(node.pos) }));
     this.proj = new Map(nodes.map(({ node, p }) => [node, p]));
     for (const { node, p } of nodes) {
@@ -346,7 +247,7 @@ const mind = {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (const pulse of this.pulses) {
-      if (pulse.t < 0) continue;                          // още чака реда си
+      if (pulse.t < 0) continue;                          // still waiting its turn
       const p = this.proj.get(pulse.node);
       const from = this.coreEdge(p, 0.34);
       const k = pulse.dir > 0 ? pulse.t : 1 - pulse.t;
@@ -359,14 +260,14 @@ const mind = {
     }
     ctx.restore();
 
-    // 5. Балончетата отзад, ядрото, орбитите отпред, балончетата отпред.
+    // 5. Back bubbles, the core, front orbits, front bubbles.
     const sorted = [...nodes].sort((a, c) => c.p.z - a.p.z);
     for (const item of sorted) if (item.p.z > 0) this.drawNode(item, rgba);
     ctx.drawImage(reactor.canvas, this.cx - this.coreSize / 2, this.cy - this.coreSize / 2, this.coreSize, this.coreSize);
     this.drawRings(rgba, 'front');
     for (const item of sorted) if (item.p.z <= 0) this.drawNode(item, rgba);
 
-    // 6. Надписите — винаги най-отгоре.
+    // 6. Labels — always on top.
     this.drawReminders();
     this.drawTasks(rgba);
     this.drawThought(rgba);
@@ -374,7 +275,7 @@ const mind = {
     if (hovered) this.drawAbout(hovered, rgba);
   },
 
-  // Точка по ръба на ядрото в посока към p — линиите не минават през реактора.
+  // A point on the core's edge towards p — lines do not cross the reactor.
   coreEdge(p, k) {
     const dx = p.x - this.cx, dy = p.y - this.cy;
     const d = Math.hypot(dx, dy) || 1;
@@ -396,7 +297,7 @@ const mind = {
       for (let i = 0; i <= steps; i++) {
         const a = (i / steps) * TAU * this.build + turn;
         let x = Math.cos(a) * ring.r, y = 0, z = Math.sin(a) * ring.r;
-        const [ax, , az] = ring.tilt;                     // наклон около X, после около Z
+        const [ax, , az] = ring.tilt;                     // tilt around X, then around Z
         [y, z] = [y * Math.cos(ax) - z * Math.sin(ax), y * Math.sin(ax) + z * Math.cos(ax)];
         [x, y] = [x * Math.cos(az) - y * Math.sin(az), x * Math.sin(az) + y * Math.cos(az)];
         pts.push({ ...this.project([x, y, z]), i });
@@ -412,7 +313,7 @@ const mind = {
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(c.x, c.y);
         ctx.stroke();
-        if (ring.ticks && i % 4 === 0) {                  // чертички по външната орбита
+        if (ring.ticks && i % 4 === 0) {                  // ticks on the outer orbit
           const dx = a.x - this.cx, dy = a.y - this.cy, d = Math.hypot(dx, dy) || 1;
           const len = (i % 20 === 0 ? 7 : 3) * a.s;
           ctx.beginPath();
@@ -435,7 +336,7 @@ const mind = {
     const radius = this.R * 0.085 * p.s * (0.6 + grow * 0.4) * (1 + act * 0.18);
     const hovered = node === this.hover || node === this.pinned;
 
-    if (act > 0.02) {                                     // сияние около активното балонче
+    if (act > 0.02) {                                     // glow around the active bubble
       const glow = ctx.createRadialGradient(p.x, p.y, radius * 0.5, p.x, p.y, radius * 2.8);
       glow.addColorStop(0, tone(0.32 * act));
       glow.addColorStop(1, tone(0));
@@ -444,7 +345,7 @@ const mind = {
       ctx.arc(p.x, p.y, radius * 2.8, 0, TAU);
       ctx.fill();
     }
-    // Стъкленото тяло: ръбът е по-ярък от средата — затова изглежда като балонче.
+    // The glass body: the rim is brighter than the middle — that is why it looks like a bubble.
     const body = ctx.createRadialGradient(p.x - radius * 0.3, p.y - radius * 0.35, radius * 0.1, p.x, p.y, radius);
     body.addColorStop(0, tone((0.06 + act * 0.3) * alpha));
     body.addColorStop(0.75, tone((0.05 + act * 0.12) * alpha));
@@ -456,12 +357,12 @@ const mind = {
     ctx.strokeStyle = tone((0.45 + act * 0.55 + (hovered ? 0.3 : 0)) * alpha);
     ctx.lineWidth = hovered ? 1.6 : 1;
     ctx.stroke();
-    ctx.strokeStyle = `rgba(255,255,255,${0.45 * alpha})`;  // отблясък
+    ctx.strokeStyle = `rgba(255,255,255,${0.45 * alpha})`;  // highlight
     ctx.lineWidth = Math.max(1, radius * 0.08);
     ctx.beginPath();
     ctx.arc(p.x, p.y, radius * 0.7, Math.PI * 1.08, Math.PI * 1.38);
     ctx.stroke();
-    if (act > 0.3) {                                      // вълна от активното балонче
+    if (act > 0.3) {                                      // ripple from the active bubble
       const wave = (this.t * 1.4) % 1;
       ctx.strokeStyle = tone(0.5 * (1 - wave) * act);
       ctx.beginPath();
@@ -478,7 +379,7 @@ const mind = {
     ctx.letterSpacing = '0px';
   },
 
-  // Балончета-задачи: изскачат до способността, докато тя работи, после показват резултата.
+  // Task bubbles: pop up next to the ability while it works, then show the result.
   drawTasks(rgba) {
     const { ctx } = this;
     const perNode = new Map();
@@ -495,10 +396,10 @@ const mind = {
       ctx.font = '500 11.5px "JetBrains Mono", monospace';
       const textW = Math.max(ctx.measureText(task.text).width, task.result ? ctx.measureText(task.result).width : 0);
       let bx = p.x + side * (radius + 26 + slot * 10) * pop;
-      // Балонче зад ядрото: задачата излиза встрани от реактора, за да не го закрива.
+      // Bubble behind the core: the task moves to the side so it does not cover the reactor.
       const clear = this.coreSize * 0.45 + 12;
       if (Math.abs(p.y - this.cy) < this.coreSize * 0.5) bx = side > 0 ? Math.max(bx, this.cx + clear) : Math.min(bx, this.cx - clear);
-      // Надписът не бива да излиза от сцената: ако не се побира, балончето се отмества навътре.
+      // The label must stay on stage: if it does not fit, the bubble shifts inwards.
       const overflow = side > 0 ? bx + 20 + textW + 8 - this.w : 8 - (bx - 20 - textW);
       if (overflow > 0) bx -= side * overflow;
       const by = p.y - radius - 20 - slot * 34;
@@ -522,7 +423,7 @@ const mind = {
       ctx.beginPath();
       ctx.arc(bx, by, r, 0, TAU);
       ctx.fill();
-      if (task.state === 'run') {                         // въртящ се пръстен — „работи“
+      if (task.state === 'run') {                         // spinning ring — “working”
         ctx.strokeStyle = color(0.9);
         ctx.beginPath();
         ctx.arc(bx, by, r + 4, this.t * 5, this.t * 5 + 1.6);
@@ -543,7 +444,7 @@ const mind = {
     }
   },
 
-  // Напомнянията и таймерите чакат като кехлибарени балончета около „Напомняния“.
+  // Reminders and timers wait as amber bubbles around “Reminders”.
   drawReminders() {
     const node = this.nodes.find((n) => n.id === 'reminders');
     const p = this.proj.get(node);
@@ -570,7 +471,7 @@ const mind = {
     });
   },
 
-  // Мисълта на модела — надпис с изнесена линия, като в холограмите от филма.
+  // The model's thought — a callout with a leader line, like the holograms in the film.
   drawThought(rgba) {
     const thought = this.thought;
     if (!thought) return;
@@ -601,20 +502,20 @@ const mind = {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = rgba(0.8);
-    ctx.fillText('МИСЪЛ', end.x, end.y + 16);
+    ctx.fillText('THOUGHT', end.x, end.y + 16);
     ctx.letterSpacing = '0px';
 
-    // Изписва се буква по буква над линията — отдолу нагоре.
+    // Typed out letter by letter above the line — bottom to top.
     ctx.font = '400 12px "JetBrains Mono", monospace';
     const visible = thought.text.slice(0, Math.floor(age * 140));
     const lines = this.wrap(visible, width, 4);
     this.backdrop(end.x - 6, end.y - 8 - lines.length * 17, width + 8, lines.length * 17 + 4);
-    ctx.fillStyle = `rgba(216,246,255,0.92)`;
+    ctx.fillStyle = 'rgba(216,246,255,0.92)';
     lines.forEach((line, i) => ctx.fillText(line, end.x, end.y - 8 - (lines.length - 1 - i) * 17));
     ctx.globalAlpha = 1;
   },
 
-  // Какво може способността — при посочване с мишката.
+  // What the ability can do — on mouse hover.
   drawAbout(node, rgba) {
     const p = this.proj.get(node);
     if (!p) return;
@@ -646,7 +547,7 @@ const mind = {
     this.wrap(node.about, width - 8, 3).forEach((line, i) => ctx.fillText(line, x, elbow.y + 17 + i * 16));
   },
 
-  // Лек тъмен фон зад надпис — за да се чете върху светещата мрежа.
+  // A light dark backing behind the label — readable over the glowing network.
   backdrop(x, y, w, h) {
     const { ctx } = this;
     ctx.save();
@@ -677,14 +578,14 @@ const mind = {
     return lines;
   },
 
-  // --- Мишка: въртене, посочване, клик върху ядрото = говорете ------------------------------------
+  // --- Mouse: rotate, hover, click the core = speak. Returns a function that unbinds. ----------
   bindPointer() {
     const c = this.canvas;
-    c.addEventListener('pointerdown', (e) => {
+    const down = (e) => {
       this.drag = { x: e.clientX, y: e.clientY, yaw: this.yaw, pitch: this.pitch, moved: false, vx: 0, lx: e.clientX };
       c.setPointerCapture(e.pointerId);
-    });
-    c.addEventListener('pointermove', (e) => {
+    };
+    const move = (e) => {
       const rect = c.getBoundingClientRect();
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
       if (this.drag) {
@@ -699,8 +600,8 @@ const mind = {
       this.hover = this.nodeAt(mx, my);
       const onCore = Math.hypot(mx - this.cx, my - this.cy) < this.coreSize * 0.32;
       c.style.cursor = this.hover || onCore ? 'pointer' : 'grab';
-    });
-    c.addEventListener('pointerup', (e) => {
+    };
+    const up = (e) => {
       const drag = this.drag;
       this.drag = null;
       if (!drag) return;
@@ -709,9 +610,19 @@ const mind = {
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
       if (Math.hypot(mx - this.cx, my - this.cy) < this.coreSize * 0.32) { talk(); return; }
       const node = this.nodeAt(mx, my);
-      this.pinned = node && node !== this.pinned ? node : null;  // клик закача описанието
-    });
-    c.addEventListener('pointerleave', () => { this.hover = null; });
+      this.pinned = node && node !== this.pinned ? node : null;  // a click pins the description
+    };
+    const leave = () => { this.hover = null; };
+    c.addEventListener('pointerdown', down);
+    c.addEventListener('pointermove', move);
+    c.addEventListener('pointerup', up);
+    c.addEventListener('pointerleave', leave);
+    return () => {
+      c.removeEventListener('pointerdown', down);
+      c.removeEventListener('pointermove', move);
+      c.removeEventListener('pointerup', up);
+      c.removeEventListener('pointerleave', leave);
+    };
   },
 
   nodeAt(x, y) {
@@ -723,13 +634,13 @@ const mind = {
     return best;
   },
 
-  // --- Събития от Python (през hud) ----------------------------------------------------------------
+  // --- Events from Python (via window.hud) ------------------------------------------------------
   taskStart(name, args, module = '', label = '') {
     const byModule = this.nodes.find((n) => n.id === MODULE_NODES[module]);
     const node = this.toolNode.get(name) || byModule || this.nodes.find((n) => n.id === 'evolve');
     const text = (TASK_TEXT[name] || (() => label || name))(args || {});
     this.tasks = this.tasks.filter((t) => t.node !== node || t.state === 'run' || this.t - t.doneAt < 3);
-    // Тест режимът пуска десетки проверки в минута — на екрана остават само последните три.
+    // Test mode runs dozens of checks a minute — only the last three stay on screen.
     if (name.startsWith('test:')) {
       const tests = this.tasks.filter((t) => t.name.startsWith('test:'));
       const drop = new Set(tests.slice(0, Math.max(0, tests.length - 2)));
@@ -746,7 +657,7 @@ const mind = {
     task.doneAt = this.t;
     task.result = String(result || '').replace(/\s+/g, ' ').slice(0, 52) + (String(result || '').length > 52 ? '…' : '');
     task.node.lastDone = this.t;
-    for (let i = 0; i < 4; i++) this.pulses.push({ node: task.node, t: -i * 0.12, dir: -1 });  // обратно към ядрото
+    for (let i = 0; i < 4; i++) this.pulses.push({ node: task.node, t: -i * 0.12, dir: -1 });  // back to the core
   },
 
   think(text) {

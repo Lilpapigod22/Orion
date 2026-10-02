@@ -1,8 +1,8 @@
 """
-Пазари: акции, индекси, криптовалути, валутни двойки, суровини — цени и технически анализ.
+Markets: stocks, indices, cryptocurrencies, currency pairs, commodities — prices and technical analysis.
 
-Данните са от Yahoo Finance (без регистрация), а всички индикатори се изчисляват тук, в кода —
-малкият модел само ги обяснява с думи. Анализира и CSV файлове, изтеглени от MetaTrader.
+The data comes from Yahoo Finance (no sign-up), and all indicators are computed here, in code —
+the small model only explains them in words. It also analyses CSV files exported from MetaTrader.
 """
 import json
 import math
@@ -16,7 +16,7 @@ from statistics import pstdev
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0"
 
-# Как го казва сър -> символ в Yahoo Finance.
+# How sir says it -> the Yahoo Finance symbol.
 ALIASES = {
     **dict.fromkeys(["биткойн", "биткоин", "bitcoin", "btc"], "BTC-USD"),
     **dict.fromkeys(["етериум", "етер", "ethereum", "eth"], "ETH-USD"),
@@ -66,7 +66,7 @@ ALIASES = {
     **dict.fromkeys(["джей пи морган", "jpmorgan"], "JPM"),
     **dict.fromkeys(["микростратеджи", "стратеджи", "microstrategy"], "MSTR"),
 }
-# Периоди за таймфреймите: (интервал в Yahoo, обхват, колко свещи да се обединят).
+# Periods for the timeframes: (Yahoo interval, range, how many candles to merge).
 TIMEFRAMES = {"1h": ("1h", "1mo", 1), "4h": ("1h", "6mo", 4), "1d": ("1d", "2y", 1), "1wk": ("1wk", "10y", 1)}
 
 
@@ -90,9 +90,9 @@ def _get_json(url: str) -> dict:
         return json.load(response)
 
 
-# --- Символи ---------------------------------------------------------------------------------
+# --- Symbols ---------------------------------------------------------------------------------
 def resolve(asset: str) -> str:
-    """Символът в Yahoo Finance за „биткойн“, „Тесла“, „евро долар“, „AAPL“…"""
+    """The Yahoo Finance symbol for „биткойн“, „Тесла“, „евро долар“, „AAPL“…"""
     from .apps import to_latin
     text = asset.strip().lower().rstrip("?.!")
     text = re.sub(r"^(акциите на|акции на|цената на|курса на|курсът на)\s+", "", text)
@@ -101,7 +101,7 @@ def resolve(asset: str) -> str:
     for alias in sorted(ALIASES, key=len, reverse=True):
         if len(alias) >= 4 and re.search(rf"(?<!\w){re.escape(alias)}(?!\w)", text):
             return ALIASES[alias]
-    # Вече е символ: „AAPL“ (написан с главни), „btc-usd“, „^gspc“, „eurusd=x“, „gc=f“.
+    # Already a symbol: „AAPL“ (in capitals), „btc-usd“, „^gspc“, „eurusd=x“, „gc=f“.
     raw = asset.strip()
     if (raw.isupper() and re.fullmatch(r"[\^A-Z0-9.=\-]{1,12}", raw)) or \
             re.fullmatch(r"\^[a-z0-9]{2,6}|[a-z0-9]{2,6}-[a-z]{3}|[a-z]{6}=x|[a-z]{1,3}=f", text):
@@ -117,7 +117,7 @@ def resolve(asset: str) -> str:
     raise ValueError(f"не намирам актив „{asset}“ на борсите — кажете името на английски или символа")
 
 
-# --- Данни -------------------------------------------------------------------------------------
+# --- Data ---------------------------------------------------------------------------------------
 def history(asset: str, timeframe: str = "1d") -> Series:
     symbol = resolve(asset)
     interval, span, merge = TIMEFRAMES.get(timeframe, TIMEFRAMES["1d"])
@@ -136,13 +136,13 @@ def history(asset: str, timeframe: str = "1d") -> Series:
         series.time.append(datetime.fromtimestamp(ts, timezone.utc).astimezone().replace(tzinfo=None))
         series.open.append(o); series.high.append(h); series.low.append(lo); series.close.append(c)  # noqa: E702
     live = meta.get("regularMarketPrice")
-    if live and series.close:  # последната свещ — с текущата цена
+    if live and series.close:  # the last candle — with the current price
         series.close[-1] = live
     return _merge(series, merge) if merge > 1 else series
 
 
 def _merge(series: Series, n: int) -> Series:
-    """Часови свещи -> 4-часови (по часовете 0, 4, 8…)."""
+    """Hourly candles -> 4-hour candles (at hours 0, 4, 8…)."""
     merged = Series(series.symbol, series.name, series.currency, series.timeframe, kind=series.kind)
     bucket: list[int] = []
     for i, t in enumerate(series.time):
@@ -164,7 +164,7 @@ def _flush(src: Series, dst: Series, idx: list[int]) -> None:
 
 
 def load_csv(path: Path) -> Series:
-    """CSV от MetaTrader или друг източник: дата[ час], отваряне, максимум, минимум, затваряне…"""
+    """CSV from MetaTrader or another source: date[ time], open, high, low, close…"""
     raw = Path(path).read_bytes()
     encoding = "utf-16" if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else "utf-8-sig"
     lines = [ln.strip() for ln in raw.decode(encoding, errors="replace").splitlines() if ln.strip()]
@@ -174,14 +174,14 @@ def load_csv(path: Path) -> Series:
         cells = [c.strip().strip('"') for c in line.split(delimiter)]
         stamp = cells[0]
         values = cells[1:]
-        if len(cells) > 5 and re.fullmatch(r"\d{1,2}:\d{2}(:\d{2})?", cells[1]):  # отделна колона за час
+        if len(cells) > 5 and re.fullmatch(r"\d{1,2}:\d{2}(:\d{2})?", cells[1]):  # a separate time column
             stamp, values = f"{cells[0]} {cells[1]}", cells[2:]
         try:
             moment = datetime.strptime(re.sub(r"[./]", "-", stamp)[:16].strip(), "%Y-%m-%d %H:%M") if " " in stamp \
                 else datetime.strptime(re.sub(r"[./]", "-", stamp)[:10], "%Y-%m-%d")
             o, h, lo, c = (float(v.replace(",", ".")) for v in values[:4])
         except ValueError:
-            continue  # заглавен ред или повреден ред
+            continue  # a header row or a broken row
         series.time.append(moment)
         series.open.append(o); series.high.append(h); series.low.append(lo); series.close.append(c)  # noqa: E702
     if len(series.close) < 30:
@@ -192,7 +192,7 @@ def load_csv(path: Path) -> Series:
     return series
 
 
-# --- Индикатори ------------------------------------------------------------------------------
+# --- Indicators ------------------------------------------------------------------------------
 def sma(values: list[float], n: int) -> list[float | None]:
     out, total = [], 0.0
     for i, v in enumerate(values):
@@ -216,7 +216,7 @@ def rsi(values: list[float], n: int = 14) -> float | None:
     gains = [max(0.0, values[i] - values[i - 1]) for i in range(1, len(values))]
     losses = [max(0.0, values[i - 1] - values[i]) for i in range(1, len(values))]
     avg_gain, avg_loss = sum(gains[:n]) / n, sum(losses[:n]) / n
-    for g, lo in zip(gains[n:], losses[n:]):  # изглаждане на Уайлдър
+    for g, lo in zip(gains[n:], losses[n:]):  # Wilder smoothing
         avg_gain, avg_loss = (avg_gain * (n - 1) + g) / n, (avg_loss * (n - 1) + lo) / n
     return 100.0 if avg_loss == 0 else 100 - 100 / (1 + avg_gain / avg_loss)
 
@@ -233,7 +233,7 @@ def atr(s: Series, n: int = 14) -> float | None:
 
 
 def levels(s: Series, lookback: int = 120, width: int = 5) -> tuple[float | None, float | None]:
-    """Най-близката подкрепа (дъно) под цената и съпротива (връх) над нея — от последните свещи."""
+    """The nearest support (low) below the price and resistance (high) above it — from the recent candles."""
     lows, highs = s.low[-lookback:], s.high[-lookback:]
     price = s.close[-1]
     pivots_low = [lows[i] for i in range(width, len(lows) - width)
@@ -245,7 +245,7 @@ def levels(s: Series, lookback: int = 120, width: int = 5) -> tuple[float | None
     return support, resistance
 
 
-# --- Анализ ------------------------------------------------------------------------------------
+# --- Analysis -----------------------------------------------------------------------------------
 def _fmt(value: float | None) -> str:
     if value is None:
         return "—"
@@ -261,7 +261,7 @@ def _change(s: Series, bars: int) -> float | None:
 
 
 def analyze(s: Series) -> dict:
-    """Всички числа за анализа — после report() ги подрежда в текст, а UI ги рисува."""
+    """All the numbers for the analysis — report() then turns them into text and the UI draws them."""
     c = s.close
     price = c[-1]
     sma20, sma50, sma200 = sma(c, 20), sma(c, 50), sma(c, 200)
@@ -278,14 +278,14 @@ def analyze(s: Series) -> dict:
     support, resistance = levels(s)
     daily = s.timeframe == "1d"
     week = 7 if s.kind == "CRYPTOCURRENCY" else 5
-    per_day = {"1h": 24, "4h": 6}.get(s.timeframe, 1)  # за часовите и 4-часовите свещи
+    per_day = {"1h": 24, "4h": 6}.get(s.timeframe, 1)  # for hourly and 4-hour candles
     changes = {"1 свещ": _change(s, 1), "ден": _change(s, per_day), "седмица": _change(s, per_day * 5),
                "месец": _change(s, per_day * 21)}
     if daily:
         changes = {"ден": _change(s, 1), "седмица": _change(s, week), "месец": _change(s, 21 if week == 5 else 30),
                    "3 месеца": _change(s, 63 if week == 5 else 90), "година": _change(s, 252 if week == 5 else 365)}
     cross = None
-    for i in range(len(c) - 1, max(200, len(c) - 60), -1):  # пресичане на SMA50/SMA200 в последните 60 свещи
+    for i in range(len(c) - 1, max(200, len(c) - 60), -1):  # SMA50/SMA200 crossover in the last 60 candles
         if sma50[i] and sma200[i] and sma50[i - 1] and sma200[i - 1]:
             if (sma50[i] > sma200[i]) != (sma50[i - 1] > sma200[i - 1]):
                 cross = ("златен кръст" if sma50[i] > sma200[i] else "кръст на смъртта", s.time[i])
@@ -303,7 +303,7 @@ def analyze(s: Series) -> dict:
 
 
 def report(s: Series, a: dict) -> str:
-    """Анализът като текст за модела — числата и какво значат."""
+    """The analysis as text for the model — the numbers and what they mean."""
     price = a["price"]
     notes, score = [], 0
     for label, level in (("SMA50", a["sma50"]), ("SMA200", a["sma200"])):
@@ -347,7 +347,7 @@ def report(s: Series, a: dict) -> str:
 
 
 def chart_data(s: Series, a: dict, points: int = 120) -> dict:
-    """Данните за графиката в прозореца — последните `points` свещи."""
+    """The data for the chart in the window — the last `points` candles."""
     start = max(0, len(s.close) - points)
     return {
         "symbol": s.symbol, "name": s.name, "currency": s.currency, "timeframe": s.timeframe,
@@ -362,7 +362,7 @@ def chart_data(s: Series, a: dict, points: int = 120) -> dict:
 
 
 def quote(asset: str) -> tuple[str, float, float, str]:
-    """(име, цена, промяна за деня в %, валута)."""
+    """(name, price, change for the day in %, currency)."""
     symbol = resolve(asset)
     meta = _get_json(f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(symbol)}"
                      f"?range=5d&interval=1d")["chart"]["result"][0]["meta"]
@@ -375,7 +375,7 @@ def quote(asset: str) -> tuple[str, float, float, str]:
 
 
 def price_file(name: str) -> Path:
-    """CSV файл с цени по име — на работния плот, в Документи или Изтегляния."""
+    """A price CSV file by name — on the Desktop, in Documents or Downloads."""
     if Path(name.strip('"')).is_file():
         return Path(name.strip('"'))
     home = Path.home()

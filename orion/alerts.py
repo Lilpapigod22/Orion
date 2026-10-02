@@ -1,6 +1,6 @@
 """
-Известия за цени („кажи ми, когато биткойнът стигне 90 000“) и портфейл с активи.
-Пазят се в memory/. Приложението проверява известията на няколко минути.
+Price alerts („кажи ми, когато биткойнът стигне 90 000“ — tell me when bitcoin hits 90,000) and an asset portfolio.
+Stored in memory/. The app checks the alerts every few minutes.
 """
 import json
 import threading
@@ -25,7 +25,7 @@ def save(path: Path, items: list[dict]) -> None:
 
 
 def triggered() -> list[str]:
-    """Проверява известията и връща съобщенията за сработилите (те се махат)."""
+    """Checks the alerts and returns the messages for those triggered (they are removed)."""
     from . import markets
     with _lock:
         items = load(ALERTS)
@@ -35,7 +35,7 @@ def triggered() -> list[str]:
     for item in items:
         try:
             name, price, _, currency = markets.quote(item["symbol"])
-        except Exception:  # noqa: BLE001 — без връзка: пробваме пак следващия път
+        except Exception:  # noqa: BLE001 — no connection: try again next time
             keep.append(item)
             continue
         hit = price >= item["price"] if item["direction"] == "above" else price <= item["price"]

@@ -1,9 +1,9 @@
 """
-Намиране и стартиране на програми и сайтове по име — както ги казва сър, на български или английски.
+Finding and starting programs and websites by name — the way sir says them, in Bulgarian or English.
 
-Орион не изпълнява произволни команди: стартира само програми, които са инсталирани
-(в PATH, в регистъра „App Paths“ или като пряк път в Start менюто / на работния плот),
-и отваря само http(s) адреси.
+Orion does not run arbitrary commands: it only starts programs that are installed
+(on PATH, in the “App Paths” registry key, or as a shortcut in the Start menu / on the Desktop),
+and only opens http(s) addresses.
 """
 import difflib
 import os
@@ -13,7 +13,7 @@ import time
 import webbrowser
 from pathlib import Path
 
-# Име (както го казва сър) -> команда. Добавете свои: "име": "команда или пълен път до .exe".
+# Name (as sir says it) -> command. Add your own: "name": "command or full path to the .exe".
 PROGRAMS = {
     "chrome": "chrome", "google chrome": "chrome", "хром": "chrome", "гугъл хром": "chrome",
     "edge": "msedge", "microsoft edge": "msedge", "едж": "msedge",
@@ -33,11 +33,11 @@ PROGRAMS = {
     "powerpoint": "powerpnt", "пауърпойнт": "powerpnt", "outlook": "outlook", "аутлук": "outlook",
 }
 
-# Как се произнасят приложенията от Microsoft Store -> името им в Start.
+# How Microsoft Store apps are pronounced -> their name in Start.
 STORE_ALIASES = {"клод": "claude", "клауд": "claude", "клаудия": "claude", "ексбокс": "xbox", "иксбокс": "xbox",
                  "пасианс": "solitaire", "уотсап": "whatsapp", "вотсап": "whatsapp"}
 
-# Популярни сайтове -> адрес. Всяко име с точка („abv.bg“) също се приема за сайт.
+# Popular websites -> address. Any name with a dot („abv.bg“) is also taken as a website.
 SITES = {
     "youtube": "youtube.com", "ютуб": "youtube.com", "ютюб": "youtube.com",
     "google": "google.com", "гугъл": "google.com",
@@ -55,7 +55,7 @@ SITES = {
     "abv": "abv.bg", "абв": "abv.bg",
 }
 
-# Думи, които сър казва пред името: „отвори програмата Steam“, „сайта YouTube“.
+# Words sir says before the name: „отвори програмата Steam“, „сайта YouTube“.
 _PREFIX_RE = re.compile(r"^(програмата|приложението|апликацията|играта|сайта|сайтът|страницата|уебсайта)\s+",
                         re.IGNORECASE)
 _ARTICLES = ("ът", "ят", "та", "то", "те", "а", "я")
@@ -68,7 +68,7 @@ _SKIP_SHORTCUT = re.compile(r"uninstall|деинстал|readme|help|помощ|
 
 
 def _base(word: str) -> str:
-    """„калкулатора“ -> „калкулатор“: маха членуването, за да съвпадат различните форми."""
+    """„калкулатора“ -> „калкулатор“: removes the article so the different forms match."""
     for suffix in _ARTICLES:
         if word.endswith(suffix) and len(word) - len(suffix) >= 3:
             return word[: -len(suffix)]
@@ -89,9 +89,9 @@ _PROGRAM_KEYS = {normalize(k): v for k, v in PROGRAMS.items()}
 _SITE_KEYS = {normalize(k): v for k, v in SITES.items()}
 
 
-# --- Търсене --------------------------------------------------------------------------------
+# --- Lookup ---------------------------------------------------------------------------------
 def _app_path(exe: str) -> str | None:
-    """Пълният път на програма, регистрирана в Windows („App Paths“ — напр. chrome, winword)."""
+    """The full path of a program registered in Windows (“App Paths” — e.g. chrome, winword)."""
     if os.name != "nt":
         return None
     import winreg
@@ -108,7 +108,7 @@ def _app_path(exe: str) -> str | None:
 
 
 def _resolve_command(command: str) -> str | None:
-    if command.endswith(":"):  # ms-settings: и подобни адреси на Windows
+    if command.endswith(":"):  # ms-settings: and similar Windows addresses
         return command
     if os.path.isabs(command):
         return command if os.path.isfile(command) else None
@@ -119,7 +119,7 @@ def _shortcut_files():
     env = os.environ.get
     for root in (env("APPDATA", ""), env("PROGRAMDATA", r"C:\ProgramData")):
         yield from (Path(root) / "Microsoft/Windows/Start Menu/Programs").rglob("*")
-    # Работният плот — само най-горното ниво (там са игрите), без подпапките.
+    # The Desktop — only the top level (that is where the games are), no sub-folders.
     for desktop in (Path.home() / "Desktop", Path(env("PUBLIC", r"C:\Users\Public")) / "Desktop"):
         if desktop.is_dir():
             yield from desktop.iterdir()
@@ -129,7 +129,7 @@ _shortcut_cache: tuple[float, dict[str, Path]] = (-1e9, {})
 
 
 def _shortcuts() -> dict[str, Path]:
-    """Име на пряк път (малки букви) -> файл. Опреснява се всяка минута: програмите се менят."""
+    """Shortcut name (lower case) -> file. Refreshed every minute: programs change."""
     global _shortcut_cache
     if time.monotonic() - _shortcut_cache[0] > 60:
         found: dict[str, Path] = {}
@@ -144,8 +144,8 @@ _start_apps_cache: tuple[float, dict[str, str]] = (-1e9, {})
 
 
 def _start_apps() -> dict[str, str]:
-    """Име (малки букви) -> AppID на всички приложения в Start, вкл. тези от Microsoft Store
-    (Claude, Spotify, Xbox), които нямат обикновен пряк път. Опреснява се на 10 минути."""
+    """Name (lower case) -> AppID of all apps in Start, including Microsoft Store ones
+    (Claude, Spotify, Xbox) that have no ordinary shortcut. Refreshed every 10 minutes."""
     global _start_apps_cache
     if time.monotonic() - _start_apps_cache[0] > 600:
         found = {}
@@ -166,12 +166,12 @@ def _start_apps() -> dict[str, str]:
 
 
 def _match_shortcut(query: str, fuzzy: bool, shortcuts: dict | None = None) -> tuple[str, Path] | None:
-    """Най-добре съвпадащият пряк път. Без `fuzzy` — само точно име или начало на име."""
+    """The best-matching shortcut. Without `fuzzy` — only an exact name or the start of a name."""
     shortcuts = _shortcuts() if shortcuts is None else shortcuts
     if len(query) < 3 or not shortcuts:
         return None
     latin = to_latin(query)
-    # „стийм“ -> stiym -> steem, „вайбър“ -> vaybar -> vibar: по-близо до английския правопис.
+    # „стийм“ -> stiym -> steem, „вайбър“ -> vaybar -> vibar: closer to English spelling.
     variants = {query, latin, latin.replace("iy", "ee").replace("ay", "i")}
     best, best_score = None, 0.0
     for name, path in shortcuts.items():
@@ -187,14 +187,14 @@ def _match_shortcut(query: str, fuzzy: bool, shortcuts: dict | None = None) -> t
                 score = 0.9
             else:
                 score = max(difflib.SequenceMatcher(None, q, w).ratio() for w in [name, *words])
-            # При равен резултат печели по-краткото име („Steam“ пред „Steam VR Tutorial“).
+            # On a tie the shorter name wins („Steam“ over „Steam VR Tutorial“).
             if score > best_score or (score == best_score and best and len(name) < len(best[0])):
                 best, best_score = (name, path), score
     return best if best and best_score >= 0.8 else None
 
 
 def find_program(name: str, fuzzy: bool = True) -> tuple[str, str] | None:
-    """(име за показване, команда или път) на инсталирана програма, или None."""
+    """(display name, command or path) of an installed program, or None."""
     query = normalize(name)
     if not query:
         return None
@@ -203,12 +203,12 @@ def find_program(name: str, fuzzy: bool = True) -> tuple[str, str] | None:
     if command == "browser":
         return title, "browser"
     if command:
-        # Команда („chrome“) или име на пряк път в Start менюто („visual studio code“).
+        # A command („chrome“) or a Start menu shortcut name („visual studio code“).
         shortcut = None if _resolve_command(command) else _match_shortcut(command, fuzzy=False)
         target = _resolve_command(command) or (str(shortcut[1]) if shortcut else None)
         if target:
             return title, target
-    # Игрите от Steam/Riot/Epic — по имената им („лол“, „апекс“, „хой“), преди преките пътища.
+    # Steam/Riot/Epic games — by their names („лол“, „апекс“, „хой“), before shortcuts.
     from . import games
     game = games.find(name)
     if game:
@@ -216,7 +216,7 @@ def find_program(name: str, fuzzy: bool = True) -> tuple[str, str] | None:
     shortcut = _match_shortcut(query, fuzzy)
     if shortcut:
         return shortcut[1].stem, str(shortcut[1])
-    # Приложения от Microsoft Store (Claude, Spotify, Xbox…) — стартират се през shell:AppsFolder.
+    # Microsoft Store apps (Claude, Spotify, Xbox…) — started through shell:AppsFolder.
     start_apps = _start_apps()
     app = _match_shortcut(STORE_ALIASES.get(query, query), fuzzy, start_apps)
     if app:
@@ -226,7 +226,7 @@ def find_program(name: str, fuzzy: bool = True) -> tuple[str, str] | None:
 
 
 def find_site(name: str) -> str | None:
-    """Пълният адрес на сайт по име („ютуб“ -> https://youtube.com) или None."""
+    """The full address of a website by name („ютуб“ -> https://youtube.com) or None."""
     raw = _PREFIX_RE.sub("", name.strip().strip("\"'„“”«»").rstrip(".!?"))
     if re.fullmatch(r"https?://\S+", raw, re.IGNORECASE):
         return raw
@@ -236,9 +236,9 @@ def find_site(name: str) -> str | None:
     return f"https://{site}" if site else None
 
 
-# --- Стартиране -------------------------------------------------------------------------------
+# --- Starting ---------------------------------------------------------------------------------
 def open_program(name: str) -> str:
-    """Стартира програма по име. Хвърля FileNotFoundError, ако не е инсталирана."""
+    """Starts a program by name. Raises FileNotFoundError if it is not installed."""
     found = find_program(name)
     if not found:
         raise FileNotFoundError(f"не намирам програма „{name}“ на този компютър")
@@ -250,12 +250,12 @@ def open_program(name: str) -> str:
         games.launch(games.find(name))
         return f"Пускам {title}."
     else:
-        os.startfile(target)  # noqa: S606 — само намерени, инсталирани програми
+        os.startfile(target)  # noqa: S606 — only found, installed programs
     return f"Стартирах {title}."
 
 
 def open_site(url_or_name: str) -> str:
-    """Отваря сайт в браузъра. Приема адрес („abv.bg“) или име („ютуб“)."""
+    """Opens a website in the browser. Accepts an address („abv.bg“) or a name („ютуб“)."""
     url = find_site(url_or_name)
     if not url:
         raise ValueError(f"„{url_or_name}“ не е адрес на сайт")

@@ -1,8 +1,8 @@
 """
-Търсене в интернет и четене на страници — за да може Орион да проверява информация.
+Web search and page reading — so Orion can check information.
 
-Търсенето минава през `ddgs` (DuckDuckGo и други търсачки, без ключ и регистрация).
-Страниците се четат само като текст: без скриптове, менюта и реклами.
+Search goes through `ddgs` (DuckDuckGo and other engines, no key or sign-up).
+Pages are read as text only: no scripts, menus or ads.
 """
 import re
 import urllib.request
@@ -11,12 +11,12 @@ from urllib.parse import quote, urlparse
 
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/140.0 Safari/537.36")
-MAX_PAGE_CHARS = 3500  # колкото моделът може да „прочете“, без да забрави разговора
+MAX_PAGE_CHARS = 3500  # as much as the model can “read” without forgetting the conversation
 
 
 def search(query: str, news: bool = False, max_results: int = 5, region: str = "bg-bg") -> list[dict]:
-    """[{title, url, snippet, date}] — първите резултати за заявката (region „wt-wt“ — от целия свят)."""
-    from ddgs import DDGS  # Бавен импорт — само когато наистина се търси.
+    """[{title, url, snippet, date}] — the top results for the query (region “wt-wt” — worldwide)."""
+    from ddgs import DDGS  # Slow import — only when actually searching.
     with DDGS() as ddgs:
         if news:
             hits = ddgs.news(query, region=region, max_results=max_results)
@@ -62,13 +62,13 @@ class _TextExtractor(HTMLParser):
 
 
 def read_page(url: str) -> tuple[str, str]:
-    """(заглавие, текст) на страница. Текстът е съкратен до MAX_PAGE_CHARS знака."""
+    """(title, text) of a page. The text is cut to MAX_PAGE_CHARS characters."""
     if not re.match(r"https?://", url):
         url = "https://" + url
     parts = urlparse(url)
     if not parts.netloc:
         raise ValueError(f"„{url}“ не е адрес на страница")
-    # Адреси с кирилица („bg.wikipedia.org/wiki/Канбера“) трябва да се кодират за мрежата.
+    # Addresses with Cyrillic („bg.wikipedia.org/wiki/Канбера“) must be encoded for the network.
     url = parts._replace(netloc=parts.netloc.encode("idna").decode("ascii"),
                          path=quote(parts.path, safe="/%:@!$&'()*+,;=~"),
                          query=quote(parts.query, safe="=&%+/:,;~")).geturl()
@@ -81,6 +81,6 @@ def read_page(url: str) -> tuple[str, str]:
     parser = _TextExtractor()
     parser.feed(raw.decode(charset, errors="replace"))
     lines = [re.sub(r"\s+", " ", line).strip() for line in "".join(parser.parts).split("\n")]
-    # Кратките редове са бутони, менюта и надписи — остават само изреченията.
+    # Short lines are buttons, menus and labels — only sentences are kept.
     text = "\n".join(line for line in lines if len(line) >= 40)
     return parser.title.strip(), text[:MAX_PAGE_CHARS]

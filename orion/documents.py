@@ -1,18 +1,18 @@
 """
-Документи: Word, PDF, TXT, Excel и PowerPoint от опростен markdown.
+Documents: Word, PDF, TXT, Excel and PowerPoint from simplified markdown.
 
-Текстът (написан от orion/writer.py или даден от сър) е в този вид:
+The text (written by orion/writer.py or given by sir) looks like this:
 
-    # Заглавие                 ## Раздел            ### Подраздел
-    - точка                    1. номерирана точка
-    **удебелено**  *наклонено*
-    | колона | колона |        (таблица, първият ред — заглавия)
-    >> ред вдясно              (адресатът на молба: „ДО Директора на…“)
-    [нова страница]
+    # Title                    ## Section           ### Subsection
+    - bullet                   1. numbered item
+    **bold**  *italic*
+    | column | column |        (table, the first row — headers)
+    >> right-aligned line      (the addressee of a letter: „ДО Директора на…“)
+    [нова страница]            (page break)
 
-Всеки ред е отделен абзац — така писмата и молбите запазват вида си.
-Файловете отиват в Документи\\Орион (или в папката, която сър каже), а списъкът с
-последните документи е в memory/documents.json — за „отвори го“, „добави към него“.
+Each line is a separate paragraph — so letters and applications keep their layout.
+Files go to Documents\\Орион (or the folder sir names), and the list of
+recent documents is in memory/documents.json — for „отвори го“ (open it), „добави към него“ (add to it).
 """
 import json
 import os
@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 RECENT_FILE = BASE_DIR / "memory" / "documents.json"
 FONTS = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
 
-# Как сър нарича формата -> разширение.
+# What sir calls the format -> extension.
 FORMATS = {
     "word": ".docx", "docx": ".docx", "doc": ".docx", "ворд": ".docx", "уърд": ".docx",
     "pdf": ".pdf", "пдф": ".pdf",
@@ -42,13 +42,13 @@ def extension(file_format: str, default: str = ".docx") -> str:
     return next((ext for name, ext in FORMATS.items() if name == key or name in key.split()), default)
 
 
-# --- Разбор на текста -------------------------------------------------------------------------
+# --- Parsing the text --------------------------------------------------------------------------
 @dataclass
 class Block:
     kind: str                 # title, heading, para, right, bullet, number, table, pagebreak
     text: str = ""
-    level: int = 0            # за heading (2, 3) и за вложени точки (0, 1)
-    number: str = ""          # „3.“ за номерираните точки
+    level: int = 0            # for headings (2, 3) and nested bullets (0, 1)
+    number: str = ""          # „3.“ for numbered items
     rows: list[list[str]] = field(default_factory=list)
 
 
@@ -98,10 +98,10 @@ def parse(markdown: str) -> list[Block]:
             blocks.append(Block("number", match.group(2), level=1 if indent >= 2 else 0,
                                 number=f"{match.group(1)}."))
             continue
-        if stripped.startswith(">"):  # обикновен цитат
+        if stripped.startswith(">"):  # an ordinary quote
             stripped = stripped.lstrip("> ").strip()
         blocks.append(Block("para", stripped))
-    # Табличните редове с по-малко клетки се допълват — иначе Word и PDF не ги подреждат.
+    # Table rows with fewer cells are padded — otherwise Word and PDF do not lay them out.
     for block in blocks:
         if block.kind == "table":
             width = max(len(r) for r in block.rows)
@@ -110,12 +110,12 @@ def parse(markdown: str) -> list[Block]:
 
 
 def plain(text: str) -> str:
-    """Текстът без ** и * (за TXT, заглавия и имена на файлове)."""
+    """The text without ** and * (for TXT, titles and file names)."""
     return re.sub(r"\*\*(.+?)\*\*|(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)", lambda m: m.group(1) or m.group(2), text)
 
 
 def _runs(text: str) -> list[tuple[str, bool, bool]]:
-    """„**а** б *в*“ -> [(„а“, удебелено, наклонено), …]."""
+    """„**а** б *в*“ -> [(„а“, bold, italic), …]."""
     parts = re.split(r"(\*\*.+?\*\*|(?<!\*)\*(?!\s).+?(?<!\s)\*(?!\*))", text)
     runs = []
     for part in parts:
@@ -145,13 +145,13 @@ def word_count(markdown: str) -> int:
     return len(re.findall(r"\w+", plain(markdown)))
 
 
-# --- Къде се записва ------------------------------------------------------------------------
+# --- Where files are saved ----------------------------------------------------------------
 def default_folder() -> Path:
     return folders.known().get("документи", Path.home() / "Documents") / "Орион"
 
 
 def target_path(title: str, ext: str, location: str = "") -> Path:
-    """Свободно име на файл: „Молба за отпуск.docx“, а ако вече има — „Молба за отпуск (2).docx“."""
+    """A free file name: „Молба за отпуск.docx“, and if taken — „Молба за отпуск (2).docx“."""
     folder = folders.resolve(location) if location and location.strip() else None
     if location and location.strip() and not folder:
         raise FileNotFoundError(f"не намирам папка „{location}“")
@@ -171,7 +171,7 @@ _recent_lock = threading.Lock()
 
 
 def recent() -> list[Path]:
-    """Документите, които Орион е създал — последният е първи. Само съществуващите."""
+    """The documents Orion has created — the latest first. Only existing ones."""
     try:
         items = json.loads(RECENT_FILE.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -237,7 +237,7 @@ def _docx_blocks(doc, blocks: list[Block]) -> None:
             p.paragraph_format.space_after = Pt(2)
             _docx_runs(p, block.text)
         elif block.kind == "number":
-            # Номерът е текст: вградената номерация на Word продължава от предишния списък.
+            # The number is text: Word's built-in numbering would continue from the previous list.
             # \u041e\u0442\u0441\u0442\u044a\u043f\u044a\u0442 \u0435 \u043a\u0430\u0442\u043e \u043d\u0430 \u0442\u043e\u0447\u043a\u0438\u0442\u0435 (\u201eList Bullet\u201c), \u0430 \u0442\u0430\u0431\u0443\u043b\u0430\u0446\u0438\u044f\u0442\u0430 \u043f\u043e\u0434\u0440\u0430\u0432\u043d\u044f\u0432\u0430 \u0442\u0435\u043a\u0441\u0442\u0430.
             p = doc.add_paragraph()
             p.paragraph_format.left_indent = Cm(0.63 * (block.level + 1))
@@ -267,7 +267,7 @@ def to_docx(blocks: list[Block], path: Path, title: str = "") -> None:
 
     doc = Document()
     section = doc.sections[0]
-    section.page_width, section.page_height = Cm(21), Cm(29.7)  # A4 (по подразбиране е US Letter)
+    section.page_width, section.page_height = Cm(21), Cm(29.7)  # A4 (the default is US Letter)
     section.left_margin = section.right_margin = Cm(2.5)
     section.top_margin = section.bottom_margin = Cm(2)
     normal = doc.styles["Normal"]
@@ -283,7 +283,7 @@ def to_docx(blocks: list[Block], path: Path, title: str = "") -> None:
 
 # --- PDF --------------------------------------------------------------------------------------
 def _pdf_text(text: str) -> str:
-    """Нашият markdown -> този на fpdf2 (**удебелено**, __наклонено__); „--“ там е подчертаване."""
+    """Our markdown -> fpdf2's (**bold**, __italic__); „--“ there means underline."""
     out = []
     for chunk, bold, italic in _runs(text):
         chunk = chunk.replace("--", "–").replace("__", "_").replace("**", "")
@@ -349,7 +349,7 @@ def to_pdf(blocks: list[Block], path: Path, title: str = "") -> None:
     pdf.output(str(path))
 
 
-# --- TXT и Markdown ------------------------------------------------------------------------------
+# --- TXT and Markdown -----------------------------------------------------------------------------
 def to_text(blocks: list[Block]) -> str:
     lines: list[str] = []
     for block in blocks:
@@ -378,7 +378,7 @@ def to_text(blocks: list[Block]) -> str:
 
 
 def save(markdown: str, path: Path, title: str = "") -> None:
-    """Записва текста във формата на разширението на `path`."""
+    """Saves the text in the format of `path`'s extension."""
     blocks = parse(markdown)
     if not blocks:
         raise ValueError("документът е празен")
@@ -390,12 +390,12 @@ def save(markdown: str, path: Path, title: str = "") -> None:
     elif ext == ".md":
         path.write_text(markdown.strip() + "\n", encoding="utf-8")
     else:
-        path.write_text(to_text(blocks), encoding="utf-8-sig")  # с BOM — Notepad чете кирилицата
+        path.write_text(to_text(blocks), encoding="utf-8-sig")  # with a BOM — Notepad reads the Cyrillic
     remember(path)
 
 
 def append(path: Path, markdown: str) -> None:
-    """Добавя текст в края на съществуващ Word, TXT или Markdown файл."""
+    """Appends text to the end of an existing Word, TXT or Markdown file."""
     ext = path.suffix.lower()
     blocks = parse(markdown)
     if not blocks:
@@ -425,7 +425,7 @@ _DATE_RE = re.compile(r"^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s*г\.?)?$")
 
 
 def _excel_value(text: str):
-    """Текст от таблицата -> (стойност, числов формат или None)."""
+    """Text from the table -> (value, number format or None)."""
     value = plain(text).strip()
     if value.startswith("="):
         formula = value.replace(";", ",")
@@ -461,8 +461,8 @@ def _excel_value(text: str):
 
 
 def _column_format(ws, column: int) -> None:
-    """Еднакъв вид на числата в колоната: „Сума (лв.)“ — с „лв.“, ако има дробни — с две цифри
-    след запетаята, процентите — с %. И сумата най-долу (формулата) е в същия вид."""
+    """A consistent number format in a column: „Сума (лв.)“ — with „лв.“, with decimals — two digits
+    after the decimal point, percentages — with %. The total at the bottom (the formula) uses the same format."""
     from collections import Counter
     header = str(ws.cell(row=1, column=column).value or "").lower()
     cells = [ws.cell(row=r, column=column) for r in range(2, ws.max_row + 1)]
@@ -488,8 +488,8 @@ def _column_format(ws, column: int) -> None:
 
 
 def sheets_from(markdown: str) -> list[tuple[str, list[list[str]]]]:
-    """[(име на лист, редове)] — всяко „## Име“ започва нов лист; редовете са от таблиците
-    с „|“ (или редове с „;“ / табулация, ако таблица няма)."""
+    """[(sheet name, rows)] — every „## Name“ starts a new sheet; rows come from the tables
+    with „|“ (or lines with „;“ / tabs if there is no table)."""
     sheets: list[tuple[str, list[list[str]]]] = []
     name = ""
     for block in parse(markdown):
@@ -498,7 +498,7 @@ def sheets_from(markdown: str) -> list[tuple[str, list[list[str]]]]:
         elif block.kind == "table":
             sheets.append((name or f"Лист{len(sheets) + 1}", block.rows))
             name = ""
-    if not sheets:  # CSV: „Име;Сума“
+    if not sheets:  # CSV: „Name;Sum“
         rows = [re.split(r"\s*[;\t]\s*", line.strip()) for line in markdown.splitlines()
                 if (";" in line or "\t" in line) and line.strip()]
         if rows:
@@ -538,7 +538,7 @@ def to_xlsx(sheets: list[tuple[str, list[list[str]]]], path: Path, title: str = 
                     if number_format:
                         cell.number_format = number_format
                     if plain(str(row[0])).strip().lower().startswith(("общо", "всичко", "сума", "total")):
-                        cell.font = Font(bold=True)  # редът с общата сума
+                        cell.font = Font(bold=True)  # the total row
                 cell.border = Border(top=thin, bottom=thin, left=thin, right=thin)
         for c in range(1, max(len(r) for r in rows) + 1):
             longest = max(len(plain(str(row[c - 1]))) if c - 1 < len(row) else 0 for row in rows)
@@ -556,12 +556,12 @@ def to_xlsx(sheets: list[tuple[str, list[list[str]]]], path: Path, title: str = 
 @dataclass
 class Slide:
     title: str
-    points: list[tuple[str, int]] = field(default_factory=list)  # (текст, ниво)
+    points: list[tuple[str, int]] = field(default_factory=list)  # (text, level)
     notes: str = ""
 
 
 def slides_from(markdown: str) -> tuple[str, str, list[Slide]]:
-    """(заглавие, подзаглавие, слайдове) от „# Заглавие“, ред подзаглавие, „## Слайд“, „- точка“."""
+    """(title, subtitle, slides) from „# Title“, a subtitle line, „## Slide“, „- bullet“."""
     title, subtitle, slides = "", "", []
     for block in parse(markdown):
         text = plain(block.text)
@@ -618,7 +618,7 @@ def to_pptx(title: str, subtitle: str, slides: list[Slide], path: Path) -> None:
     sub.text = subtitle or datetime.now().strftime("%d.%m.%Y")
     style(head.text_frame, 44, RGBColor(0xFF, 0xFF, 0xFF), bold=True)
     style(sub.text_frame, 22, RGBColor(0xBC, 0xD9, 0xE8))
-    # Правоъгълниците са добавени след полетата — местим ги отзад, за да не ги закриват.
+    # The rectangles are added after the placeholders — move them to the back so they do not cover them.
     tree = cover.shapes._spTree
     for shape in [s for s in cover.shapes if not s.is_placeholder]:
         tree.remove(shape._element)
@@ -654,9 +654,9 @@ def to_pptx(title: str, subtitle: str, slides: list[Slide], path: Path) -> None:
     remember(path)
 
 
-# --- PDF от Word, Excel и PowerPoint (през самите програми на Office) ---------------------------
+# --- PDF from Word, Excel and PowerPoint (through the Office programs themselves) ----------------
 def office_to_pdf(path: Path, timeout: float = 120) -> Path:
-    """Превръща .docx/.xlsx/.pptx в PDF до оригинала. TXT и Markdown — без Office."""
+    """Converts .docx/.xlsx/.pptx to a PDF next to the original. TXT and Markdown — without Office."""
     ext = path.suffix.lower()
     out = target_path(path.stem, ".pdf", str(path.parent))
     if ext in (".txt", ".md"):
@@ -691,7 +691,7 @@ def office_to_pdf(path: Path, timeout: float = 120) -> Path:
                 presentation = app.Presentations.Open(str(path), ReadOnly=True, WithWindow=False)
                 presentation.SaveAs(str(out), 32)  # ppSaveAsPDF
                 presentation.Close()
-        except Exception as e:  # noqa: BLE001 — връща се на нишката, която чака
+        except Exception as e:  # noqa: BLE001 — returned to the waiting thread
             errors.append(e)
         finally:
             if app is not None:

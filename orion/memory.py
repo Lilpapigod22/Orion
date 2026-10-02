@@ -1,9 +1,9 @@
 """
-Краткосрочна памет — историята на разговора.
+Short-term memory — the conversation history.
 
-Пази и извикванията на умения с (съкратените) им резултати: ако моделът вижда в историята
-само готови отговори, започва да им подражава и да отговаря, без да използва умения.
-Записва се във файл, така че Орион помни последния разговор и след рестарт.
+It also keeps skill calls with their (shortened) results: if the model only sees finished
+answers in the history, it starts imitating them and answering without using skills.
+It is saved to a file, so Orion remembers the last conversation after a restart.
 """
 import json
 import time
@@ -13,21 +13,21 @@ from pathlib import Path
 
 class ConversationMemory:
     def __init__(self, max_turns: int = 12, path: Path | None = None, keep_hours: float = 12):
-        # Всеки елемент е една реплика: [въпрос, (извикване, резултат)…, отговор]; старите отпадат.
+        # Each item is one exchange: [question, (call, result)…, answer]; old ones drop off.
         self._turns: deque[dict] = deque(maxlen=max_turns)
         self.path = Path(path) if path else None
         self.keep_seconds = keep_hours * 3600
         self._load()
 
     def add_turn(self, user_text: str, assistant_text: str, steps: list[dict] | None = None) -> None:
-        """`steps` — съобщенията с извиквания на умения и резултатите им (формат на LLM API-то)."""
+        """`steps` — the messages with skill calls and their results (LLM API format)."""
         self._turns.append({"time": time.time(), "messages": [
             {"role": "user", "content": user_text}, *(steps or []),
             {"role": "assistant", "content": assistant_text}]})
         self._save()
 
     def as_messages(self) -> list[dict]:
-        """Връща историята във формата на съобщения за LLM API-то."""
+        """Returns the history as messages for the LLM API."""
         return [message for turn in self._turns for message in turn["messages"]]
 
     def last_user_text(self) -> str:
@@ -40,7 +40,7 @@ class ConversationMemory:
         self._turns.clear()
         self._save()
 
-    # --- Файл -----------------------------------------------------------------------------------
+    # --- File -----------------------------------------------------------------------------------
     def _load(self) -> None:
         if not self.path:
             return
@@ -48,7 +48,7 @@ class ConversationMemory:
             turns = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return
-        # Само скорошният разговор: вчерашният би объркал днешните въпроси.
+        # Only the recent conversation: yesterday's would confuse today's questions.
         fresh = [t for t in turns if time.time() - t.get("time", 0) < self.keep_seconds]
         self._turns.extend(fresh[-self._turns.maxlen:])
 
@@ -58,12 +58,12 @@ class ConversationMemory:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self.path.write_text(json.dumps(list(self._turns), ensure_ascii=False), encoding="utf-8")
-        except OSError as e:  # паметта не бива да спира разговора
+        except OSError as e:  # memory must never stop the conversation
             print(f"[Памет] Не успях да запиша разговора: {e}")
 
 
 def tool_steps(call_id: str, name: str, arguments: str, result: str) -> list[dict]:
-    """Едно извикване на умение като съобщения за паметта (напр. от рефлекс)."""
+    """One skill call as memory messages (e.g. from a reflex)."""
     return [
         {"role": "assistant", "content": "", "tool_calls": [
             {"id": call_id, "type": "function", "function": {"name": name, "arguments": arguments}}]},

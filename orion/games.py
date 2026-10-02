@@ -1,8 +1,8 @@
 """
-Игрите на компютъра — от Steam, Riot (League of Legends, VALORANT) и Epic Games.
+The games on this computer — from Steam, Riot (League of Legends, VALORANT) and Epic Games.
 
-Намират се по имената, както ги казва сър: „пусни Апекс“, „лол“, „хартс ъф айрън“, „хой“.
-Стартират се през собствения си лаунчер (steam://, Riot Client, Epic), както с двоен клик.
+Found by the names sir uses: „пусни Апекс“, „лол“, „хартс ъф айрън“, „хой“.
+Started through their own launcher (steam://, Riot Client, Epic), just like a double-click.
 """
 import difflib
 import glob
@@ -18,10 +18,10 @@ from pathlib import Path
 class Game:
     name: str
     source: str               # steam, riot, epic
-    launch: str | list[str]   # адрес (steam://…) или команда с аргументи (Riot)
+    launch: str | list[str]   # an address (steam://…) or a command with arguments (Riot)
 
 
-# Как го казва сър -> истинското име (или част от него). Съкращенията се разпознават и сами.
+# How sir says it -> the real name (or part of it). Abbreviations are also recognised automatically.
 ALIASES = {
     "лол": "league of legends", "лига": "league of legends", "лигата": "league of legends",
     "лига на легендите": "league of legends", "кс": "counter-strike", "каунтър": "counter-strike",
@@ -97,7 +97,7 @@ def _epic_games() -> list[Game]:
 
 
 def installed() -> list[Game]:
-    """Всички инсталирани игри. Опреснява се всяка минута."""
+    """All installed games. Refreshed every minute."""
     global _cache
     if time.monotonic() - _cache[0] > 60:
         games = _steam_games() + _riot_games() + _epic_games()
@@ -112,7 +112,7 @@ def _initials(name: str) -> str:
 
 
 def find(query: str) -> Game | None:
-    """Играта, която сър има предвид, или None."""
+    """The game sir means, or None."""
     from .apps import normalize, to_latin
     games = installed()
     if not games:
@@ -144,4 +144,4 @@ def launch(game: Game) -> None:
         import subprocess
         subprocess.Popen(game.launch, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     else:
-        os.startfile(game.launch)  # noqa: S606 — steam:// и com.epicgames.launcher:// адреси
+        os.startfile(game.launch)  # noqa: S606 — steam:// and com.epicgames.launcher:// addresses

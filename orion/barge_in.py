@@ -1,15 +1,15 @@
 """
-Прекъсване с глас: докато Орион говори, микрофонът слуша за „стоп“, „спри“, „Орион…“.
+Voice interruption: while Orion speaks, the microphone listens for „стоп“, „спри“, „Орион…“.
 
-    „Стоп“, „спри“, „стига“, „млъкни“…   -> Орион млъква.
-    „Орион, <команда>“                    -> млъква и изпълнява командата.
-    „Орион“ или „чакай“                   -> млъква и Ви изслушва.
+    „Стоп“, „спри“, „стига“, „млъкни“…   -> Orion stops talking.
+    „Орион, <command>“                    -> stops and runs the command.
+    „Орион“ or „чакай“ (wait)            -> stops and listens to you.
 
-Микрофонът чува и самия Орион (от колоните), затова:
-  - разпознава се локално, с Whisper на видеокартата — нищо не излиза в интернет;
-  - дума-сигнал, която Орион сам казва в момента (или много прилича на такава), не се
-    брои — това е ехото му.
-Думите-сигнали са в config.py (BARGE_IN_STOP_WORDS, BARGE_IN_WAIT_WORDS, WAKE_WORDS).
+The microphone also hears Orion itself (from the speakers), so:
+  - recognition is local, with Whisper on the graphics card — nothing goes to the internet;
+  - a signal word that Orion itself is saying right now (or that closely resembles one) does not
+    count — that is its echo.
+The signal words are in config.py (BARGE_IN_STOP_WORDS, BARGE_IN_WAIT_WORDS, WAKE_WORDS).
 """
 import audioop
 import re
@@ -33,19 +33,19 @@ def _words(text: str) -> list[str]:
 
 
 def _echo(word: str, own: set[str]) -> bool:
-    """Думата е от това, което Орион казва в момента (Whisper може да я чуе леко различно)."""
+    """The word is part of what Orion is saying right now (Whisper may hear it slightly differently)."""
     if word in WAKE:
         return bool(own & WAKE)
     return word in own or (len(word) >= 4 and any(o[:4] == word[:4] for o in own if len(o) >= 4))
 
 
 def fresh_words(heard: str, spoken: str) -> list[str]:
-    """Думите, които не са ехо от гласа на Орион."""
-    own = set(_words(numbers_to_digits(spoken)))  # Whisper пише числата с цифри: „двадесет“ -> „20“
+    """The words that are not an echo of Orion's voice."""
+    own = set(_words(numbers_to_digits(spoken)))  # Whisper writes numbers as digits: „двадесет“ -> „20“
     fresh = []
     for word in _words(heard):
         if word == "100" and "100" not in own:
-            word = "стоп"  # Whisper често чува „стоп“ като „сто“ и го пише „100“
+            word = "стоп"  # Whisper often hears „стоп“ as „сто“ (hundred) and writes „100“
         if not _echo(word, own):
             fresh.append(word)
     return fresh
@@ -59,13 +59,13 @@ def _only_signals(words: list[str]) -> bool:
 
 
 def only_signals(text: str) -> bool:
-    """„Орион, стоп“, „чакай малко“ — само думи-сигнали, без команда."""
+    """„Орион, стоп“, „чакай малко“ — only signal words, no command."""
     return _only_signals(_words(text))
 
 
 def verdict(heard: str, spoken: str) -> str | None:
-    """Какво иска сър, докато Орион говори: "stop", "command" (каза „Орион, …“), "listen"
-    (само „Орион“ или „чакай“ — ще каже командата след малко) или None (ехо или шум)."""
+    """What sir wants while Orion speaks: "stop", "command" (said „Орион, …“), "listen"
+    (just „Орион“ or „чакай“ — the command follows shortly) or None (echo or noise)."""
     fresh = fresh_words(heard, spoken)
     has_wake = any(w in WAKE for w in fresh)
     if any(w in STOP for w in fresh) and (not has_wake or _only_signals(fresh)):
@@ -78,15 +78,15 @@ def verdict(heard: str, spoken: str) -> str | None:
 
 
 class Monitor:
-    """Слуша, докато Орион говори. Вика `on_trigger(вид)` в мига, в който сър го прекъсне,
-    и — ако след „Орион“ има команда — записва я в `command_audio` (speech_recognition.AudioData)."""
+    """Listens while Orion speaks. Calls `on_trigger(kind)` the moment sir interrupts,
+    and — if a command follows „Орион“ — records it into `command_audio` (speech_recognition.AudioData)."""
 
-    # Сравнено на смесен запис (ехо + глас): 3 s хващат думата в повече прозорци от 2 s, а една
-    # проверка отнема ~0.2 s на видеокартата. Без „hotwords“ — с тях Whisper „чува“ думите-сигнали в ехото.
-    WINDOW = 3.0          # секунди звук, които Whisper гледа наведнъж
-    STEP = 0.25           # колко често
-    SILENCE = 1.0         # толкова тишина след командата = „свърших“
-    WAIT_FOR_SPEECH = 6.0 # след „Орион“ или „чакай“ — колко чака да заговорите
+    # Compared on a mixed recording (echo + voice): 3 s catch the word in more windows than 2 s, and one
+    # check takes ~0.2 s on the graphics card. No “hotwords” — with them Whisper “hears” the signal words in the echo.
+    WINDOW = 3.0          # seconds of audio Whisper looks at at once
+    STEP = 0.25           # how often
+    SILENCE = 1.0         # this much silence after the command = “done”
+    WAIT_FOR_SPEECH = 6.0 # after „Орион“ or „чакай“ — how long it waits for you to speak
     MAX_COMMAND = 15.0
 
     def __init__(self, microphone, energy_threshold: float, spoken: str, on_trigger: Callable[[str], None]):
@@ -106,13 +106,13 @@ class Monitor:
         self._thread.start()
 
     def finish(self, timeout: float | None = None) -> None:
-        """Говорът свърши: спира слушането — или изчаква да се запише командата на сър."""
+        """Speech is over: stops listening — or waits for sir's command to be recorded."""
         if self.kind is None:
             self._stop.set()
         self._thread.join(self.MAX_COMMAND + 5 if timeout is None else timeout)
         self._stop.set()
 
-    # --- Вътрешно --------------------------------------------------------------------------------
+    # --- Internals -------------------------------------------------------------------------------
     def _run(self) -> None:
         try:
             with self.microphone as source:
@@ -123,11 +123,11 @@ class Monitor:
                 finally:
                     self._stop.set()
                     reader.join(2)
-        except Exception as e:  # noqa: BLE001 — без прекъсване, но Орион продължава да говори
+        except Exception as e:  # noqa: BLE001 — no interruption, but Orion keeps talking
             print(f"[Прекъсване] Микрофонът не се отвори: {e}")
 
     def _read(self, source) -> None:
-        # Отделна нишка: докато Whisper мисли, звукът продължава да се записва без дупки.
+        # A separate thread: while Whisper thinks, audio keeps being recorded without gaps.
         while not self._stop.is_set():
             data = source.stream.read(source.CHUNK)
             with self._lock:
@@ -148,7 +148,7 @@ class Monitor:
             checked = total
             raw = b"".join(frames)
             if audioop.rms(raw, width) < self.threshold * 0.6:
-                continue  # тишина — никой не говори
+                continue  # silence — nobody is speaking
             pcm = sr.AudioData(raw, rate, width).get_raw_data(convert_rate=16000, convert_width=2)
             found = speech.words(pcm)
             heard = " ".join(w for w, _, _ in found)
@@ -160,16 +160,16 @@ class Monitor:
             self.on_trigger(kind)
             if kind == "stop":
                 return
-            # Записът на командата започва от „Орион“ (по-ранното в прозореца е гласът на Орион),
-            # а след „чакай“ — от сега. При „Орион“ без команда се чака сър да я каже.
-            first = total - len(frames)  # номерът на първия запис в прозореца
+            # The command recording starts at „Орион“ (anything earlier in the window is Orion's voice),
+            # and after „чакай“ — from now. For „Орион“ without a command, it waits for sir to say it.
+            first = total - len(frames)  # the number of the first recording in the window
             wake_at = next((s for w, s, _ in found if set(_words(w)) & WAKE), None)
             begin = first + int(max(0.0, wake_at - 0.2) * per_second) if wake_at is not None else total
             self._record_command(source, sr, begin, total, waiting=(kind == "listen"))
             return
 
     def _record_command(self, source, sr, begin: int, seen: int, waiting: bool) -> None:
-        """Записва, докато сър говори; спира след секунда тишина."""
+        """Records while sir speaks; stops after a second of silence."""
         width = source.SAMPLE_WIDTH
         started = last_voice = time.monotonic()
         spoke = not waiting

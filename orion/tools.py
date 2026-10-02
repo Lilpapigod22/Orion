@@ -1,21 +1,21 @@
 """
-Система за Умения (Tools / Function Calling).
+The skill system (Tools / Function Calling).
 
-Добавянето на ново умение е едно Python функция с декоратор:
+Adding a new skill is one Python function with a decorator:
 
     from orion import orion_tool
 
     @orion_tool
     def get_time(city: str) -> str:
-        '''Връща текущия час в даден град.
+        '''Returns the current time in a given city.
 
         Args:
-            city: Името на града.
+            city: The name of the city.
         '''
         ...
 
-От сигнатурата (типове, стойности по подразбиране) и docstring-а автоматично се
-генерира JSON схема, която LLM-ът използва, за да реши кога и как да извика функцията.
+From the signature (types, default values) and the docstring, a JSON schema is
+generated automatically, which the LLM uses to decide when and how to call the function.
 """
 import importlib.util
 import inspect
@@ -29,12 +29,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-# Съответствие между Python типове и JSON Schema типове.
+# Mapping between Python types and JSON Schema types.
 _JSON_TYPES = {str: "string", int: "integer", float: "number", bool: "boolean", list: "array", dict: "object"}
 
 
 def _parse_docstring(doc: str) -> tuple[str, dict[str, str]]:
-    """Разделя docstring на общо описание и описания на параметрите (секция `Args:`)."""
+    """Splits a docstring into the general description and parameter descriptions (the `Args:` section)."""
     doc = inspect.cleandoc(doc or "")
     description, _, args_block = doc.partition("Args:")
     param_docs = {}
@@ -46,17 +46,17 @@ def _parse_docstring(doc: str) -> tuple[str, dict[str, str]]:
 
 
 class OrionTools:
-    """Регистър на всички умения, които Орион може да използва."""
+    """Registry of all the skills Orion can use."""
 
     def __init__(self):
-        self._tools: dict[str, dict] = {}  # име -> {"func": ..., "schema": ..., "module": ...}
-        self._files: dict[str, Path] = {}  # модул -> файл, от който е зареден
-        # Последните грешки на уменията — Орион ги чете, когато се самопоправя.
+        self._tools: dict[str, dict] = {}  # name -> {"func": ..., "schema": ..., "module": ...}
+        self._files: dict[str, Path] = {}  # module -> the file it was loaded from
+        # The latest skill errors — Orion reads them when it repairs itself.
         self.errors: deque[dict] = deque(maxlen=30)
 
-    # --- Регистриране ----------------------------------------------------------
+    # --- Registration ----------------------------------------------------------
     def tool(self, func: Callable | None = None, *, name: str | None = None, description: str | None = None):
-        """Декоратор. Може да се ползва като `@tool` или `@tool(name=..., description=...)`."""
+        """Decorator. Can be used as `@tool` or `@tool(name=..., description=...)`."""
 
         def register(f: Callable) -> Callable:
             tool_name = name or f.__name__
@@ -89,25 +89,25 @@ class OrionTools:
 
         return register(func) if func is not None else register
 
-    # --- Използване от AI ядрото ------------------------------------------------
+    # --- Use by the AI core -----------------------------------------------------
     def schemas(self, exclude_modules: set[str] | frozenset = frozenset()) -> list[dict]:
-        """Описанията на уменията за модела — без тези от `exclude_modules` (виж orion/router.py)."""
+        """The skill descriptions for the model — without those from `exclude_modules` (see orion/router.py)."""
         return [t["schema"] for t in self._tools.values() if t["module"] not in exclude_modules]
 
     def names(self) -> list[str]:
         return list(self._tools)
 
     def describe(self) -> list[tuple[str, str]]:
-        """(име, описание) на всички умения."""
+        """(name, description) of all skills."""
         return [(n, t["schema"]["function"]["description"]) for n, t in self._tools.items()]
 
     def source_file(self, name: str) -> Path | None:
-        """Файлът, в който е написано умението."""
+        """The file the skill is written in."""
         tool = self._tools.get(name)
         return self._files.get(tool["module"]) if tool else None
 
     def call(self, name: str, arguments: str | dict | None) -> str:
-        """Изпълнява умение по име. Грешките се връщат като текст, за да може моделът да реагира."""
+        """Runs a skill by name. Errors are returned as text so the model can react."""
         if name not in self._tools:
             return f"Грешка: няма умение с име '{name}'."
         try:
@@ -115,7 +115,7 @@ class OrionTools:
                 arguments = json.loads(arguments or "{}")
             result = self._tools[name]["func"](**(arguments or {}))
             return str(result)
-        except Exception as e:  # noqa: BLE001 — всяка грешка се докладва на модела
+        except Exception as e:  # noqa: BLE001 — every error is reported to the model
             self.errors.append({
                 "tool": name,
                 "arguments": arguments,
@@ -125,23 +125,23 @@ class OrionTools:
             })
             return f"Грешка при изпълнение на '{name}': {type(e).__name__}: {e}"
 
-    # --- Автоматично зареждане на плъгини --------------------------------------
+    # --- Automatic plugin loading --------------------------------------------
     def load_skills(self, folder: Path) -> None:
-        """Импортира всеки .py файл от папката (без тези, започващи с '_').
+        """Imports every .py file in the folder (except those starting with '_').
 
-        Импортирането изпълнява декораторите @orion_tool и така уменията се регистрират.
+        Importing runs the @orion_tool decorators, which registers the skills.
         """
         for path in sorted(Path(folder).glob("*.py")):
             if not path.name.startswith("_"):
                 try:
                     self.load_skill_file(path)
-                except Exception as e:  # noqa: BLE001 — един счупен плъгин не спира Орион
+                except Exception as e:  # noqa: BLE001 — one broken plugin does not stop Orion
                     print(f"[Умения] Неуспешно зареждане на {path.name}: {e}")
 
     def load_skill_file(self, path: Path) -> list[str]:
-        """(Пре)зарежда един файл с умения без рестарт. Връща имената на уменията в него.
+        """(Re)loads one skill file without a restart. Returns the names of its skills.
 
-        При грешка старите умения от файла остават активни.
+        On error the file's old skills stay active.
         """
         path = Path(path)
         module_name = f"skills.{path.stem}"
@@ -154,7 +154,7 @@ class OrionTools:
             sys.modules[module_name] = module
             spec.loader.exec_module(module)
         except BaseException:
-            self._tools.update(previous)  # Връщаме работещата версия.
+            self._tools.update(previous)  # Restore the working version.
             raise
         self._files[module_name] = path
         return [n for n, t in self._tools.items() if t["module"] == module_name]
@@ -167,6 +167,6 @@ class OrionTools:
         sys.modules.pop(module_name, None)
 
 
-# Глобален регистър + кратък псевдоним за декоратора.
+# Global registry + a short alias for the decorator.
 registry = OrionTools()
 orion_tool = registry.tool

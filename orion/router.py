@@ -1,10 +1,10 @@
 """
-Подбор на умения за всеки въпрос.
+Skill selection for each question.
 
-Малкият модел се обърква, когато вижда 50 умения наведнъж: избира грешното или никое.
-Затова основните умения се предлагат винаги, а специализираните групи (поща, компютър,
-зрение, справки) — само когато в молбата или в предишната реплика има подходяща дума.
-Модулите, които не са тук (основните и новите, написани от самия Орион), са винаги налични.
+The small model gets confused when it sees 50 skills at once: it picks the wrong one or none.
+So the core skills are always offered, and the specialised groups (mail, computer,
+vision, look-ups) only when the request or the previous reply contains a matching word.
+Modules not listed here (the core ones and new ones written by Orion) are always available.
 """
 import json
 import re
@@ -64,7 +64,8 @@ GROUPS = {
         r"бензиностанция|ресторант|банкомат|карта|google maps|къде се намира", re.IGNORECASE),
     "skills.media_skills": re.compile(r"радио|spotify|спотифай|музика|песен|песни|плейлист", re.IGNORECASE),
     "skills.reels_skills": re.compile(
-        r"youtu|ютуб|рийл|reel|шортс|shorts|изрежи|изрязва|клипа|клипове|видеото|моменти|хайлайт|highlight",
+        r"youtu|ютуб|рийл|reel|шортс|shorts|изрежи|изрязва|клипа|клипове|видеото|моменти|хайлайт|highlight|"
+        r"авторски права|копирайт|creative commons|свободни видеа|свободни клипове|лиценз",
         re.IGNORECASE),
     "skills.trading_skills": re.compile(
         r"сравни|страх|алчност|портфейл|известие|кажи ми когато|кажи ми, когато|стигне|надмине|падне под|"
@@ -77,15 +78,15 @@ GROUPS = {
 }
 
 
-# Думи, които Орион е научил сам в тест режим (orion/self_test.py): молба с такава дума не е
-# разбрана, защото групата ѝ е била скрита. Пазят се отделно, за да се виждат и махат лесно.
+# Words Orion learned by itself in test mode (orion/self_test.py): a request with such a word was not
+# understood because its group was hidden. Kept separately so they are easy to see and remove.
 LEARNED_FILE = Path(__file__).resolve().parent.parent / "memory" / "learned_routes.json"
 _learned: dict = {"mtime": None, "words": {}}
 _lock = threading.Lock()
 
 
 def learned() -> dict[str, list[str]]:
-    """{модул: [думи]} от memory/learned_routes.json (чете се наново, ако файлът е променен)."""
+    """{module: [words]} from memory/learned_routes.json (re-read if the file changed)."""
     try:
         mtime = LEARNED_FILE.stat().st_mtime
     except OSError:
@@ -101,7 +102,7 @@ def learned() -> dict[str, list[str]]:
 
 
 def learn(module: str, word: str) -> None:
-    """Добавя дума, която занапред показва групата `module`."""
+    """Adds a word that from now on shows the group `module`."""
     words = {m: list(w) for m, w in learned().items()}
     if word not in words.setdefault(module, []):
         words[module].append(word)
@@ -111,8 +112,8 @@ def learn(module: str, word: str) -> None:
 
 def excluded_modules(user_text: str, previous_text: str = "",
                      extra: dict[str, list[str]] | None = None) -> set[str]:
-    """Модулите с умения, които НЕ трябва да се предлагат на модела за тази молба.
-    `extra` — още думи за проба (тест режимът проверява дума, преди да я научи)."""
+    """The skill modules that must NOT be offered to the model for this request.
+    `extra` — more trial words (test mode checks a word before learning it)."""
     text = f"{previous_text} {user_text}"
     lower = text.lower()
     words = learned()
