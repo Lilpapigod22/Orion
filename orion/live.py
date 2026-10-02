@@ -46,6 +46,7 @@ def begin(text: str, source: str = "text", heard: dict | None = None) -> int:
     """A new request. The first event is the finished „heard" step (typed or recognised text)."""
     global _trace
     old_event = None
+    new_id = None
     with _lock:
         # Handle forgotten trace
         if _trace is not None:
@@ -57,6 +58,7 @@ def begin(text: str, source: str = "text", heard: dict | None = None) -> int:
 
         # Create new trace
         _trace = {"id": next(_ids), "start": time.monotonic(), "open": {}, "ok": True}
+        new_id = _trace["id"]
         # Build new heard event
         heard_event = _event("heard", "end", text, {"source": source, **(heard or {})}, ms=(heard or {}).get("ms"), ok=True)
 
@@ -64,7 +66,7 @@ def begin(text: str, source: str = "text", heard: dict | None = None) -> int:
     if old_event is not None:
         _emit(old_event)
     _emit(heard_event)
-    return _trace["id"]
+    return new_id
 
 
 def start(phase: str, label: str, detail: dict | None = None, key: str | None = None) -> None:
