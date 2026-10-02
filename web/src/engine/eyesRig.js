@@ -22,8 +22,12 @@ export function createRig(random = Math.random) {
       s.scale.target = expr.scale;
       s.tilt.target = expr.tilt;
       s.right.target = expr.rightEye;
-      stepSpring(s.open, dt, 600, 40);  // eyelids are quick
-      for (const key of ['lookX', 'lookY', 'scale', 'tilt', 'right']) stepSpring(s[key], dt);
+      // Substeps of at most 1/60 s keep the stiff eyelid spring stable after a long frame.
+      const n = Math.max(1, Math.ceil(dt / (1 / 60)));
+      for (let k = 0; k < n; k++) {
+        stepSpring(s.open, dt / n, 600, 40);  // eyelids are quick
+        for (const key of ['lookX', 'lookY', 'scale', 'tilt', 'right']) stepSpring(s[key], dt / n);
+      }
       const bars = Array.from({ length: 25 }, (_, i) => {
         const k = Math.abs(i - 12) / 12;
         if (expr.wave === 'voice') return Math.max(0.05, (spectrum[Math.min(23, Math.round(k * 23))] || 0) * 1.6 * (1 - k * 0.6));

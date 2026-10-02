@@ -68,7 +68,7 @@ export default function Eyes3D() {
   return (
     <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ position: [0, 0, 9], fov: 40 }}
             gl={{ antialias: true, powerPreference: 'low-power', alpha: false }}
-            onCreated={({ gl }) => gl.setClearColor('#04090F')}>
+            onCreated={({ gl }) => gl.setClearColor('#000000')}>
       <Ticker />
       <Face />
       <EffectComposer>

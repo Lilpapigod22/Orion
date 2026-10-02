@@ -186,6 +186,7 @@ button { cursor: pointer; }
 /* The eyes sit under the network canvas; their edge fades into the background. */
 .eyes {
   position: absolute;
+  mix-blend-mode: screen;
   pointer-events: none;
   -webkit-mask-image: radial-gradient(circle, #000 52%, transparent 70%);
   mask-image: radial-gradient(circle, #000 52%, transparent 70%);

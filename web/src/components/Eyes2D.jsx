@@ -24,7 +24,7 @@ export function Eyes2D() {
       const [r, g, b] = pulse.color.map(Math.round);
       const u = w / 6.5;  // one 3D unit in pixels (the 3D camera sees ~6.5 units)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = '#04090F';
+      ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, w, h);
       ctx.translate(w / 2 + pose.lookX * u, h / 2 - pose.lookY * u);
       ctx.rotate(pose.tilt);

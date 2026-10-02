@@ -30,6 +30,18 @@ describe('eyes rig', () => {
     const pose = run(createRig(() => 0.99), expressionFor({ mode: 'idle' }), 0.8, { x: 1, y: 0, focus: { x: -1, y: 0, until: 1e12 } });
     expect(pose.lookX).toBeLessThan(-0.2);
   });
+  it('stays stable after a long frame', () => {
+    const rig = createRig(() => 0.99);
+    const idle = expressionFor({ mode: 'idle' });
+    run(rig, idle, 0.3);
+    for (let i = 0; i < 6; i++) {
+      const pose = rig.step(0.1, idle, still, quiet, 1e6 + i * 100, 10 + i * 0.1);
+      expect(pose.open).toBeGreaterThanOrEqual(0);
+      expect(pose.open).toBeLessThanOrEqual(1.1);
+      expect(Number.isFinite(pose.lookX)).toBe(true);
+      expect(Math.abs(pose.lookX)).toBeLessThanOrEqual(1.5);
+    }
+  });
   it('the voice wave only while speaking', () => {
     const loud = new Float32Array(24).fill(0.8);
     expect(Math.max(...run(createRig(), expressionFor({ mode: 'speaking' }), 0.5, still, loud).bars)).toBeGreaterThan(0.5);

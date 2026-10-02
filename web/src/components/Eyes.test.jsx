@@ -1,6 +1,9 @@
 import { render } from '@testing-library/react';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Eyes } from './Eyes.jsx';
+
+// The 3D eyes (three.js) are not needed here and print a deprecation warning when loaded.
+vi.mock('./Eyes3D.jsx', () => ({ default: () => null }));
 
 // jsdom has no canvas: answer "no context" quietly instead of printing "Not implemented".
 const realGetContext = HTMLCanvasElement.prototype.getContext;
