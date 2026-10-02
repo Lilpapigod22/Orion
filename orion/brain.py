@@ -237,7 +237,13 @@ class Brain:
         self._on_result = on_result
         # Only the skills that make sense for this request — with fewer choices the model errs less.
         hidden = router.excluded_modules(user_text, self.memory.last_user_text(), self.route_extra)
-        step = (lambda kind, info: on_step(kind, info)) if on_step else (lambda kind, info: None)
+        def step(kind: str, info: dict) -> None:
+            if on_step:
+                try:
+                    on_step(kind, info)
+                except Exception as e:  # noqa: BLE001 — an observer must never break the answer
+                    print(f"[Brain] on_step: {e}")
+
         step("route", {"hidden": sorted(hidden), "shown": sorted(m for m in router.GROUPS if m not in hidden)})
         messages = [
             {"role": "system", "content": self._system_prompt(user_text)},

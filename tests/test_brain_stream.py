@@ -74,3 +74,10 @@ def test_test_mode_brain_does_not_stream_twice():
     client = Client([SimpleNamespace(choices=[SimpleNamespace(message=message)])])
     assert make_brain(client, stream=False).think("Здравей") == "Добре."
     assert "stream" not in client.kwargs[0]
+
+
+def test_a_broken_step_observer_does_not_break_the_answer():
+    client = Client([FakeStream([chunk(content="Добре.")])])
+    def broken(kind, info):
+        raise RuntimeError("window gone")
+    assert make_brain(client).think("Здравей", on_step=broken) == "Добре."
