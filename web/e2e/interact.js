@@ -102,6 +102,10 @@ async function run() {
   await wait(50);
   check('click -> open_link(url), page does not navigate', has('open_link', 'https://www.youtube.com/watch?v=yn17NXaOCGc') && location.href.includes('interact.html'));
   check('javascript: text is not a link', ![...document.querySelectorAll('.entry a')].some((a) => a.textContent.startsWith('javascript')));
+  check('the eyes are drawn in the centre', Boolean(document.querySelector('.eyes canvas')));
+  const eyesBox = document.querySelector('.eyes').getBoundingClientRect();
+  const stageBox = document.querySelector('.stage').getBoundingClientRect();
+  check('the eyes are inside the stage', eyesBox.left >= stageBox.left - 1 && eyesBox.right <= stageBox.right + 1);
   const pre = document.createElement('pre'); pre.id = 'result'; pre.textContent = out.join('\n'); document.body.append(pre);
 }
 window.addEventListener('load', () => setTimeout(run, 100));

@@ -31,6 +31,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         format: 'iife',
+        inlineDynamicImports: true,
         entryFileNames: 'assets/orion.js',
         assetFileNames: 'assets/[name][extname]',
       },

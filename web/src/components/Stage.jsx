@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { decide, talk } from '../actions.js';
+import { Eyes } from './Eyes.jsx';
 import { mind } from '../engine/mind.js';
 import { useStore } from '../store.js';
 import { reduceMotion, STATE_LABELS } from '../util.js';
@@ -91,6 +92,7 @@ export function Stage() {
   }, []);
   return (
     <section className="stage" aria-label="Orion" ref={stage}>
+      <Eyes layout={core} />
       <canvas className="mind" ref={canvas} aria-hidden="true" />
       {/* Invisible button over the core — for the keyboard. The mouse clicks straight into the network. */}
       <button

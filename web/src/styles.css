@@ -183,6 +183,15 @@ button { cursor: pointer; }
 }
 .mind:active { cursor: grabbing; }
 
+/* The eyes sit under the network canvas; their edge fades into the background. */
+.eyes {
+  position: absolute;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(circle, #000 52%, transparent 70%);
+  mask-image: radial-gradient(circle, #000 52%, transparent 70%);
+}
+.eyes canvas { display: block; width: 100% !important; height: 100% !important; }
+
 /* Invisible button over the core — for the keyboard (Enter/Space = speak). The mouse clicks
    straight into the network, so the button does not catch clicks. Placed by engine/mind.js. */
 .core-hit {
