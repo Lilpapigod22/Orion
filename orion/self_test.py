@@ -46,7 +46,7 @@ from openai import OpenAI
 
 import config
 
-from . import google, reflexes, router
+from . import google, reflexes, router, streaming
 from .brain import HONEST_FAILURE, READ_ONLY_TOOLS, Brain
 from .memory import ConversationMemory
 from .reminders import book as reminder_book
@@ -189,43 +189,8 @@ class StoppableClient:
         self._check = check  # None — carry on; Interrupted/Stopped — stop
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
 
-    def _stop_if_needed(self) -> None:
-        reason = self._check()
-        if reason:
-            raise reason()
-
     def _create(self, **kwargs):
-        self._stop_if_needed()
-        stream = self._client.chat.completions.create(stream=True, **kwargs)
-        content, reasoning, calls = [], [], []
-        try:
-            for chunk in stream:
-                self._stop_if_needed()
-                if not chunk.choices:
-                    continue
-                delta = chunk.choices[0].delta
-                if delta.content:
-                    content.append(delta.content)
-                extra = delta.model_extra or {}
-                if extra.get("reasoning"):
-                    reasoning.append(extra["reasoning"])
-                for call in delta.tool_calls or []:
-                    same = [c for c in calls if call.index is not None and c["index"] == call.index]
-                    slot = same[0] if same else {"index": call.index, "id": None, "name": "", "arguments": ""}
-                    if not same:
-                        calls.append(slot)
-                    slot["id"] = call.id or slot["id"]
-                    if call.function:
-                        slot["name"] += call.function.name or ""
-                        slot["arguments"] += call.function.arguments or ""
-        finally:
-            stream.close()
-        tool_calls = [SimpleNamespace(id=c["id"] or f"call_{i}", type="function",
-                                      function=SimpleNamespace(name=c["name"], arguments=c["arguments"] or "{}"))
-                      for i, c in enumerate(calls)]
-        message = SimpleNamespace(content="".join(content), tool_calls=tool_calls or None,
-                                  model_extra={"reasoning": "".join(reasoning)} if reasoning else {})
-        return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+        return streaming.create_streamed(self._client, check=self._check, **kwargs)
 
 
 def _count(n: int, one: str, many: str) -> str:
@@ -811,6 +776,7 @@ class SelfTester:
                       reasoning_effort=source.reasoning_effort,
                       deep_reasoning_effort=source.deep_reasoning_effort)
         brain.client = self.client
+        brain.stream = False  # the client streams (and stops) by itself
         brain.route_extra = routes
         return brain
 

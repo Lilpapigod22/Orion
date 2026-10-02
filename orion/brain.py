@@ -7,13 +7,14 @@ The loop is:
 """
 import json
 import re
+import time
 from collections import Counter
 from datetime import datetime
 from typing import Callable
 
 from openai import OpenAI
 
-from . import clock, router
+from . import clock, router, streaming
 from .knowledge import KnowledgeBase
 from .memory import ConversationMemory
 from .tools import OrionTools
@@ -144,6 +145,8 @@ class Brain:
         self._on_result: Callable[[str, str], None] | None = None  # set by think()
         # Trial words for skill selection (test mode only — see orion/router.py).
         self.route_extra: dict[str, list[str]] | None = None
+        # Model answers arrive piece by piece (live board). Test mode's client streams by itself -> False.
+        self.stream = True
 
     def _system_prompt(self, user_text: str) -> str:
         prompt = self.persona
@@ -191,6 +194,11 @@ class Brain:
                 return name, json.dumps(arguments, ensure_ascii=False)
         return None
 
+    def _complete(self, on_delta: Callable[[str, str], None] | None, **kwargs):
+        if self.stream:
+            return streaming.create_streamed(self.client, on_delta=on_delta, **kwargs)
+        return self.client.chat.completions.create(**kwargs)
+
     def _run_calls(self, calls, messages, steps, seen_calls, failures, on_tool, content: str = ""):
         """Runs [(id, skill, arguments)] and adds the call and the results to the conversation.
         Returns [(skill, whether repeated, error count)]."""
@@ -219,13 +227,18 @@ class Brain:
 
     def think(self, user_text: str, on_tool: Callable[[str, str], None] | None = None,
               on_result: Callable[[str, str], None] | None = None,
-              on_thought: Callable[[str], None] | None = None) -> str:
-        """Returns Orion's answer. Observers (for the 3D network in the window):
-        `on_tool(name, arguments)` — before each skill, `on_result(name, result)` — after it,
-        `on_thought(text)` — the model's reasoning while it thinks."""
+              on_thought: Callable[[str], None] | None = None,
+              on_delta: Callable[[str, str], None] | None = None,
+              on_step: Callable[[str, dict], None] | None = None) -> str:
+        """Returns Orion's answer. Observers (for the window): `on_tool(name, arguments)` — before each
+        skill, `on_result(name, result)` — after it, `on_thought(text)` — the model's whole reasoning,
+        `on_delta(kind, text)` — each streamed piece („reasoning“/„content“), `on_step(kind, info)` —
+        „route“ (which skill groups the model sees), „model_start“/„model_end“ for each model round."""
         self._on_result = on_result
         # Only the skills that make sense for this request — with fewer choices the model errs less.
         hidden = router.excluded_modules(user_text, self.memory.last_user_text(), self.route_extra)
+        step = (lambda kind, info: on_step(kind, info)) if on_step else (lambda kind, info: None)
+        step("route", {"hidden": sorted(hidden), "shown": sorted(m for m in router.GROUPS if m not in hidden)})
         messages = [
             {"role": "system", "content": self._system_prompt(user_text)},
             *self.memory.as_messages(),
@@ -246,13 +259,26 @@ class Brain:
             # It only thinks while deciding what to do. After a skill result it answers directly:
             # otherwise qwen3.5 puts its answer into the “thinking” and leaves the answer itself empty.
             effort = (self._effort_for(user_text) if not seen_calls else self.reasoning_effort and "none")
-            response = self.client.chat.completions.create(
+            step("model_start", {"round": round_index, "effort": effort or "default"})
+            pieces = [0]
+            started = time.monotonic()
+
+            def delta(kind: str, text: str) -> None:
+                pieces[0] += 1
+                if on_delta:
+                    on_delta(kind, text)
+
+            response = self._complete(
+                delta,
                 model=self.model,
                 messages=messages,
                 temperature=self.temperature,
                 **({"tools": tool_schemas} if offer_tools else {}),
                 **({"reasoning_effort": effort} if effort else {}),
             )
+            seconds = time.monotonic() - started
+            step("model_end", {"round": round_index, "seconds": round(seconds, 2), "tokens": pieces[0],
+                               "tps": round(pieces[0] / seconds, 1) if seconds > 0 else 0.0})
             message = response.choices[0].message
             reasoning = (message.model_extra or {}).get("reasoning")
             if reasoning and on_thought:
