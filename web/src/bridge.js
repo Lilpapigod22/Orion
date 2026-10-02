@@ -9,7 +9,7 @@
 import { focusInput, refocus } from './actions.js';
 import { applyLiveEvent } from './engine/live.js';
 import { mind } from './engine/mind.js';
-import { MODES } from './engine/reactor.js';
+import { MODES } from './engine/expression.js';
 import { voice } from './engine/voice.js';
 import { store } from './store.js';
 import { api, clockTime } from './util.js';
@@ -22,7 +22,7 @@ const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 export const hud = {
   setState(mode) {
-    if (!MODES[mode]) return;
+    if (!MODES.includes(mode)) return;
     // While audio is playing, the reactor stays in “speaking” mode.
     if (voice.playing && mode !== 'speaking') return;
     store.set({ mode });

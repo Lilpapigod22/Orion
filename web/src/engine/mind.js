@@ -1,7 +1,7 @@
 /* ==========================================================================
    Orion's network — a 3D hologram of its thinking.
 
-   In the centre is the core (the reactor that pulses with the voice). Around it are
+   In the centre is the core (the eyes, see components/Eyes.jsx). Around it are
    bubbles for each ability, linked to the core, and a cloud of neurons.
    When Orion uses a skill, a pulse travels from the core to the bubble and a
    task bubble pops up next to it with what it is doing, then with the result.
@@ -13,7 +13,9 @@
 import { talk } from '../actions.js';
 import { clockTime, reduceMotion } from '../util.js';
 import { MODULE_NODES, NODES, TASK_TEXT } from './nodes.js';
-import { MODES, reactor } from './reactor.js';
+import { store } from '../store.js';
+import { gaze } from './gaze.js';
+import { pulse } from './pulse.js';
 import { voice } from './voice.js';
 
 const TAU = Math.PI * 2;
@@ -107,12 +109,11 @@ export const mind = {
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
     // Room is left at the bottom for the label and subtitles.
-    this.R = Math.max(90, Math.min(this.w * 0.27, (this.h - 160) * 0.4));
+    this.R = Math.max(90, Math.min(this.w * 0.27, (this.h - 210) * 0.4));
     this.cx = this.w / 2;
-    this.cy = Math.max(this.R * 1.05, (this.h - 170) / 2 + 22);  // keep the top bubbles on screen
+    this.cy = Math.max(this.R * 1.05, (this.h - 220) / 2 + 22);  // keep the top bubbles on screen
     this.coreSize = this.R * 0.86;
-    reactor.resize(this.coreSize);
-    this.onLayout?.({ x: this.cx, y: this.cy, size: this.coreSize * 0.62 });
+    this.onLayout?.({ x: this.cx, y: this.cy, core: this.coreSize });
   },
 
   // --- 3D ----------------------------------------------------------------------------------
@@ -135,13 +136,13 @@ export const mind = {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.t += dt;
-    reactor.frame(dt);
+    pulse.frame(dt);
     this.build = Math.min(1, this.build + dt / 2.4);
 
     const motion = reduceMotion ? 0 : 1;
     if (!this.drag) {
       this.spin *= 1 - Math.min(1, dt * 2.5);
-      const idle = this.hover ? 0 : 0.045 + reactor.spin * 0.02;
+      const idle = this.hover ? 0 : 0.045 + pulse.spin * 0.02;
       this.yaw += (idle * motion + this.spin) * dt;
     }
     this.update(dt, motion);
@@ -149,14 +150,14 @@ export const mind = {
   },
 
   update(dt, motion) {
-    const state = reactor.mode;
-    const thinking = state === MODES.thinking;
+    const mode = pulse.mode;
+    const thinking = mode === 'thinking';
     for (const node of this.nodes) {
       let target = this.tasks.some((task) => task.node === node && task.state === 'run') ? 1
         : this.t - node.lastDone < 1.4 ? 0.55 : 0;
-      if (node.id === 'ear') target = state === MODES.listening || state === MODES.calibrating ? 1
-        : state === MODES.standby ? 0.3 : 0;
-      if (node.id === 'voice') target = voice.playing ? 0.45 + reactor.level * 0.55 : 0;
+      if (node.id === 'ear') target = mode === 'listening' || mode === 'calibrating' ? 1
+        : mode === 'standby' ? 0.3 : 0;
+      if (node.id === 'voice') target = voice.playing ? 0.45 + pulse.level * 0.55 : 0;
       if (node.id === 'reminders' && this.reminders.length) target = Math.max(target, 0.3);
       node.act += (target - node.act) * Math.min(1, dt * 6);
     }
@@ -181,11 +182,17 @@ export const mind = {
 
   draw() {
     const { ctx, dpr, build } = this;
-    const [r, g, b] = reactor.color.map(Math.round);
+    const [r, g, b] = pulse.color.map(Math.round);
     const rgba = (a) => `rgba(${r},${g},${b},${a})`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this.w, this.h);
     const P = (p) => this.project(p);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, this.w, this.h);
+    ctx.arc(this.cx, this.cy, this.coreSize * 0.7, 0, TAU);
+    ctx.clip('evenodd');  // the eyes live in this hole (components/Eyes.jsx)
 
     // 1. The neuron cloud — lines in four depth layers (less drawing = faster).
     const pts = this.neurons.map(P);
@@ -224,6 +231,7 @@ export const mind = {
       ctx.stroke();
     }
     ctx.restore();
+    ctx.restore();
 
     // 3. The orbits (back half — before the core).
     this.drawRings(rgba, 'back');
@@ -234,7 +242,7 @@ export const mind = {
     for (const { node, p } of nodes) {
       const grow = Math.max(0, Math.min(1, build * 2 - node.index / NODES.length));
       if (!grow) continue;
-      const from = this.coreEdge(p, 0.34);
+      const from = this.coreEdge(p, 0.7);
       ctx.strokeStyle = rgba((0.08 + node.act * 0.5) * this.depthAlpha(p.z) * grow);
       ctx.lineWidth = 0.8 + node.act * 0.8;
       ctx.setLineDash(node.act > 0.2 ? [] : [2, 5]);
@@ -249,8 +257,8 @@ export const mind = {
     for (const pulse of this.pulses) {
       if (pulse.t < 0) continue;                          // still waiting its turn
       const p = this.proj.get(pulse.node);
-      const from = this.coreEdge(p, 0.34);
-      const k = pulse.dir > 0 ? pulse.t : 1 - pulse.t;
+      const from = this.coreEdge(p, 0.7);
+      const k =pulse.dir > 0 ? pulse.t : 1 - pulse.t;
       const x = from.x + (p.x - from.x) * k, y = from.y + (p.y - from.y) * k;
       const glow = ctx.createRadialGradient(x, y, 0, x, y, 7);
       glow.addColorStop(0, `rgba(255,255,255,${0.9 * Math.sin(pulse.t * Math.PI)})`);
@@ -263,7 +271,6 @@ export const mind = {
     // 5. Back bubbles, the core, front orbits, front bubbles.
     const sorted = [...nodes].sort((a, c) => c.p.z - a.p.z);
     for (const item of sorted) if (item.p.z > 0) this.drawNode(item, rgba);
-    ctx.drawImage(reactor.canvas, this.cx - this.coreSize / 2, this.cy - this.coreSize / 2, this.coreSize, this.coreSize);
     this.drawRings(rgba, 'front');
     for (const item of sorted) if (item.p.z <= 0) this.drawNode(item, rgba);
 
@@ -275,7 +282,7 @@ export const mind = {
     if (hovered) this.drawAbout(hovered, rgba);
   },
 
-  // A point on the core's edge towards p — lines do not cross the reactor.
+  // A point on the core's edge towards p — lines do not cross the eyes.
   coreEdge(p, k) {
     const dx = p.x - this.cx, dy = p.y - this.cy;
     const d = Math.hypot(dx, dy) || 1;
@@ -285,13 +292,9 @@ export const mind = {
 
   drawRings(rgba, half) {
     const { ctx } = this;
-    const rings = [
-      { r: 0.52, tilt: [1.15, 0, 0.25], speed: 0.25, dash: 18 },
-      { r: 0.66, tilt: [-0.35, 0, 0.55], speed: -0.14, dash: 5 },
-      { r: 1.2, tilt: [0.06, 0, 0], speed: 0.05, dash: 0, ticks: true },
-    ];
+    const rings = [{ r: 1.2, tilt: [0.06, 0, 0], speed: 0.05, dash: 0, ticks: true }];
     for (const ring of rings) {
-      const turn = this.t * ring.speed * (1 + reactor.spin * 2);
+      const turn = this.t * ring.speed * (1 + pulse.spin * 2);
       const steps = 120;
       const pts = [];
       for (let i = 0; i <= steps; i++) {
@@ -396,7 +399,7 @@ export const mind = {
       ctx.font = '500 11.5px "JetBrains Mono", monospace';
       const textW = Math.max(ctx.measureText(task.text).width, task.result ? ctx.measureText(task.result).width : 0);
       let bx = p.x + side * (radius + 26 + slot * 10) * pop;
-      // Bubble behind the core: the task moves to the side so it does not cover the reactor.
+      // Bubble behind the core: the task moves to the side so it does not cover the eyes.
       const clear = this.coreSize * 0.45 + 12;
       if (Math.abs(p.y - this.cy) < this.coreSize * 0.5) bx = side > 0 ? Math.max(bx, this.cx + clear) : Math.min(bx, this.cx - clear);
       // The label must stay on stage: if it does not fit, the bubble shifts inwards.
@@ -588,6 +591,10 @@ export const mind = {
     const move = (e) => {
       const rect = c.getBoundingClientRect();
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      gaze.x = Math.max(-1, Math.min(1, (mx - this.cx) / (this.w / 2)));
+      gaze.y = Math.max(-1, Math.min(1, -(my - this.cy) / (this.h / 2)));
+      const now = Date.now();
+      if (now - store.get().lastActivity > 1000) store.set({ lastActivity: now });  // wakes sleepy eyes
       if (this.drag) {
         const dx = e.clientX - this.drag.x, dy = e.clientY - this.drag.y;
         if (Math.abs(dx) + Math.abs(dy) > 4) this.drag.moved = true;
@@ -598,7 +605,7 @@ export const mind = {
         return;
       }
       this.hover = this.nodeAt(mx, my);
-      const onCore = Math.hypot(mx - this.cx, my - this.cy) < this.coreSize * 0.32;
+      const onCore = Math.hypot(mx - this.cx, my - this.cy) < this.coreSize * 0.5;
       c.style.cursor = this.hover || onCore ? 'pointer' : 'grab';
     };
     const up = (e) => {
@@ -608,7 +615,7 @@ export const mind = {
       if (drag.moved) { this.spin = drag.vx; return; }
       const rect = c.getBoundingClientRect();
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-      if (Math.hypot(mx - this.cx, my - this.cy) < this.coreSize * 0.32) { talk(); return; }
+      if (Math.hypot(mx - this.cx, my - this.cy) < this.coreSize * 0.5) { talk(); return; }
       const node = this.nodeAt(mx, my);
       this.pinned = node && node !== this.pinned ? node : null;  // a click pins the description
     };
@@ -638,6 +645,8 @@ export const mind = {
   taskStart(name, args, module = '', label = '') {
     const byModule = this.nodes.find((n) => n.id === MODULE_NODES[module]);
     const node = this.toolNode.get(name) || byModule || this.nodes.find((n) => n.id === 'evolve');
+    const p = this.proj.get(node);
+    if (p) gaze.focus = { x: (p.x - this.cx) / (this.w / 2), y: -(p.y - this.cy) / (this.h / 2), until: Date.now() + 1000 };
     const text = (TASK_TEXT[name] || (() => label || name))(args || {});
     this.tasks = this.tasks.filter((t) => t.node !== node || t.state === 'run' || this.t - t.doneAt < 3);
     // Test mode runs dozens of checks a minute — only the last three stay on screen.

@@ -95,7 +95,7 @@ export function Stage() {
       {/* Invisible button over the core — for the keyboard. The mouse clicks straight into the network. */}
       <button
         type="button" className="core-hit" aria-label="Talk to Orion (F2)" onClick={talk}
-        style={core ? { width: core.size, height: core.size, left: core.x, top: core.y } : undefined}
+        style={core ? { width: core.core * 0.9, height: core.core * 0.9, left: core.x, top: core.y } : undefined}
       />
       <p className="state-label">{STATE_LABELS[mode]}</p>
       <Subtitle />

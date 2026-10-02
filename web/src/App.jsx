@@ -14,6 +14,7 @@ export function App() {
 
   useEffect(() => {
     const keydown = (e) => {
+      store.set({ lastActivity: Date.now() });
       if (e.key === 'F2') { e.preventDefault(); talk(); }
       if (e.key === 'Escape' && voice.playing) { e.preventDefault(); voice.stop(); }
       else if (e.key === 'Escape' && store.get().approval) { e.preventDefault(); decide(false); }
