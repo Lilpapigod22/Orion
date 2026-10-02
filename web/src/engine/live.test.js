@@ -27,6 +27,17 @@ describe('applyLiveEvent', () => {
     expect(live).toBe(before);
   });
 
+  it('turns a step nobody finished into done when the request ends', () => {
+    const live = run([
+      ev({ phase: 'heard', state: 'end', label: 'x' }),
+      ev({ phase: 'skill', state: 'start', label: 'learn_lesson', key: 'learn_lesson' }),
+      ev({ phase: 'done', state: 'end', label: 'done', ok: true, ms: 900 }),
+    ]);
+    const skill = live.traces[0].steps.find((s) => s.key === 'learn_lesson');
+    expect(skill.state).toBe('done');
+    expect(live.traces[0].done).toBe(true);
+  });
+
   it('keeps only the last 20 traces', () => {
     let live = { traces: [] };
     for (let i = 1; i <= 25; i++) live = applyLiveEvent(live, ev({ trace: i, phase: 'heard', state: 'end', label: `q${i}` }), i);

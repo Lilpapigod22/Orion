@@ -74,7 +74,7 @@ def start(phase: str, label: str, detail: dict | None = None, key: str | None = 
     with _lock:
         if _trace is None:
             return
-        _trace["open"][key or phase] = time.monotonic()
+        _trace["open"][key or phase] = (time.monotonic(), phase)
         event = _event(phase, "start", label, detail, key)
 
     if event is not None:
@@ -97,6 +97,7 @@ def finish(phase: str, label: str = "", detail: dict | None = None, ok: bool = T
         if _trace is None:
             return
         began = _trace["open"].pop(key or phase, None)
+        began = began[0] if began is not None else None
         ms = round((time.monotonic() - began) * 1000) if began is not None else None
         if not ok:
             _trace["ok"] = False
@@ -114,14 +115,18 @@ def fail() -> None:
 
 def end(ok: bool | None = None) -> None:
     global _trace
-    event = None
+    events = []
     with _lock:
         if _trace is None:
             return
         ok = _trace["ok"] if ok is None else ok
-        ms = round((time.monotonic() - _trace["start"]) * 1000)
-        event = _event("done", "end", "done" if ok else "failed", None, "done", ms, ok)
+        now = time.monotonic()
+        for step_key, (began, step_phase) in list(_trace["open"].items()):  # steps nobody finished
+            events.append(_event(step_phase, "end", "stopped", None, step_key, round((now - began) * 1000), _trace["ok"]))
+        _trace["open"].clear()
+        ms = round((now - _trace["start"]) * 1000)
+        events.append(_event("done", "end", "done" if ok else "failed", None, "done", ms, ok))
         _trace = None
 
-    if event is not None:
+    for event in events:
         _emit(event)

@@ -16,6 +16,10 @@ export function Pipeline() {
     document.querySelector(`.pipe-step[data-phase="${restore.current}"]`)?.focus();
     restore.current = null;
   }, [open]);
+  const close = () => {
+    restore.current = open;
+    setOpen(null);
+  };
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
@@ -37,7 +41,7 @@ export function Pipeline() {
           <li key={p.phase}>
             {i > 0 && <span className="pipe-arrow" aria-hidden="true">→</span>}
             <motion.button type="button" data-phase={p.phase} className={`pipe-step is-${p.status}`}
-                           aria-expanded={open === p.phase} onClick={() => setOpen(open === p.phase ? null : p.phase)}
+                           aria-expanded={open === p.phase} onClick={() => (open === p.phase ? close() : setOpen(p.phase))}
                            animate={{ scale: p.status === 'run' ? 1.06 : 1 }}
                            transition={{ type: 'spring', stiffness: 420, damping: 24 }}>
               {p.phase}
@@ -48,7 +52,7 @@ export function Pipeline() {
       </ol>
       <p className="pipe-now" aria-live="polite">{now}</p>
       <AnimatePresence>
-        {open && <StepDetails key={open} phase={open} steps={phases.find((p) => p.phase === open).steps} onClose={() => setOpen(null)} />}
+        {open && <StepDetails key={open} phase={open} steps={phases.find((p) => p.phase === open).steps} onClose={close} />}
       </AnimatePresence>
     </div>
     </MotionConfig>

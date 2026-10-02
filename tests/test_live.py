@@ -70,6 +70,20 @@ def test_fail_marks_the_request_failed(events):
     assert events[-1]["phase"] == "done" and events[-1]["ok"] is False
 
 
+def test_end_closes_steps_nobody_finished(events):
+    live.begin("x")
+    live.start("thinking", "round 1", key="thinking-0")
+    live.start("skill", "a", key="a")
+    live.finish("skill", "a", key="a")
+    live.start("skill", "learn_lesson", key="learn_lesson")
+    live.end()
+    stopped = [e for e in events if e["label"] == "stopped"]
+    assert [(e["phase"], e["key"], e["state"]) for e in stopped] == [
+        ("thinking", "thinking-0", "end"), ("skill", "learn_lesson", "end")]
+    assert all(isinstance(e["ms"], int) and e["ok"] is True for e in stopped)
+    assert events[-1]["phase"] == "done" and events.index(stopped[-1]) < len(events) - 1
+
+
 def test_the_sink_runs_without_holding_the_lock():
     held = []
 

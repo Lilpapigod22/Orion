@@ -437,21 +437,27 @@ class Orion:
         live.begin(text, source, self._last_heard if source == "voice" else None)
         self.hud("addLog", "user", text)
         print(f"[Sir] {text}")
-        live.start("understood", "choosing")
-        # Time, date, opening programs… — instant and error-free, even before the model is ready.
-        reflex = reflexes.respond(text)
-        if reflex:
-            live.finish("understood", "quick command", {"command": reflex.tool or reflex.action or "time / date"})
-            answer = self._run_reflex(text, reflex)
-        elif not self.ready:
-            live.finish("understood", "the model is not ready", ok=False)
-            answer = f"Моля за момент търпение, сър. {self.boot_problem}"
-        else:
-            answer = self._think(text)  # the brain finishes „understood“ (on_step "route")
-        print(f"[Orion] {answer}")
-        self._push_reminders()  # it may have added or removed a reminder
-        self._speak(answer)
-        live.end()
+        reflex = None
+        try:
+            live.start("understood", "choosing")
+            # Time, date, opening programs… — instant and error-free, even before the model is ready.
+            reflex = reflexes.respond(text)
+            if reflex:
+                live.finish("understood", "quick command", {"command": reflex.tool or reflex.action or "time / date"})
+                answer = self._run_reflex(text, reflex)
+            elif not self.ready:
+                live.finish("understood", "the model is not ready", ok=False)
+                answer = f"Моля за момент търпение, сър. {self.boot_problem}"
+            else:
+                answer = self._think(text)  # the brain finishes „understood“ (on_step "route")
+            print(f"[Orion] {answer}")
+            self._push_reminders()  # it may have added or removed a reminder
+            self._speak(answer)
+        except BaseException:
+            live.fail()
+            raise
+        finally:
+            live.end()
         if reflex and reflex.action == "close" and self.window:
             self.window.destroy()
 
@@ -578,7 +584,7 @@ class Orion:
             self._delta_text, self._delta_sent = "", 0.0
             live.start("thinking", f"round {info['round'] + 1} · {info['effort']}", info, key=self._thinking_key)
         elif kind == "model_end":
-            live.finish("thinking", f"{info['tokens']} tokens · {info['tps']} tok/s", info, key=self._thinking_key)
+            live.finish("thinking", f"{info['tokens']} tokens · {info['tps']} tok/s", {**info, "text": self._delta_text}, key=self._thinking_key)
 
     def _delta(self, kind: str, text: str) -> None:
         """Streamed pieces of the model's reasoning/answer — at most ~7 updates a second."""
@@ -651,7 +657,7 @@ class Orion:
 
     # --- Speaking ----------------------------------------------------------------------
     def _speak(self, text: str) -> None:
-        live.start("speaking", text[:140])
+        live.start("speaking", text[:140], {"text": text[:2000]})
         try:
             self._voice_out(text)
         finally:
@@ -900,6 +906,8 @@ class Orion:
             print(f"[UI] Focus: {e}")
 
     def shutdown(self) -> None:
+        if self.telemetry:
+            self.telemetry.stop()
         self.always_listen = False
         self.tester.stop()
         self.resolve_approval(False)  # Closing during an approval = rejection.

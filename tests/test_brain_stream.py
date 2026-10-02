@@ -65,6 +65,8 @@ def test_streamed_think_reports_route_rounds_and_pieces():
     assert "shown" in steps[0][1] and "hidden" in steps[0][1]
     end = steps[-1][1]
     assert end["round"] == 1 and end["tokens"] == 2 and end["tps"] >= 0
+    assert end["first_ms"] is not None and end["first_ms"] >= 0
+    assert steps[2][1]["first_ms"] is None  # the tool-call round streamed no text piece
     assert pieces == ["17 по 23 ", "са 391."]
     assert all(k["stream"] is True for k in client.kwargs)
 

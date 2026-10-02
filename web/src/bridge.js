@@ -39,6 +39,7 @@ export const hud = {
   say(text) {
     this.addLog('orion', text);
     this.setSubtitle(text);
+    store.set({ lastActivity: Date.now() });
     refocus();
   },
 

@@ -14,6 +14,8 @@ export function applyLiveEvent(live, event, now = Date.now()) {
   if (index < 0 || traces[index].done) return live;
   const trace = { ...traces[index], steps: [...traces[index].steps] };
   if (event.phase === 'done') {
+    // Backstop: a step nobody finished must not stay „running" after the request is over.
+    trace.steps = trace.steps.map((s) => (s.state === 'run' ? { ...s, state: 'done' } : s));
     Object.assign(trace, { done: true, ok: event.ok, ms: event.ms });
   } else if (event.state === 'start') {
     trace.steps.push({ key: event.key, phase: event.phase, label: event.label, detail: event.detail, state: 'run',

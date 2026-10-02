@@ -267,10 +267,17 @@ class Brain:
             effort = (self._effort_for(user_text) if not seen_calls else self.reasoning_effort and "none")
             step("model_start", {"round": round_index, "effort": effort or "default"})
             pieces = [0]
+            stamps: list[float] = []  # monotonic time of the first and of the last piece
             started = time.monotonic()
 
             def delta(kind: str, text: str) -> None:
                 pieces[0] += 1
+                now = time.monotonic()
+                if not stamps:
+                    stamps.append(now)
+                    stamps.append(now)
+                else:
+                    stamps[1] = now
                 if on_delta:
                     on_delta(kind, text)
 
@@ -283,8 +290,12 @@ class Brain:
                 **({"reasoning_effort": effort} if effort else {}),
             )
             seconds = time.monotonic() - started
+            # Speed counts from the first piece — the wait for it is the prompt being read, not generation.
+            tps = 0.0
+            if pieces[0] > 1 and stamps[1] > stamps[0]:
+                tps = round((pieces[0] - 1) / (stamps[1] - stamps[0]), 1)
             step("model_end", {"round": round_index, "seconds": round(seconds, 2), "tokens": pieces[0],
-                               "tps": round(pieces[0] / seconds, 1) if seconds > 0 else 0.0})
+                               "tps": tps, "first_ms": round((stamps[0] - started) * 1000) if stamps else None})
             message = response.choices[0].message
             reasoning = (message.model_extra or {}).get("reasoning")
             if reasoning and on_thought:
@@ -338,4 +349,6 @@ class Brain:
             lesson = self.after_turn(user_text, previous_answer, tools_used)
             if lesson and on_tool:
                 on_tool("learn_lesson", json.dumps({"lesson": lesson}, ensure_ascii=False))
+                if self._on_result:
+                    self._on_result("learn_lesson", lesson)
         return answer

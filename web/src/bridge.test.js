@@ -22,6 +22,12 @@ describe('bridge', () => {
     expect(store.get().mood.kind).toBe('confused');
   });
 
+  it('speech counts as activity', () => {
+    store.set({ lastActivity: 0 });
+    hud.say('Сър, напомням Ви.');
+    expect(store.get().lastActivity).toBeGreaterThan(0);
+  });
+
   it('toolDone writes the duration on the journal entry', () => {
     hud.addLog('tool', 'flip_coin');
     hud.toolDone('flip_coin', 'Падна се ези.', true, 412);
