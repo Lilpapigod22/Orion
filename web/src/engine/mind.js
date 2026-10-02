@@ -188,11 +188,7 @@ export const mind = {
     ctx.clearRect(0, 0, this.w, this.h);
     const P = (p) => this.project(p);
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, this.w, this.h);
-    ctx.arc(this.cx, this.cy, this.coreSize * 0.7, 0, TAU);
-    ctx.clip('evenodd');  // the eyes live in this hole (components/Eyes.jsx)
+    this.clipEyes();
 
     // 1. The neuron cloud — lines in four depth layers (less drawing = faster).
     const pts = this.neurons.map(P);
@@ -270,7 +266,9 @@ export const mind = {
 
     // 5. Back bubbles, the core, front orbits, front bubbles.
     const sorted = [...nodes].sort((a, c) => c.p.z - a.p.z);
+    this.clipEyes();                                      // back bubbles stay behind the face
     for (const item of sorted) if (item.p.z > 0) this.drawNode(item, rgba);
+    ctx.restore();
     this.drawRings(rgba, 'front');
     for (const item of sorted) if (item.p.z <= 0) this.drawNode(item, rgba);
 
@@ -283,6 +281,17 @@ export const mind = {
   },
 
   // A point on the core's edge towards p — lines do not cross the eyes.
+  // Save the context and clip everything except the hole where the eyes live
+  // (components/Eyes.jsx). The caller restores.
+  clipEyes() {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, this.w, this.h);
+    ctx.arc(this.cx, this.cy, this.coreSize * 0.7, 0, TAU);
+    ctx.clip('evenodd');
+  },
+
   coreEdge(p, k) {
     const dx = p.x - this.cx, dy = p.y - this.cy;
     const d = Math.hypot(dx, dy) || 1;

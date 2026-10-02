@@ -133,21 +133,34 @@ the script).
 
 Colours: **blue** — Orion (speaking/thinking), **amber** — listening to you, **red** — malfunction.
 
+## The eyes and the live board
+
+In the centre are Orion's eyes (3D, `web/src/components/Eyes3D.jsx`; 2D fallback without WebGL). They show
+its state: blue and looking around while waiting, amber while listening, squinting while thinking, a voice
+wave while speaking, ^ ^ after a finished task, red and tilted after an error, green in test mode and
+sleepy after 10 quiet minutes. They follow the mouse and glance at the skill that is running.
+
+Under the eyes the live board shows every request step by step — heard → understood → thinking → skill →
+speaking — with the time of each step; click a step to see what exactly happened (both transcripts, which
+skills the model saw, its reasoning as it streams, the skill's arguments and result). The top bar shows
+the GPU, video memory, processor and memory once a second, the speed of the last answer (tokens/s) and
+its total time; test mode, reels and proposals waiting for approval appear next to them.
+
 ## The network — how Orion thinks
 
 The left part of the window is a 3D hologram of its mind (`web/src/engine/mind.js`):
 
-- **The core** in the centre — the reactor that pulses with its voice and spins fast while it thinks.
+- **The eyes** in the centre (see above) — the network orbits around them.
 - **The bubbles** around it — its abilities: Mail, Calendar, Tasks, Internet, Apps, Clock, Weather,
   Maths, Reminders, Memory, Evolution, Hearing and Voice, and more.
 - **The neurons** behind — they spark quietly, and a storm of pulses runs through them while it thinks.
-- **"THOUGHT"** next to the core — the model's current reasoning: what it understood and what it will do.
+- **"THOUGHT"** next to the eyes — the model's current reasoning: what it understood and what it will do.
 - When it uses a skill, the bubble lights up, a pulse travels from the core to it, and a **task bubble**
   pops up next to it ("searching …"), followed by the result ("5 results · …").
 - Pending timers and reminders orbit around "Reminders" with a countdown.
 
 Rotate the network by dragging it with the mouse. Hover over a bubble to see what it can do; click to
-pin the description. Click the core = speak.
+pin the description. Click the eyes = speak.
 
 ## Reels from YouTube
 
