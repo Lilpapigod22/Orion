@@ -45,27 +45,52 @@ def current() -> int | None:
 def begin(text: str, source: str = "text", heard: dict | None = None) -> int:
     """A new request. The first event is the finished „heard" step (typed or recognised text)."""
     global _trace
+    old_event = None
     with _lock:
+        # Handle forgotten trace
+        if _trace is not None:
+            old_ms = round((time.monotonic() - _trace["start"]) * 1000)
+            old_id = _trace["id"]
+            # Build old done event
+            old_event = {"trace": old_id, "phase": "done", "state": "end", "label": "failed", "detail": None,
+                        "key": "done", "t": round(old_ms / 1000, 3), "ms": old_ms, "ok": False}
+
+        # Create new trace
         _trace = {"id": next(_ids), "start": time.monotonic(), "open": {}, "ok": True}
-        _emit(_event("heard", "end", text, {"source": source, **(heard or {})}, ms=(heard or {}).get("ms"), ok=True))
-        return _trace["id"]
+        # Build new heard event
+        heard_event = _event("heard", "end", text, {"source": source, **(heard or {})}, ms=(heard or {}).get("ms"), ok=True)
+
+    # Emit events after releasing lock
+    if old_event is not None:
+        _emit(old_event)
+    _emit(heard_event)
+    return _trace["id"]
 
 
 def start(phase: str, label: str, detail: dict | None = None, key: str | None = None) -> None:
+    event = None
     with _lock:
         if _trace is None:
             return
         _trace["open"][key or phase] = time.monotonic()
-        _emit(_event(phase, "start", label, detail, key))
+        event = _event(phase, "start", label, detail, key)
+
+    if event is not None:
+        _emit(event)
 
 
 def update(phase: str, label: str, detail: dict | None = None, key: str | None = None) -> None:
+    event = None
     with _lock:
         if _trace is not None:
-            _emit(_event(phase, "update", label, detail, key))
+            event = _event(phase, "update", label, detail, key)
+
+    if event is not None:
+        _emit(event)
 
 
 def finish(phase: str, label: str = "", detail: dict | None = None, ok: bool = True, key: str | None = None) -> None:
+    event = None
     with _lock:
         if _trace is None:
             return
@@ -73,7 +98,10 @@ def finish(phase: str, label: str = "", detail: dict | None = None, ok: bool = T
         ms = round((time.monotonic() - began) * 1000) if began is not None else None
         if not ok:
             _trace["ok"] = False
-        _emit(_event(phase, "end", label, detail, key, ms, ok))
+        event = _event(phase, "end", label, detail, key, ms, ok)
+
+    if event is not None:
+        _emit(event)
 
 
 def fail() -> None:
@@ -84,10 +112,14 @@ def fail() -> None:
 
 def end(ok: bool | None = None) -> None:
     global _trace
+    event = None
     with _lock:
         if _trace is None:
             return
         ok = _trace["ok"] if ok is None else ok
         ms = round((time.monotonic() - _trace["start"]) * 1000)
-        _emit(_event("done", "end", "done" if ok else "failed", None, "done", ms, ok))
+        event = _event("done", "end", "done" if ok else "failed", None, "done", ms, ok)
         _trace = None
+
+    if event is not None:
+        _emit(event)

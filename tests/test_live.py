@@ -1,3 +1,5 @@
+import threading
+
 import pytest
 
 from orion import live
@@ -66,3 +68,34 @@ def test_fail_marks_the_request_failed(events):
     live.fail()
     live.end()
     assert events[-1]["phase"] == "done" and events[-1]["ok"] is False
+
+
+def test_the_sink_runs_without_holding_the_lock():
+    held = []
+
+    def sink(event):
+        def probe():
+            got = live._lock.acquire(timeout=0.5)
+            if got:
+                live._lock.release()
+            held.append(got)
+        worker = threading.Thread(target=probe)
+        worker.start()
+        worker.join()
+
+    live.sink = sink
+    try:
+        live.begin("x")
+        live.end()
+    finally:
+        live.sink = None
+    assert held == [True, True]
+
+
+def test_a_new_request_closes_a_forgotten_one(events):
+    first = live.begin("a")
+    live.start("thinking", "round 1")
+    second = live.begin("b")
+    done = [e for e in events if e["phase"] == "done"]
+    assert len(done) == 1 and done[0]["trace"] == first and done[0]["ok"] is False
+    assert events[-1]["trace"] == second and events[-1]["phase"] == "heard"
