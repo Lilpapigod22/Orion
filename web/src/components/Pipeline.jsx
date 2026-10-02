@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from 'motion/react';
-import { useState } from 'react';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
+import { useEffect, useRef, useState } from 'react';
 import { formatMs, nowLine, phaseSummary } from '../engine/live.js';
 import { useStore } from '../store.js';
 import { StepDetails } from './StepDetails.jsx';
@@ -9,10 +9,28 @@ export function Pipeline() {
   const traces = useStore((s) => s.live.traces);
   const [open, setOpen] = useState(null);
   const trace = traces.at(-1);
+  const restore = useRef(null);
+  // Escape closes the details; once they are gone, focus returns to the step that opened them.
+  useEffect(() => {
+    if (open || !restore.current) return;
+    document.querySelector(`.pipe-step[data-phase="${restore.current}"]`)?.focus();
+    restore.current = null;
+  }, [open]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      restore.current = open;
+      setOpen(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
   if (!trace) return null;
   const phases = phaseSummary(trace);
   const now = nowLine(trace);
   return (
+    <MotionConfig reducedMotion="user">
     <div className="pipeline">
       <ol className="pipe-steps">
         {phases.map((p, i) => (
@@ -33,5 +51,6 @@ export function Pipeline() {
         {open && <StepDetails key={open} phase={open} steps={phases.find((p) => p.phase === open).steps} onClose={() => setOpen(null)} />}
       </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }

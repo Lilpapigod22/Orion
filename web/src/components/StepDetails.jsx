@@ -14,7 +14,7 @@ export function StepDetails({ phase, steps, onClose }) {
     <motion.div className="step-details" role="dialog" aria-label={`${phase} details`}
                 initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
                 transition={{ duration: 0.16 }}>
-      <button type="button" className="step-details-close" aria-label="Close" onClick={onClose}>×</button>
+      <button type="button" autoFocus className="step-details-close" aria-label="Close" onClick={onClose}>×</button>
       {steps.length === 0 && <p className="step-details-empty">Nothing yet in this step.</p>}
       {steps.map((step, i) => (
         <section key={`${step.key}-${i}`}>

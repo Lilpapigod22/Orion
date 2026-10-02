@@ -624,4 +624,4 @@ button { cursor: pointer; }
 .gauge { color: var(--text); font-variant-numeric: tabular-nums; }
 .jobs { display: inline-flex; gap: 8px; flex: none; }
 .tele-chip--approval { color: var(--amber); border-color: rgba(255, 181, 71, 0.45); }
-.entry-ms { grid-column: 2; justify-self: start; margin-top: 2px; font: 400 10px/1 var(--f-mono); color: var(--muted); }
+.entry-ms { margin-left: 8px; letter-spacing: 0; text-transform: none; font: 400 10px/1 var(--f-mono); color: var(--muted); }

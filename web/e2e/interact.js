@@ -124,6 +124,13 @@ async function run() {
   check('the last answer time', document.querySelector('.gauges')?.textContent.includes('last 900 ms'));
   hud.live(ev({ trace: 999, phase: 'skill', state: 'end', label: 'ghost', key: 'ghost' }));
   check('events of unknown traces are ignored', !document.body.textContent.includes('ghost'));
+  hud.addLog('tool', 'get_weather · Пловдив · утре');
+  hud.toolDone('get_weather', 'ok', true, 620);
+  await wait(100);
+  const toolEntry = [...document.querySelectorAll('.entry--tool')].at(-1);
+  const timeBox = toolEntry.querySelector('time').getBoundingClientRect();
+  const textBox = toolEntry.querySelector('p').getBoundingClientRect();
+  check('skill duration badge keeps the text in its column', toolEntry.querySelector('b .entry-ms')?.textContent === '620 ms' && textBox.left >= timeBox.right);
   const pre = document.createElement('pre'); pre.id = 'result'; pre.textContent = out.join('\n'); document.body.append(pre);
 }
 window.addEventListener('load', () => setTimeout(run, 100));

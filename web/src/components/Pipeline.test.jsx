@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { store } from '../store.js';
 import { Pipeline } from './Pipeline.jsx';
 
@@ -13,6 +13,7 @@ const trace = {
 };
 
 describe('Pipeline', () => {
+  afterEach(cleanup);
   beforeEach(() => store.set({ live: { traces: [trace] } }));
 
   it('shows the five steps and highlights the running one', () => {
@@ -28,6 +29,16 @@ describe('Pipeline', () => {
     render(<Pipeline />);
     fireEvent.click(screen.getAllByRole('button')[1]);
     expect(screen.getByRole('dialog').textContent).toContain('will_it_rain');
+  });
+
+  it('closes the details with Escape and returns focus to the step', async () => {
+    render(<Pipeline />);
+    const step = screen.getAllByRole('button')[1];
+    fireEvent.click(step);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(step);
   });
 
   it('shows nothing before the first request', () => {

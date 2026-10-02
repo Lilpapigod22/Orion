@@ -102,8 +102,7 @@ function Entry({ entry }) {
   return (
     <li className={`entry entry--${kind}`}>
       <time>{time}</time>
-      <b>{WHO[kind] || kind}</b>
-      {entry.ms != null && <small className="entry-ms">{formatMs(entry.ms)}</small>}
+      <b>{WHO[kind] || kind}{entry.ms != null && <small className="entry-ms">{formatMs(entry.ms)}</small>}</b>
       {body}
     </li>
   );
