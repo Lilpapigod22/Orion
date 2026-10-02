@@ -3,6 +3,7 @@
 изрязване на вертикални видеа за YouTube Shorts. Работата е в orion/reels.py.
 """
 import os
+import re
 
 import config
 from orion import orion_tool, reels
@@ -10,6 +11,8 @@ from orion import orion_tool, reels
 
 def _url(url: str) -> str:
     found = reels.pick_found(url) or reels.find_url(url) or (url.strip() if url.strip().startswith("http") else "")
+    if not found and re.fullmatch(r"\s*(?:номер\s*|№\s*|#)?\d{1,2}\s*", url or ""):
+        raise ValueError("няма списък с клипове, от който да избера този номер")  # -> Орион сам избира
     if not found and reels.last_url:
         return reels.last_url  # „направи рийлове“ след анализа — същият клип
     if not found:
@@ -47,9 +50,11 @@ def make_youtube_reels(url: str = "", count: int = config.REEL_COUNT, seconds: i
         seconds: Колко секунди да е всеки (10–180; за Shorts обикновено 30–60).
         subtitles: Субтитри и заглавие върху видеото — True само ако сър изрично ги поиска.
     """
-    if not url.strip() and not reels.last_url:  # нищо не е посочено — Орион сам избира клипа
+    try:
+        chosen = _url(url)
+    except ValueError:  # няма линк (или списъкът с номера е от отдавна) — Орион сам избира клипа
         return reels.start_auto("", count, seconds, subtitles)
-    return reels.start(_url(url), count, seconds, subtitles)
+    return reels.start(chosen, count, seconds, subtitles)
 
 
 @orion_tool

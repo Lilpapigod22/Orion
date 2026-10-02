@@ -267,6 +267,13 @@ _AUTO_REEL_RE = re.compile(
     rf"(?:(?P<n>\d+|{'|'.join(_COUNT_WORDS)}|нов|още\s+един)\s+)?{_REEL_WORD}"
     rf"(?:\s+(?:сам|ти|по твой избор|избери ти|ти избери|избери сам))?"
     rf"(?:\s+(?:за|на тема)\s+(?P<topic>.+))?", re.IGNORECASE)
+# A longer request where sir leaves the choice to Orion: „искам да направиш един reel, като вземеш видеата,
+# които ти решиш“. Google sometimes hears „рийл“ as „Рио“ — accepted only right after „направи“.
+_AUTO_REEL_ASK_RE = re.compile(
+    rf"(?:\b(?:направи\w*|изрежи\w*|дай)\b.*?\b{_REEL_WORD}\b|\bнаправи\w*(?:\s+ми)?(?:\s+(?:един|една|нов))?\s+рио\b)"
+    r".*\b(?:(?:ти|сам)(?:\s+си)?\s+(?:решиш|ришиш|избереш|прецениш|реши|избери|прецени|намериш|намери)|"
+    r"по\s+твой\s+избор|по\s+твоя\s+преценка|(?:които|който|каквото|което)\s+(?:ти\s+)?(?:искаш|решиш|избереш|прецениш))\b",
+    re.IGNORECASE)
 # „направи рийлове от този клип“ — the last clip (after a link or an analysis)
 _REELS_FROM_LAST_RE = re.compile(
     rf"(?:направи|изрежи)(?:\s+ми)?(?:\s+(?P<n>\d+|{'|'.join(_COUNT_WORDS)}))?\s+{_REEL_WORD}\s+от\s+"
@@ -383,6 +390,9 @@ def respond(text: str, now: datetime | None = None) -> Reflex | None:
         if _count(match["n"]):
             arguments["count"] = _count(match["n"])
         return Reflex(tool="make_youtube_reels", arguments=arguments)
+    if _AUTO_REEL_ASK_RE.search(plain):  # „…един рийл от видеа, които ти решиш“ — Orion chooses
+        count = re.search(rf"\b(\d+|{'|'.join(_COUNT_WORDS)})\s+{_REEL_WORD}", plain, re.IGNORECASE)
+        return Reflex(tool="auto_reels", arguments={"topic": "", **({"count": _count(count[1])} if count else {})})
     match = _AUTO_REEL_RE.fullmatch(plain)
     if match:  # „Рийл“ — Orion chooses the clip
         arguments = {"topic": (match["topic"] or "").strip()}

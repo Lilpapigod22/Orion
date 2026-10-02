@@ -68,6 +68,30 @@ current: "Job | None" = None
 last_url = ""              # за „направи рийлове“ след „анализирай клипа“
 last_folder: Path | None = None
 last_found: list[dict] = []   # последното търсене на свободни клипове — за „направи рийлове от номер 2“
+# Разговорът се помни и след рестарт (memory/conversation.json) — затова и последният клип, и списъкът.
+LAST_FILE = config.BASE_DIR / "memory" / "reels_last.json"
+
+
+def _save_last() -> None:
+    try:
+        LAST_FILE.parent.mkdir(parents=True, exist_ok=True)
+        LAST_FILE.write_text(json.dumps({"url": last_url, "found": last_found, "time": time.time()}, ensure_ascii=False),
+                             encoding="utf-8")
+    except OSError as e:
+        print(f"[Рийлове] Не запазих последния клип: {e}")
+
+
+def _load_last() -> None:
+    global last_url, last_found
+    try:
+        data = json.loads(LAST_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    if time.time() - float(data.get("time") or 0) < 12 * 3600:  # колкото се помни и разговорът
+        last_url, last_found = str(data.get("url") or ""), list(data.get("found") or [])
+
+
+_load_last()
 
 Word = tuple[str, float, float]   # (дума, начало, край) в секунди
 
@@ -317,6 +341,7 @@ def find_free(topic: str, count: int = 5, remember: bool = True,
                 skipped.append((entry.get("title") or entry["id"], why))
     if found and remember:
         last_found = found
+        _save_last()
     return found, skipped
 
 
@@ -548,6 +573,7 @@ def analyze_url(url: str, count: int = 5, seconds: int = config.REEL_SECONDS) ->
     info = fetch(url)
     moments, notes = analyze(info, count, seconds)
     last_url = url
+    _save_last()
     free, why = license_check(info)
     if free or not config.REEL_FREE_ONLY:
         return describe(info, moments, notes) + f" Лиценз: {why}. Кажете „направи рийлове от този клип“, за да ги изрежа."
@@ -1356,6 +1382,7 @@ def start(url: str, count: int = config.REEL_COUNT, seconds: int = config.REEL_S
             return f"Не успях да отворя клипа, сър: {e}."
         if not ok:
             last_url = url
+            _save_last()
             return (f"Не правя рийлове от този клип, сър: {why}. Правя само от клипове, които авторът е пуснал "
                     f"свободно (Creative Commons). Кажете „намери видеа без авторски права за …“ и ще потърся.")
     with _lock:
@@ -1368,6 +1395,7 @@ def start(url: str, count: int = config.REEL_COUNT, seconds: int = config.REEL_S
             return f"На диска с рийловете са свободни само {free:.1f} GB, сър — трябват поне {MIN_FREE_GB}."
         current = Job(url, count, seconds, subtitles)
         last_url = url
+        _save_last()
     threading.Thread(target=_work, args=(current,), daemon=True, name="reels").start()
     return (f"Започнах, сър: анализирам клипа, коментарите и какво се казва, и ще изрежа до {count} "
             f"{'рийл' if count == 1 else 'рийла'} около {seconds} секунди. Отнема няколко минути — "
@@ -1510,6 +1538,7 @@ def _auto_work(job: Job, topic: str) -> None:
         return
     job.url, job.chosen, job.title = video["url"], why, video["title"]
     last_url = video["url"]
+    _save_last()
     notify(f"Избрах „{video['title']}“ от {video['channel']} — {_views_words(video['views'])} гледания, свободен "
            f"лиценз. {why[0].upper() + why[1:]}. Започвам рийловете.")
     _work(job)

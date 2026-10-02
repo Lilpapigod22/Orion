@@ -112,6 +112,16 @@ def speakable(text: str, limit: int = 600) -> str:
     return (cut[: end + 1] if end > limit // 3 else cut.rsplit(" ", 1)[0] + "…")
 
 
+def _distance(a: str, b: str) -> int:
+    """How many letters must change to turn one word into the other (Levenshtein)."""
+    row = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        prev, row[0] = row[0], i
+        for j, cb in enumerate(b, 1):
+            prev, row[j] = row[j], min(row[j] + 1, row[j - 1] + 1, prev + (ca != cb))
+    return row[-1]
+
+
 def describe_tool(name: str, arguments: str) -> str:
     """„get_weather · София“ — a short journal entry."""
     try:
@@ -737,6 +747,20 @@ class Orion:
             self._wake_thread.start()
         self._set_idle_state()
 
+    def _wake_in_other(self, text: str) -> str | None:
+        """Google missed the name but Whisper heard it („оня, искам…“ / „Орион, искам…“). The phrase is for
+        Orion only if Whisper starts with the name AND Google heard a similar word in the same place — so a TV
+        is not „rescued“ by a Whisper guess. Returns the phrase with the name, or None."""
+        google, whisper_text = getattr(self.listener, "last_heard", (None, None))
+        if not google or not whisper_text or text != google or not self._wake_re.match(whisper_text.strip()):
+            return None
+        words = google.split()
+        first = words[0].lower().strip(",.!?") if words else ""
+        limit = 4 if first[:1] in "оа" else 3  # „оня“, „арина“ — same start, a few letters lost
+        if len(words) < 2 or not 2 <= len(first) <= 7 or _distance(first, config.WAKE_WORDS[0]) > limit:
+            return None
+        return f"{config.WAKE_WORDS[0]} {' '.join(words[1:])}"
+
     def _wake_loop(self) -> None:
         """“Always listen” mode: reacts to phrases that contain “Orion”."""
         errors = 0
@@ -764,6 +788,10 @@ class Orion:
                 continue
             direct = direct or time.time() < self.followup_until
             has_wake_word = bool(self._wake_re.search(text))
+            if not has_wake_word:
+                rescued = self._wake_in_other(text)
+                if rescued:
+                    has_wake_word, text = True, rescued
             if not (direct or has_wake_word) or not (self.always_listen or direct):
                 # The conversation is not addressed to Orion (or listening was switched off meanwhile).
                 print(f"[Ignored — no “Orion”] {text}")

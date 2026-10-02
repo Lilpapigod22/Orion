@@ -20,3 +20,5 @@ skills/.history/
 skills/_selftest_*
 # пакетите за изграждане на прозореца (React) — npm install ги сваля отново
 web/node_modules/
+# работните скици от обсъжданията (визуални варианти)
+.superpowers/

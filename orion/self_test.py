@@ -295,7 +295,7 @@ class Sandbox:
                     self._set(module, attr, lambda *args, **kwargs: None)
                 elif isinstance(value, Path) and value.suffix == ".json" and MEMORY_DIR in value.parents:
                     self._set(module, attr, BOX / value.name)
-                elif name.startswith("skills.") or name == "orion.folders":
+                elif name.startswith("skills.") or name in ("orion.folders", "orion.reels"):
                     if attr.startswith(("last_", "_last")):  # “the last list of files/emails…”
                         self._attrs.append((module, attr, value))
                     if isinstance(value, (list, dict, set)):

@@ -94,6 +94,7 @@ class Listener:
         if not google and not google_error:
             return None
         text = speech.choose(google, whisper_text)
+        self.last_heard = (google, whisper_text)  # for the wake word: one of the two may have missed „Орион“
         if text:
             extra = f"   (Google: {google} | Whisper: {whisper_text})" if google != whisper_text else ""
             print(f"[Вие] {text}{extra}")
