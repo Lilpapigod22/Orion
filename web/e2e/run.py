@@ -11,6 +11,7 @@ HERE = Path(__file__).resolve().parent
 
 
 def main() -> int:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     with tempfile.TemporaryDirectory() as profile:
         dom = subprocess.run(
             [str(EDGE), "--headless=new", "--disable-gpu", "--no-first-run", f"--user-data-dir={profile}",
