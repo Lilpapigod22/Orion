@@ -17,6 +17,11 @@ const classicScript = {
 export default defineConfig({
   base: './',
   plugins: [react(), classicScript],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['src/test-setup.js'],
+    include: ['src/**/*.test.{js,jsx}'],
+  },
   build: {
     outDir: '../ui',
     emptyOutDir: true,
