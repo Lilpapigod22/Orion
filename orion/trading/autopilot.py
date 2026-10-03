@@ -46,6 +46,14 @@ def save(state: dict) -> None:
     os.replace(tmp, AUTO_FILE)
 
 
+def _keep(state: dict) -> None:
+    """save() that never raises: the lines of this check are returned even if the disk is full."""
+    try:
+        save(state)
+    except Exception as e:  # noqa: BLE001
+        print(f"[Autopilot] {type(e).__name__}: {e}")
+
+
 def reset_peak() -> None:
     """REAL TRADE was switched on: the account stop counts from now."""
     state = load()
@@ -99,7 +107,7 @@ def step(prepared_by_coin: dict, report: dict | None, network: str) -> list[tupl
                 account, coins = exchange.account_state(network)   # positions and today's loss changed
     except Exception as e:  # noqa: BLE001 — the autopilot must never stop the watch
         lines += _trouble(state, e)
-    save(state)
+    _keep(state)
     return lines
 
 
@@ -118,7 +126,7 @@ def _trade(state: dict, s, account: risk.AccountState, details: dict, network: s
     try:
         answer = exchange.auto_place(plan)
     except exchange.TradingError as e:
-        if str(e) == exchange.PRICE_MOVED:
+        if str(e) in (exchange.PRICE_MOVED, exchange.REAL_TRADE_OFF):
             return [(texts.auto_skipped(s, str(e)), False)]
         if str(e) != exchange.SENT_UNCHECKED:
             return [(texts.auto_skipped(s, str(e)), _due(state, str(e)))]
@@ -136,9 +144,13 @@ def _trade(state: dict, s, account: risk.AccountState, details: dict, network: s
 
 def _record(plan: risk.OrderPlan, strategy: str) -> None:
     """risk.plan has just seen no position in the coin, so an open journal trade there is stale (it closed while
-    Orion was off) — closed first, or the guard would treat the new position with the old trade's numbers."""
-    journal.close_trade(plan.coin, source=plan.network)
-    journal.add_trade(plan, strategy, auto=True)
+    Orion was off) — closed first, or the guard would treat the new position with the old trade's numbers.
+    A failed write is printed, never raised: the order is out and must still be told."""
+    try:
+        journal.close_trade(plan.coin, source=plan.network)
+        journal.add_trade(plan, strategy, auto=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[Autopilot] {type(e).__name__}: {e}")
 
 
 # --- Guarding -----------------------------------------------------------------------------------
@@ -162,7 +174,7 @@ def guard(network: str, account: risk.AccountState) -> list[tuple[str, bool]]:
             lines += _guard_trade(state, t, account, network, now)
         except Exception as e:  # noqa: BLE001 — one trade failing must not stop the guard of the others
             lines += _trouble(state, e)
-    save(state)
+    _keep(state)
     return lines
 
 

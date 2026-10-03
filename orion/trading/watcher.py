@@ -20,6 +20,7 @@ RESOLVE_EVERY = 60 * 60
 REFRESH_RETRY = 30 * 60
 LAB_EVERY = 60 * 60
 REPEAT_HOURS = 6
+FILLS_BACK_DAYS = 7
 
 
 class Watcher:
@@ -27,7 +28,9 @@ class Watcher:
         self.say, self.hud, self.lock, self.clock = say, hud, lock, clock
         self.last_scan = self.last_positions = self.last_resolve = self.last_refresh = self.last_lab = -1e18
         self.announced: dict[tuple[str, str], float] = {}
-        self.fills_from = int(clock() * 1000)
+        now_ms = int(clock() * 1000)
+        opened = [t["time"] for t in journal.open_trades()]
+        self.fills_from = max(min(opened), now_ms - FILLS_BACK_DAYS * 24 * 3_600_000) if opened else now_ms
         self.time_stop_told: set[str] = set()
 
     def run(self) -> None:
@@ -46,12 +49,12 @@ class Watcher:
         now = self.clock()
         strategy, testnet = None, False
         with self.lock:
+            if now - self.last_positions >= (60 if exchange.last_open else 300):
+                self.last_positions = now   # first: the guard (account stop, stops) before any new trade
+                self._safe(self.positions)
             if now - self.last_scan >= SCAN_EVERY:
                 self.last_scan = now
                 self._safe(self.scan)
-            if now - self.last_positions >= (60 if exchange.last_open else 300):
-                self.last_positions = now
-                self._safe(self.positions)
             if now - self.last_resolve >= RESOLVE_EVERY:
                 self.last_resolve = now
                 self._safe(journal.resolve)
@@ -163,7 +166,7 @@ class Watcher:
         newest = {t["coin"]: t for t in journal.open_trades()}   # the autopilot closes its own trades itself
         for coin in state.positions:
             trade = newest.get(coin)
-            if (trade and not trade.get("auto") and coin not in self.time_stop_told
+            if (trade and (not trade.get("auto") or not settings.enabled()) and coin not in self.time_stop_told
                     and now_ms - trade["time"] >= signals.TIME_STOP_HOURS * data.HOUR):
                 self.time_stop_told.add(coin)
                 name = NAMES.get(coin, coin).lower()

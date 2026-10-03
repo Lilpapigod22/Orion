@@ -150,14 +150,14 @@ def test_tick_runs_each_job_on_its_own_schedule(world, monkeypatch):
     monkeypatch.setattr(w, "positions", lambda: calls.append("positions"))
     monkeypatch.setattr(journal, "resolve", lambda bars_for=None: calls.append("resolve"))
     w.tick()
-    assert calls == ["scan", "positions", "resolve"]
+    assert calls == ["positions", "scan", "resolve"]
     calls.clear()
     w.clock.now += 120
     w.tick()
     assert calls == []
     w.clock.now += 15 * 60
     w.tick()
-    assert calls == ["scan", "positions"]
+    assert calls == ["positions", "scan"]
 
 
 def test_the_lab_search_and_the_testnet_check_run_without_the_lock(world, monkeypatch):
@@ -239,3 +239,35 @@ def test_the_48_hour_reminder_is_only_for_sirs_own_trades(world, monkeypatch):
     w.clock.now += 49 * 3600
     w.positions()
     assert not any("48 часа" in s for s in said)
+
+
+def test_fills_are_read_back_to_the_oldest_open_trade_at_start(world, monkeypatch):
+    clock = Clock(10)
+    start_ms = int(clock.now * 1000)
+    assert watcher.Watcher(print, print, threading.Lock(), clock).fills_from == start_ms
+    plan = risk.OrderPlan("BTC", "long", 0.01, 84000.0, 83000.0, 86000.0, 2, 840.0, 420.0, 10.0, 20.0, 0.0, 0.8,
+                          "testnet")
+    monkeypatch.setattr(journal, "_now", lambda: start_ms - 5 * 3_600_000)
+    journal.add_trade(plan, "пробив", auto=True)
+    assert watcher.Watcher(print, print, threading.Lock(), clock).fills_from == start_ms - 5 * 3_600_000
+    monkeypatch.setattr(journal, "_now", lambda: start_ms - 30 * 24 * 3_600_000)
+    journal.add_trade(plan, "пробив", auto=True)
+    assert watcher.Watcher(print, print, threading.Lock(), clock).fills_from == start_ms - 7 * 24 * 3_600_000
+
+
+def test_the_48_hour_reminder_covers_autopilot_trades_while_real_trade_is_off(world, monkeypatch):
+    settings.set_enabled(False)
+    monkeypatch.setattr(settings, "account", lambda network: ("0xme", "0xkey"))
+    monkeypatch.setattr(autopilot, "guard", lambda *args: pytest.fail("no guard while REAL TRADE is off"))
+    state = risk.AccountState(1000.0, {"BTC": {"side": "long", "size": 0.01, "entry": 84000.0, "pnl": 0.0,
+                                               "liq": 0.0, "value": 840.0}})
+    monkeypatch.setattr(exchange, "account_state", lambda network: (state, {}))
+    monkeypatch.setattr(exchange, "fills_since", lambda network, since: [])
+    w, said, hud = make()
+    monkeypatch.setattr(journal, "_now", lambda: int(w.clock.now * 1000))
+    plan = risk.OrderPlan("BTC", "long", 0.01, 84000.0, 83000.0, 86000.0, 2, 840.0, 420.0, 10.0, 20.0, 0.0, 0.8,
+                          "testnet")
+    journal.add_trade(plan, "пробив", auto=True)
+    w.clock.now += 49 * 3600
+    w.positions()
+    assert sum("48 часа" in s for s in said) == 1

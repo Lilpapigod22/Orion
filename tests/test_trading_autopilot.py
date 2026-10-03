@@ -398,3 +398,28 @@ def test_an_order_that_did_not_fill_is_a_journal_only_skip(ex):
     ex.found["BTC"] = [sig()]
     assert step(ex) == [(texts.auto_skipped(sig(), ex.answer), False)]
     assert journal.open_trades() == []
+
+
+def test_a_failed_journal_write_after_an_order_still_tells_the_trade(ex, monkeypatch, capsys):
+    def full_disk(*args, **kwargs):
+        raise OSError("No space left on device")
+    monkeypatch.setattr(journal, "add_trade", full_disk)
+    ex.found["BTC"] = [sig()]
+    assert step(ex) == [(texts.auto_opened(ex.placed[0], "breakout"), True)]
+    assert autopilot.load()["traded"] == [["BTC", "breakout", "long", 1]]
+    assert "[Autopilot] OSError: No space left on device" in capsys.readouterr().out
+
+
+def test_a_failed_state_write_still_returns_the_lines(ex, monkeypatch):
+    def full_disk(state):
+        raise OSError("No space left on device")
+    monkeypatch.setattr(autopilot, "save", full_disk)
+    ex.found["BTC"] = [sig()]
+    assert step(ex)[0][1] is True
+    assert guard(ex) == []
+
+
+def test_real_trade_switched_off_mid_scan_is_journal_only(ex):
+    ex.fail = exchange.TradingError(exchange.REAL_TRADE_OFF)
+    ex.found["BTC"] = [sig()]
+    assert step(ex) == [(texts.auto_skipped(sig(), exchange.REAL_TRADE_OFF), False)]

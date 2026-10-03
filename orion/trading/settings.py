@@ -6,13 +6,16 @@ The language model has no skill that changes the limits — sir edits them here.
 import base64
 import ctypes
 import json
+import os
 import re
+import threading
 from ctypes import wintypes
 
 import config
 
 from .risk import Limits
 
+_lock = threading.RLock()  # the watch (account stop) and the window/skill threads all write the file
 SETTINGS_FILE = config.BASE_DIR / "trading_settings.json"
 DEFAULTS = {
     "network": "testnet",
@@ -40,7 +43,11 @@ def load() -> dict:
 
 
 def save(settings: dict) -> None:
-    SETTINGS_FILE.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+    """Atomic: a reader never sees a half-written file (it would read as the testnet with no key)."""
+    with _lock:
+        tmp = SETTINGS_FILE.with_name(SETTINGS_FILE.name + ".tmp")
+        tmp.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, SETTINGS_FILE)
 
 
 def limits() -> Limits:
@@ -52,9 +59,10 @@ def network() -> str:
 
 
 def set_network(net: str) -> None:
-    settings = load()
-    settings["network"] = "mainnet" if net == "mainnet" else "testnet"
-    save(settings)
+    with _lock:
+        settings = load()
+        settings["network"] = "mainnet" if net == "mainnet" else "testnet"
+        save(settings)
 
 
 def enabled() -> bool:
@@ -62,9 +70,10 @@ def enabled() -> bool:
 
 
 def set_enabled(on: bool) -> None:
-    settings = load()
-    settings["enabled"] = bool(on)
-    save(settings)
+    with _lock:
+        settings = load()
+        settings["enabled"] = bool(on)
+        save(settings)
 
 
 def demo_on() -> bool:
@@ -72,9 +81,10 @@ def demo_on() -> bool:
 
 
 def set_demo(on: bool) -> None:
-    settings = load()
-    settings["demo"] = bool(on)
-    save(settings)
+    with _lock:
+        settings = load()
+        settings["demo"] = bool(on)
+        save(settings)
 
 
 def account(net: str) -> tuple[str, str] | None:
@@ -95,9 +105,10 @@ def save_account(net: str, address: str, key: str) -> str:
     if not KEY_RE.fullmatch(key):
         raise ValueError("API ключът трябва да е 64 знака (цифри и букви от a до f), по желание с 0x отпред.")
     key = key if key.startswith("0x") else "0x" + key
-    settings = load()
-    settings["accounts"][net] = {"address": address, "key": protect(key)}
-    save(settings)
+    with _lock:
+        settings = load()
+        settings["accounts"][net] = {"address": address, "key": protect(key)}
+        save(settings)
     return f"Запазих API ключа за {'истинската мрежа' if net == 'mainnet' else 'тестовата мрежа'}."
 
 

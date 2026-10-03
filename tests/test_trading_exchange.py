@@ -94,6 +94,7 @@ def fake(monkeypatch):
     monkeypatch.setattr(exchange, "SETTLE", 0)
     monkeypatch.setattr(exchange, "blocked", False)
     monkeypatch.setattr(exchange, "last_open", set())
+    monkeypatch.setattr(settings, "limits", lambda: risk.Limits())
     ex.used = used
     return info, ex
 
@@ -358,3 +359,37 @@ def test_the_smallest_check_on_the_real_account(fake):
     answer = exchange.smallest_check("mainnet")
     assert ex.used == ["mainnet"] and answer.startswith("Проверката в истинската сметка мина")
     assert info.positions == [] and info.orders == []
+
+
+def test_a_voice_trade_never_stacks_on_a_position_opened_while_sir_decided(fake, monkeypatch):
+    info, ex = fake
+
+    def approve_late(*args):
+        info.positions.append({"coin": "BTC", "szi": "0.5", "entryPx": "100", "unrealizedPnl": "0"})
+        return True
+    monkeypatch.setattr(confirm, "handler", approve_late)
+    with pytest.raises(exchange.TradingError, match="Междувременно се отвори позиция в Биткойн"):
+        exchange.place(plan())
+    assert not any(call[0] == "bulk" for call in ex.calls)
+
+
+def test_the_position_limit_is_checked_again_at_the_last_moment(fake, real_trade):
+    info, ex = fake
+    info.positions = [{"coin": c, "szi": "1", "entryPx": "1", "unrealizedPnl": "0"} for c in ("SOL", "ETH", "XRP")]
+    with pytest.raises(exchange.TradingError, match="лимитът на отворените позиции"):
+        exchange.auto_place(plan())
+    assert ex.calls == []
+
+
+def test_the_client_has_a_timeout(monkeypatch):
+    import hyperliquid.exchange
+    seen = {}
+
+    class Client:
+        def __init__(self, wallet, base_url=None, account_address=None, timeout=None, **kwargs):
+            seen.update(account_address=account_address, timeout=timeout)
+            self.info = object()
+    monkeypatch.setattr(hyperliquid.exchange, "Exchange", Client)
+    monkeypatch.setattr(settings, "account", lambda network: ("0x" + "a" * 40, "0x" + "11" * 32))
+    exchange._make_client("testnet")
+    assert seen == {"account_address": "0x" + "a" * 40, "timeout": exchange.TIMEOUT}

@@ -10,6 +10,7 @@ leverage is set, and the entry goes in one group with the take-profit and the st
 never left without a stop: if the stop cannot be placed, the position is closed at once.
 """
 import math
+import threading
 import time
 from datetime import datetime
 from typing import Callable
@@ -25,6 +26,9 @@ CLOSE_SLIPPAGE = 0.01
 SETTLE = 1.0                # seconds for the exchange to show new orders
 blocked = False             # test mode's sandbox sets it: no exchange calls at all
 last_open: set[str] = set()  # coins with open positions at the last check (reflexes, watcher)
+TIMEOUT = 15                # seconds per Hyperliquid request — a stalled request must not freeze the watch
+REAL_TRADE_OFF = "REAL TRADE е спрян — автопилотът не търгува."
+_open_lock = threading.Lock()   # one open at a time: a voice trade and the autopilot never stack on one coin
 PRICE_MOVED = "Цената се помести, докато смятах сделката — пропускам я."
 SENT_UNCHECKED = ("Поръчката е изпратена, но връзката с борсата прекъсна преди проверката на стопа. Кажете "
                   "„какви позиции имам“ — ако позицията е там без стоп, затворете я с „затвори …“.")
@@ -51,7 +55,7 @@ def _make_client(network: str):
                            "TRADE. Мога да търгувам на демо сметка — кажете „направи демо сметка с 1000 долара“.")
     address, key = found
     url = constants.MAINNET_API_URL if network == "mainnet" else constants.TESTNET_API_URL
-    client = Exchange(eth_account.Account.from_key(key), url, account_address=address)
+    client = Exchange(eth_account.Account.from_key(key), url, account_address=address, timeout=TIMEOUT)
     return client.info, client, address
 
 
@@ -212,20 +216,29 @@ def confirmation(plan: risk.OrderPlan, note: str = "") -> tuple[str, str, str]:
 
 
 def _open(info, client, address: str, plan: risk.OrderPlan, mid: float) -> str:
-    """Sends the entry with its target and stop and makes sure the stop exists. Returns what Orion says."""
-    position = _send(info, client, address, plan, mid)
-    if not position:
-        return "Входът не се изпълни — цената избяга. Нищо не е отворено."
-    try:
-        _protect(info, client, address, plan, position)
-    except TradingError:
-        raise
-    except Exception as e:  # the position is open; the stop check itself failed
+    """Sends the entry with its target and stop and makes sure the stop exists. Returns what Orion says. The
+    positions are read again first, under _open_lock: a voice trade approved after the autopilot opened the same
+    coin (or the other way round) is refused, never stacked on it."""
+    with _open_lock:
+        open_now = {item["position"]["coin"] for item in info.user_state(address).get("assetPositions", [])
+                    if float(item["position"]["szi"])}
+        if plan.coin in open_now:
+            raise TradingError(f"Междувременно се отвори позиция в {NAMES[plan.coin]} — не добавям към нея.")
+        if len(open_now) >= settings.limits().max_positions:
+            raise TradingError("Междувременно се стигна лимитът на отворените позиции — сделката не е отворена.")
+        position = _send(info, client, address, plan, mid)
+        if not position:
+            return "Входът не се изпълни — цената избяга. Нищо не е отворено."
+        try:
+            _protect(info, client, address, plan, position)
+        except TradingError:
+            raise
+        except Exception as e:  # the position is open; the stop check itself failed
+            last_open.add(plan.coin)
+            raise TradingError(SENT_UNCHECKED) from e
         last_open.add(plan.coin)
-        raise TradingError(SENT_UNCHECKED) from e
-    last_open.add(plan.coin)
-    return (f"Отворих {'лонг' if plan.side == 'long' else 'шорт'} на {NAMES[plan.coin]}: {position['size']:g} на "
-            f"{_fmt(position['entry'])}. Стоп {_fmt(plan.stop)}, цел {_fmt(plan.target)} — и двата са в борсата.")
+        return (f"Отворих {'лонг' if plan.side == 'long' else 'шорт'} на {NAMES[plan.coin]}: {position['size']:g} на "
+                f"{_fmt(position['entry'])}. Стоп {_fmt(plan.stop)}, цел {_fmt(plan.target)} — и двата са в борсата.")
 
 
 def place(plan: risk.OrderPlan, note: str = "") -> str:
@@ -242,7 +255,7 @@ def place(plan: risk.OrderPlan, note: str = "") -> str:
 
 def _autopilot_client(network: str):
     if not settings.enabled():
-        raise TradingError("REAL TRADE е спрян — автопилотът не търгува.")
+        raise TradingError(REAL_TRADE_OFF)
     return _client(network)
 
 

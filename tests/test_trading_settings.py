@@ -67,3 +67,9 @@ def test_a_settings_file_from_before_gets_the_account_stop():
     settings.SETTINGS_FILE.write_text('{"limits": {"risk_pct": 1.0}}', encoding="utf-8")
     limits = settings.limits()
     assert (limits.risk_pct, limits.max_drawdown_pct) == (1.0, 40.0)
+
+
+def test_saving_is_atomic_and_leaves_no_temp_file():
+    settings.set_enabled(True)
+    assert settings.enabled()
+    assert not settings.SETTINGS_FILE.with_name(settings.SETTINGS_FILE.name + ".tmp").exists()

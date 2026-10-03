@@ -184,18 +184,36 @@ def validate_skill_code(code: str, taken_names: set[str]) -> tuple[list[str], li
     return list(dict.fromkeys(problems)), sorted(set(warnings)), [fn.name for fn in tools]
 
 
-def _reaches_trading(tree: ast.AST) -> bool:
-    """Any import of orion.trading (also inside functions) or the attribute orion.trading."""
+def _skill_reaches_trading(name: str, depth: int) -> bool:
+    """skills/<name>.py imports orion.trading — code Orion writes may not reach trading through a skill module."""
+    try:
+        source = (config.SKILLS_DIR / f"{name}.py").read_text(encoding="utf-8")
+        return _reaches_trading(ast.parse(source), depth + 1)
+    except (OSError, SyntaxError, ValueError):
+        return False
+
+
+def _reaches_trading(tree: ast.AST, depth: int = 0) -> bool:
+    """Any import of orion.trading (also inside functions), the attribute orion.trading, or a skills module that
+    reaches it (followed two levels deep)."""
+    def skill(name: str) -> bool:
+        return depth < 2 and bool(name) and _skill_reaches_trading(name, depth)
+
     for n in ast.walk(tree):
-        if isinstance(n, ast.Import) and any(a.name.split(".")[:2] == ["orion", "trading"] for a in n.names):
-            return True
+        if isinstance(n, ast.Import):
+            for a in n.names:
+                parts = a.name.split(".")
+                if parts[:2] == ["orion", "trading"] or (parts[0] == "skills" and len(parts) > 1 and skill(parts[1])):
+                    return True
         if isinstance(n, ast.ImportFrom) and n.module:
             parts = n.module.split(".")
             if parts[:2] == ["orion", "trading"] or (n.module == "orion" and any(a.name == "trading" for a in n.names)):
                 return True
-        if (isinstance(n, ast.Attribute) and n.attr == "trading" and isinstance(n.value, ast.Name)
-                and n.value.id == "orion"):
-            return True
+            if parts[0] == "skills" and (skill(parts[1]) if len(parts) > 1 else any(skill(a.name) for a in n.names)):
+                return True
+        if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name):
+            if (n.value.id == "orion" and n.attr == "trading") or (n.value.id == "skills" and skill(n.attr)):
+                return True
     return False
 
 

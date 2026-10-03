@@ -9,6 +9,7 @@ user_settings.json
 google_settings.json
 # ключът за търговия в Hyperliquid (криптиран) и лимитите
 trading_settings.json
+trading_settings.json.tmp
 # личните документи, от които Орион отговаря
 knowledge/
 
