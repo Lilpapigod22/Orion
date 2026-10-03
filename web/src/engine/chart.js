@@ -85,10 +85,10 @@ export function drawChart(canvas, data, hoverIndex = null) {
     ctx.fillText(text, w - pad.r - 13, ty);
   }
 
-  // A forecast's entry, stop and target — dashed, labelled on the left (support/resistance are on the right).
-  for (const [label, level, color, dash] of [['entry', data.entry, CHART.entry, [2, 3]],
-    ['stop', data.stop, CHART.stop, [6, 4]], ['target', data.target, CHART.target, [10, 4]]]) {
-    if (level == null) continue;
+  // A forecast's entry, stop and target — dashed lines under the price; their labels come last (below).
+  const tradeLevels = [['entry', data.entry, CHART.entry, [2, 3]], ['stop', data.stop, CHART.stop, [6, 4]],
+    ['target', data.target, CHART.target, [10, 4]]].filter(([, level]) => level != null);
+  for (const [, level, color, dash] of tradeLevels) {
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.2;
     ctx.setLineDash(dash);
@@ -97,13 +97,6 @@ export function drawChart(canvas, data, hoverIndex = null) {
     ctx.lineTo(w - pad.r, y(level));
     ctx.stroke();
     ctx.setLineDash([]);
-    const text = `${label} ${fmtPrice(level)}`;
-    const tw = ctx.measureText(text).width;
-    ctx.fillStyle = 'rgba(7,18,28,0.85)';
-    ctx.fillRect(pad.l + 4, y(level) - 14, tw + 6, 12);
-    ctx.fillStyle = color;
-    ctx.textAlign = 'left';
-    ctx.fillText(text, pad.l + 7, y(level) - 5);
   }
 
   // A light wash under the price, then the lines.
@@ -147,6 +140,17 @@ export function drawChart(canvas, data, hoverIndex = null) {
     ctx.fill();
   };
   dot(n - 1, data.close[n - 1], CHART.price);
+
+  // The trade level labels — on the left, over the price line so it never hides them.
+  for (const [label, level, color] of tradeLevels) {
+    const text = `${label} ${fmtPrice(level)}`;
+    const tw = ctx.measureText(text).width;
+    ctx.fillStyle = 'rgba(7,18,28,0.85)';
+    ctx.fillRect(pad.l + 4, y(level) - 14, tw + 6, 12);
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left';
+    ctx.fillText(text, pad.l + 7, y(level) - 5);
+  }
 
   if (hoverIndex != null) {
     ctx.strokeStyle = 'rgba(188,217,232,0.4)';
