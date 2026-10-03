@@ -16,3 +16,4 @@ qrcode>=7.4            # QR кодове
 yt-dlp[default]>=2026.8  # рийлове: данни, коментари и видео от YouTube (JavaScript — през Node.js)
 imageio-ffmpeg>=0.6    # рийлове: ffmpeg (рязане, субтитри, звук) — без отделна инсталация
 opencv-python-headless>=4.10  # рийлове: кадриране по лицата (моделът YuNet е на D:)
+hyperliquid-python-sdk>=0.24  # търговия в Hyperliquid: поръчки с API ключ, който НЕ може да тегли
