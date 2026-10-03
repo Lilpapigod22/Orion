@@ -225,6 +225,23 @@ def _open(info, client, address: str, plan: risk.OrderPlan, mid: float) -> str:
             f"{_fmt(position['entry'])}. Стоп {_fmt(plan.stop)}, цел {_fmt(plan.target)} — и двата са в борсата.")
 
 
+def _open(info, client, address: str, plan: risk.OrderPlan, mid: float) -> str:
+    """Sends the entry with its target and stop and makes sure the stop exists. Returns what Orion says."""
+    position = _send(info, client, address, plan, mid)
+    if not position:
+        return "Входът не се изпълни — цената избяга. Нищо не е отворено."
+    try:
+        _protect(info, client, address, plan, position)
+    except TradingError:
+        raise
+    except Exception as e:  # the position is open; the stop check itself failed
+        last_open.add(plan.coin)
+        raise TradingError(SENT_UNCHECKED) from e
+    last_open.add(plan.coin)
+    return (f"Отворих {'лонг' if plan.side == 'long' else 'шорт'} на {NAMES[plan.coin]}: {position['size']:g} на "
+            f"{_fmt(position['entry'])}. Стоп {_fmt(plan.stop)}, цел {_fmt(plan.target)} — и двата са в борсата.")
+
+
 def place(plan: risk.OrderPlan, note: str = "") -> str:
     """Asks sir; on „Одобри" opens the position with its stop and target. Returns what Orion says."""
     info, client, address = _client(plan.network)
@@ -234,6 +251,21 @@ def place(plan: risk.OrderPlan, note: str = "") -> str:
     mid = float(info.all_mids()[plan.coin])
     if abs(mid / plan.entry - 1) > MOVE_LIMIT:
         raise PriceMoved(mid)
+    return _open(info, client, address, plan, mid)
+
+
+def _autopilot_client(network: str):
+    if not settings.enabled():
+        raise TradingError("REAL TRADE е спрян — автопилотът не търгува.")
+    return _client(network)
+
+
+def auto_place(plan: risk.OrderPlan) -> str:
+    """The autopilot's open — no dialog: only while REAL TRADE is on. Returns what Orion says."""
+    info, client, address = _autopilot_client(plan.network)
+    mid = float(info.all_mids()[plan.coin])
+    if abs(mid / plan.entry - 1) > MOVE_LIMIT:
+        raise TradingError("Цената се помести, докато смятах сделката — пропускам я.")
     return _open(info, client, address, plan, mid)
 
 
@@ -271,6 +303,26 @@ def close(coins: list[str], network: str, reason: str = "") -> str:
         _close(info, client, address, coin)
         done.append(f"{NAMES[coin]} ({pnl[coin]:+.2f} $)")
     return "Затворих: " + ", ".join(done) + "."
+
+
+def _close(info, client, address: str, coin: str) -> None:
+    """Closes one position at market and cancels its stop and target."""
+    _ok(client.market_close(coin, slippage=CLOSE_SLIPPAGE), f"Затварянето на {NAMES[coin]}")
+    for order in info.frontend_open_orders(address):
+        if order.get("coin") == coin and order.get("reduceOnly"):
+            client.cancel(coin, order["oid"])
+    last_open.discard(coin)
+
+
+def auto_close(coins: list[str], network: str) -> str:
+    """The autopilot's close (the 48-hour time stop) — no dialog: only while REAL TRADE is on."""
+    info, client, address = _autopilot_client(network)
+    open_now = {item["position"]["coin"] for item in info.user_state(address).get("assetPositions", [])
+                if float(item["position"]["szi"])}
+    closed = [coin for coin in coins if coin in open_now]
+    for coin in closed:
+        _close(info, client, address, coin)
+    return ("Затворих: " + ", ".join(NAMES[c] for c in closed) + ".") if closed else "Няма какво да затварям."
 
 
 def _close(info, client, address: str, coin: str) -> None:
