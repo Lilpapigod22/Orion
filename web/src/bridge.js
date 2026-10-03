@@ -136,7 +136,7 @@ export const hud = {
   },
 
   setSwitch(name, value) {
-    if (!['wake', 'voice', 'test'].includes(name)) return;
+    if (!['wake', 'voice', 'test', 'demo', 'real'].includes(name)) return;
     store.set((s) => ({ switches: { ...s.switches, [name]: Boolean(value) } }));
     if (name === 'test' && !value) this.setTest({ active: false });
   },
@@ -157,8 +157,10 @@ export const hud = {
       store.set({ trading: null });
       return;
     }
-    const parts = data.positions.map((p) => `${p.coin} ${p.side.toUpperCase()} ${p.pnl_pct >= 0 ? '+' : ''}${p.pnl_pct.toFixed(1)}%`);
+    const pct = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+    const parts = data.positions.map((p) => `${p.coin} ${p.side.toUpperCase()} ${pct(p.pnl_pct)}`);
     if (data.network === 'testnet') parts.unshift('TESTNET');
+    for (const account of data.demo || []) parts.push(`DEMO ${account.name} ${pct(account.pct)}`);
     store.set({ trading: parts.length ? `trading · ${parts.join(' · ')}` : null });
   },
 
@@ -178,6 +180,8 @@ async function start() {
   hud.setSwitch('wake', settings.alwaysListen);
   hud.setSwitch('voice', !settings.muted);
   hud.setSwitch('test', settings.testMode);
+  hud.setSwitch('demo', Boolean(settings.demoMode));
+  hud.setSwitch('real', Boolean(settings.realTrading));
   store.set({ maximized: Boolean(settings.maximized) });
   focusInput();
 }

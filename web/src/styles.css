@@ -571,6 +571,10 @@ button { cursor: pointer; }
 .switch--wake input:checked::before { background: var(--amber); }
 .switch--test input:checked { background: rgba(140, 227, 176, 0.16); border-color: var(--test); }
 .switch--test input:checked::before { background: var(--test); }
+.switch--demo input:checked { background: rgba(127, 219, 255, 0.16); border-color: var(--holo); }
+.switch--demo input:checked::before { background: var(--holo); }
+.switch--real input:checked { background: rgba(255, 90, 78, 0.16); border-color: var(--alert); }
+.switch--real input:checked::before { background: var(--alert); }
 .switch input:checked + span { color: var(--text); }
 
 /* --- Animations ---------------------------------------------------------------------------- */

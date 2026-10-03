@@ -8,6 +8,10 @@ const SWITCHES = [
   { name: 'voice', label: 'Voice', className: 'switch', title: 'Answers are read out loud' },
   { name: 'test', label: 'Test mode', className: 'switch switch--test',
     title: 'Orion checks its own skills and whether it understands you, and fixes its mistakes. Tests pause while you talk to it.' },
+  { name: 'demo', label: 'Demo test', className: 'switch switch--demo',
+    title: 'Orion trades the demo accounts by itself — virtual money on live prices, never a real order' },
+  { name: 'real', label: 'Real trade', className: 'switch switch--real',
+    title: 'The real Hyperliquid account: forecasts when you ask, every trade only after you approve it' },
 ];
 
 export function Console() {

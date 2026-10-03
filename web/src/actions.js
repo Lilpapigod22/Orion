@@ -42,6 +42,8 @@ export function setSwitch(name, checked) {
     api()?.set_muted(!checked);
   }
   if (name === 'test') api()?.set_test_mode(checked);
+  if (name === 'demo') api()?.set_demo_mode(checked);
+  if (name === 'real') api()?.set_real_trading(checked);
 }
 
 export function toggleMaximize() {

@@ -14,7 +14,7 @@ let state = {
   trading: null,                   // chip text: the network and open positions (orion/trading/watcher.py)
   keyDialog: null,                 // { network } while the Hyperliquid key dialog is open
   approval: null,                  // code for approval or an action to confirm
-  switches: { wake: false, voice: true, test: false },
+  switches: { wake: false, voice: true, test: false, demo: false, real: false },
   maximized: false,
   live: { traces: [] },            // the live board: the last 20 requests and their steps
   gauges: {},                      // { gpu, vramUsed, vramTotal, cpu, ram }
