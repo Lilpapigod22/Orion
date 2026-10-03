@@ -34,7 +34,7 @@ these rules on data it never saw.
 
 - „Какво ще прави биткойнът?“ / „Прогноза за солана“ → a forecast for that coin. Example (numbers
   illustrative): *„Биткойн: 4-часовият тренд е нагоре. Сигнал ЛОНГ — отскок в тренда, сила 4 от 5. Вход около
-  118 400, стоп 116 900 (−1,3 %), цел 121 400 (+2,5 %). В проверката: 64 сделки, печели 47 %, средно +0,3
+  84 400, стоп 83 300 (−1,3 %), цел 86 600 (+2,6 %). В проверката: 64 сделки, печели 47 %, средно +0,3
   пъти риска на сделка след таксите. Финансирането е нормално. Това е вероятност, не гаранция.“*
   With no signal: the trend, the nearest levels and a 24 h range (≈68 % band from volatility, its hit rate
   measured) and „няма ясен сигнал — по-добре е да не се влиза“.
@@ -58,17 +58,21 @@ New package `orion/trading/`, one purpose per file:
 
 ### `data.py` — market data (no key)
 
-Hyperliquid info API (`POST /info`): `candleSnapshot` (1m, 1h, 4h, 1d with volume; the API returns at
-most the latest 5000 candles: ≈7 months of 1h, ≈2.3 years of 4h), `metaAndAssetCtxs` (mark price, current
-funding, open interest, premium, size decimals, max leverage), `fundingHistory` (paged). Fear & Greed
-history from alternative.me (`fng/?limit=0`). Candles are cached under `memory/trading_cache/` and only
-the missing tail is fetched. Open interest has no history in the API: the watcher records snapshots, and
-OI is reported as context only, never used in a rule until enough history exists.
+Hyperliquid info API (`POST /info`): `candleSnapshot` (1h, 4h, 1d with volume — live signals),
+`metaAndAssetCtxs` (mark/mid price, current funding, open interest, premium, size decimals, max leverage),
+`fundingHistory` (paged, 500 per call, starts 2023-05-12). The API returns at most the latest 5000 candles
+(≈7 months of 1h — measured 2026-10-03), too little for an honest out-of-sample test, so the **backtest
+history** is Binance's public spot 1h klines (`data-api.binance.vision`, no key, `BTCUSDT`/`ETHUSDT`/
+`SOLUSDT`) from 2023-05-12 (≈3.4 years), resampled to 4h and 1d, plus Hyperliquid's funding history. Fear & Greed
+history from alternative.me (`fng/?limit=0`). The Binance history and the funding history are cached under
+`memory/trading_cache/` and only the missing tail is fetched. Open interest has no history in the API: the watcher records snapshots, and
+OI is used neither in rules nor in answers until enough
+history exists.
 
 ### `signals.py` — indicators and the three strategies
 
 Indicators (pure functions over candle lists; reuse `orion/markets.py` `ema/rsi/atr/levels` where they
-fit): EMA 21/55 on 1h and 4h, EMA 50/200 on 1d, RSI(14), MACD histogram, ATR(14), ADX(14), Donchian(20),
+fit): EMA 21/55 on 1h and 4h, EMA 50/200 on 1d, RSI(14), ATR(14), ADX(14), Donchian(20),
 volume vs its 20-candle average, swing highs/lows, funding percentile over 90 days.
 
 Strategies, evaluated on **closed** 1h candles, each mirrored for short:
@@ -81,7 +85,7 @@ Strategies, evaluated on **closed** 1h candles, each mirrored for short:
    below the previous candle's low → short (mirror: bottom 5 %, RSI < 25, close above the previous high).
 
 A `Signal` has: coin, strategy, side, entry (last close), stop (beyond the last swing or 1.5 × ATR,
-whichever is further, capped at 3 × ATR), target (≥ 2 × the stop distance, or the next level if further),
+whichever is further, capped at 3 × ATR), target (`reward` × the stop distance, default 2),
 time stop 48 h, strength 1–5, the reasons as short Bulgarian phrases, and the strategy's backtest stats.
 Strength = 1 + one point each for: 4h and 1d agree, volume above average, funding not crowded against the
 trade, BTC 4h trend agrees (for BTC itself: Fear & Greed not extreme against the trade).
@@ -92,8 +96,8 @@ without changing code.
 
 ### `backtest.py` — the honest check
 
-- Replays every strategy candle by candle on the cached history for each coin, with the same `Signal`
-  code (no separate backtest logic).
+- Replays every strategy candle by candle on the Binance history for each coin, with the same `Signal`
+  code (no separate backtest logic). Entry at the next candle's open.
 - Costs: taker fee on entry and exit (default 0.045 %, read from `userFees` once connected), slippage
   (BTC 0.02 %, ETH 0.03 %, SOL 0.05 %), hourly funding from `fundingHistory`. If stop and target are both
   inside one candle, the stop counts. Time stop exits at the close after 48 h.
@@ -111,8 +115,8 @@ without changing code.
 ### `journal.py` — live track record
 
 Every signal Orion gives (asked, watched or practised) and every trade is appended to
-`memory/trading_journal.json` with its outcome, resolved later from 1m/1h candles (so outcomes are
-correct even if the PC was off). This answers „колко позна“ and feeds the strategy lab.
+`memory/trading_journal.json` with its outcome, resolved later from Hyperliquid's 1h candles (so outcomes
+are correct even if the PC was off). This answers „колко позна“ and feeds the strategy lab.
 
 ### `risk.py` — hard limits (pure functions, no I/O)
 
@@ -151,7 +155,9 @@ Uses the official `hyperliquid-python-sdk` (`Info`, `Exchange`) with the agent k
   cannot be pointed at mainnet.
 - Errors (expired key, insufficient margin, rejected order) become short Bulgarian messages.
 - Fills: while positions are open, a 1-minute poll of `userFills` announces stop/target/time-stop exits
-  and updates the top-bar chip. The 48 h time stop is executed by Orion with approval (announced first).
+  and updates the top-bar chip. The 48 h time stop is announced („времето ѝ изтече“); sir closes the trade
+  with one command and its approval dialog — a dialog the watch opened by itself could collide with another
+  approval.
 
 ### `settings.py` — `trading_settings.json` (git-ignored, this PC only)
 
@@ -172,8 +178,9 @@ are open it also runs the 1-minute fill poll.
 Test mode (`orion/self_test.py`) gets a trading stage that runs **every round**; the existing skill and
 understanding stages run every 3rd round.
 1. **Practice account** (`memory/trading_practice.json`, $10 000 virtual): in test mode Orion opens every
-   signal of every strategy without asking, with the same `risk.py` limits and the backtest's cost model,
-   on live mainnet prices. Outcomes resolve from candles (also after the PC was off).
+   signal of every strategy without asking, with the same sizing and leverage rules (`risk.size_for`) and
+   the backtest's cost model, on live mainnet prices. The position-count limit is not applied, so every
+   signal is measured. Outcomes resolve from candles (also after the PC was off).
 2. **Strategy lab**: tries parameter variants on the tuning part of history. A variant replaces the
    current parameters only if (a) it beats them out-of-sample by ≥10 % expectancy and passes the enable
    rule, and then (b) it beats them over its first 20 practice trades, which run alongside as a shadow.
