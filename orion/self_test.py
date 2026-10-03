@@ -60,7 +60,8 @@ REPORT = config.BASE_DIR / "logs" / "self_test.md"
 BOX = Path(tempfile.gettempdir()) / "orion_selftest"
 
 ROUND_PAUSE = 10 * 60   # seconds between rounds while test mode is on
-SKILLS_EVERY = 3        # skills (network, files) — every 3 rounds; understanding — every round
+SKILLS_EVERY = 3        # skills (network, files) — every 3 rounds
+LEGACY_EVERY = 3        # skills + understanding — every 3rd round; trading practice (the main exercise) — every round
 NEW_ASKS = 8            # for how many skills Orion invents new requests per round
 MAX_FIXES = 4           # fixes per round — the rest wait for the next one
 IDLE_SECONDS = 20       # tests still wait this long after sir's last request
@@ -268,6 +269,8 @@ class Sandbox:
         self._set(reminder_book, "path", BOX / "reminders.json")
         from . import confirm
         self._set(confirm, "handler", lambda *args, **kwargs: False)
+        from .trading import exchange as trading_exchange
+        self._set(trading_exchange, "blocked", True)  # skills under test never reach the exchange
         self._set(os, "startfile", lambda *args, **kwargs: None)
         for attr in ("open", "open_new", "open_new_tab"):
             self._set(webbrowser, attr, lambda *args, **kwargs: True)
@@ -472,12 +475,18 @@ class Report:
     fixes: list[tuple[str, str]] = field(default_factory=list)  # („сам“/„одобрена“/…, description)
     untested: list[str] = field(default_factory=list)
     stopped: bool = False
+    trading: object | None = None        # orion.trading.practice.Round
+    trading_error: str = ""
 
     def count(self, *kinds: str) -> int:
         return sum(1 for kind, _ in self.fixes if kind in kinds)
 
     def summary(self) -> str:
         parts = []
+        if self.trading:
+            parts.append(self.trading.summary())
+        elif self.trading_error:
+            parts.append("тренировката по търговия не мина (няма пазарни данни)")
         if self.skills_total:
             parts.append(f"проверих {_count(self.skills_total, 'умение', 'умения')} — работят {self.skills_ok}")
         if self.asks_total:
@@ -496,6 +505,13 @@ class Report:
         if self.stopped:
             lines += ["_Прекъсната от сър — резултатите са частични._", ""]
         lines += [self.summary(), ""]
+        if self.trading:
+            from .trading.signals import LABELS
+            lines += ["## Търговия (тренировка)", ""]
+            for strategy, b in self.trading.by_strategy.items():
+                lines.append(f"- {LABELS.get(strategy, strategy)}: {b['wins']} от {b['n']}, "
+                             f"средно {b['r'] / b['n']:+.2f}R")
+            lines.append("")
         if self.skill_failures:
             lines += ["## Умения с проблем", ""]
             for case, problem, network in self.skill_failures:
@@ -622,6 +638,9 @@ class SelfTester:
         self._progress("", active=False)
 
     def _round(self, report: Report) -> None:
+        self._practice(report)  # trading practice — the main exercise, every round
+        if report.number % LEGACY_EVERY != 1:
+            return
         store = self._load_store()
         first = report.number == 1
         self._hud("thought", "Самопроверка: пускам уменията си в пясъчник и проверявам дали разбирам молбите.")
@@ -633,6 +652,18 @@ class SelfTester:
         self._save_store(store)
         if first:
             report.untested = self._untested(store)
+
+    def _practice(self, report: Report) -> None:
+        """Trading practice: virtual trades on live prices, the strategy lab, the daily testnet check."""
+        from .trading import practice
+        self._wait_idle()
+        self._progress("trading practice")
+        self._hud("thought", "Самопроверка: тренирам търговия — виртуални сделки на истински цени.")
+        try:
+            report.trading = practice.run(log=self._log)
+        except Exception as e:  # noqa: BLE001 — no market data now: the next round tries again
+            report.trading_error = f"{type(e).__name__}: {e}"
+            self._log(f"Тренировката по търговия не мина: {report.trading_error}")
 
     # --- 1. Skills ----------------------------------------------------------------------------
     def _skill_cases(self, store: dict) -> list[SkillCase]:
@@ -1148,7 +1179,8 @@ class SelfTester:
             nxt = datetime.now() + timedelta(seconds=ROUND_PAUSE)
             self._progress(f"next check at {nxt:%H:%M}")
         # Out loud: the first round and any round with something new for sir.
-        news = report.count("сам", "одобрена", "неуспешна", "ядро") or report.skill_failures
+        news = report.count("сам", "одобрена", "неуспешна", "ядро") or report.skill_failures or \
+            bool(report.trading and "нови числа" in report.trading.lab_note)
         if not report.stopped and (report.number == 1 or news):
             self.host.say(f"Самопроверката приключи, сър: {summary[0].lower() + summary[1:]}")
 
