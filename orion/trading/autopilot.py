@@ -32,7 +32,8 @@ def load() -> dict:
     except (OSError, ValueError):
         saved = {}
     return {"peak": saved.get("peak"), "network": saved.get("network"), "flows_from": saved.get("flows_from", _now()),
-            "below": saved.get("below", False), "equity": saved.get("equity"), "traded": saved.get("traded", []), "told": saved.get("told", {})}
+            "below": saved.get("below", False), "equity": saved.get("equity"), "traded": saved.get("traded", []),
+            "told": saved.get("told", {})}
 
 
 def save(state: dict) -> None:
