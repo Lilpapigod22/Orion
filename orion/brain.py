@@ -51,6 +51,7 @@ READ_ONLY_TOOLS = {
     "read_email", "tasks_list", "list_reminders", "search_web", "read_webpage", "list_lessons", "recent_errors",
     "system_status", "read_clipboard", "find_files", "look_at_screen", "look_at_image", "wikipedia",
     "convert_currency", "convert_units",
+    "crypto_forecast", "crypto_signals", "strategy_report", "forecast_record", "trading_positions", "trading_account",
 }
 DEEP_RE = re.compile(
     r"\bзащо\b|обясни|как да\b|как мога|сравни|разлик|план|анализ|реши |докажи|помогни ми|предложи|"
@@ -65,6 +66,12 @@ FAKE_ACTION = (
 # Orion runs itself if the model still does not after a note). USER_TEXT = sir's request.
 USER_TEXT = object()
 INTENT_TOOLS = [
+    # Forecasts and trades of BTC/ETH/SOL — before the general market and search entries below.
+    (re.compile(r"(?:прогноз|сигнал|какво ще (?:прави|направи)|накъде|лонг|шорт)\w*.*?"
+                r"(?:биткойн|биткоин|bitcoin|btc|етериум|етер|ethereum|eth|солан|solana)|"
+                r"(?:биткойн|биткоин|bitcoin|btc|етериум|етер|ethereum|eth|солан|solana)\w*.*?"
+                r"(?:прогноз|сигнал|какво ще прави|накъде|лонг|шорт)", re.IGNORECASE),
+     "crypto_forecast, crypto_signals, open_trade или close_trade", ("crypto_forecast", {"coin": USER_TEXT})),
     # The words are narrow on purpose: „пощенски код“ (postcode) and „математическа задача“ (maths problem) are not about mail and tasks.
     (re.compile(r"писм|\bпоща(?:та)?\b|имейл|\bмейл|gmail", re.IGNORECASE),
      "check_email, read_email, send_email или reply_email", ("check_email", {})),

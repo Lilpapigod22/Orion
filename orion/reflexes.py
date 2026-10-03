@@ -190,6 +190,56 @@ _POLITE_RE = re.compile(r"^(?:(?:може ли|можеш ли|би ли|ще м
                         r"искам да|хайде)\s+", re.IGNORECASE)
 
 
+# Trading (orion/trading) — before „отвори …“ (programs) and „затвори …“ (windows): „отвори лонг на биткойн“.
+_SIDE_WORDS = r"(?P<side>лонг|лонк|long|шорт|шорд|short)"
+_TRADE_OPEN_RE = re.compile(
+    rf"(?:(?:отвори|отворете|отвориш|влез|влезте|пусни|направи)(?: (?:ми|ни))?(?: (?:една|нова|един|нов))? )?"
+    rf"{_SIDE_WORDS}(?: (?:позиция|сделка))?(?: (?:на|в|за|с|по))? (?P<coin>[^?!.]+)", re.IGNORECASE)
+_TRADE_CLOSE_RE = re.compile(
+    r"(?:затвори|затворете|затвориш|излез от|излезте от)(?: ми)?(?: (?:позицията|позициите|сделката|сделките))?"
+    r"(?: (?:на|в|по|с))? (?P<coin>[^?!.]+)", re.IGNORECASE)
+_TRADE_ALL_RE = re.compile(
+    r"(?:затвори|затворете)(?: ми)? (?:(?:всички|всичките) (?:позиции|сделки)|позициите|сделките)", re.IGNORECASE)
+_TRADE_PAUSE_RE = re.compile(r"спри (?:търговията|да търгуваш|трейдинга|трейдването)", re.IGNORECASE)
+_TRADE_RESUME_RE = re.compile(r"(?:пусни|включи|продължи|започни) (?:търговията|да търгуваш|трейдинга)",
+                              re.IGNORECASE)
+_TRADE_POSITIONS_RE = re.compile(
+    r"(?:какви|кои) (?:позиции|сделки) (?:имам|са отворени|има)|(?:покажи|кажи|прочети)(?: ми)? "
+    r"(?:позициите|сделките)(?: ми)?|(?:отворените|отворени) (?:позиции|сделки)", re.IGNORECASE)
+_TRADE_CONNECT_RE = re.compile(
+    r"свържи(?: се)?(?: с)? (?:hyperliquid|хайперликуид|хиперликуид|хайпър ликуид|хипер ликуид)"
+    r"(?: (?P<net>за истински пари|истинск\w*|реалн\w*))?", re.IGNORECASE)
+_TRADE_NETWORK_RE = re.compile(
+    r"мини на (?P<net>истински пари|реални пари|тестовата мрежа|тестнет|тест мрежата)", re.IGNORECASE)
+
+
+def _trading_command(plain: str) -> Reflex | None:
+    """Trading commands: always the same skill, never the model's guess (it has bluffed actions before)."""
+    from .trading import coins_in, exchange
+    for pattern, tool in ((_TRADE_PAUSE_RE, "pause_trading"), (_TRADE_RESUME_RE, "resume_trading"),
+                          (_TRADE_POSITIONS_RE, "trading_positions")):
+        if pattern.fullmatch(plain):
+            return Reflex(tool=tool, arguments={})
+    match = _TRADE_CONNECT_RE.fullmatch(plain)
+    if match:
+        return Reflex(tool="connect_hyperliquid", arguments={"network": "mainnet" if match["net"] else "testnet"})
+    match = _TRADE_NETWORK_RE.fullmatch(plain)
+    if match:
+        network = "testnet" if "тест" in match["net"].lower() else "mainnet"
+        return Reflex(tool="switch_trading_network", arguments={"network": network})
+    # „Затвори всичко“ may mean the windows — it is about trades only while positions are open.
+    if _TRADE_ALL_RE.fullmatch(plain) or (plain.lower() == "затвори всичко" and exchange.last_open):
+        return Reflex(tool="close_trade", arguments={"coin": "всички"})
+    match = _TRADE_OPEN_RE.fullmatch(plain)
+    if match and coins_in(match["coin"]):
+        side = "long" if match["side"].lower() in ("лонг", "лонк", "long") else "short"
+        return Reflex(tool="open_trade", arguments={"coin": match["coin"].strip(), "side": side})
+    match = _TRADE_CLOSE_RE.fullmatch(plain)
+    if match and coins_in(match["coin"]):
+        return Reflex(tool="close_trade", arguments={"coin": match["coin"].strip()})
+    return None
+
+
 def _everyday(plain: str) -> Reflex | None:
     plain = _POLITE_RE.sub("", plain)  # „може ли да хвърлиш зар“ = „хвърли зар“
     for pattern, tool, build in _EVERYDAY_RES:
@@ -362,6 +412,9 @@ def respond(text: str, now: datetime | None = None) -> Reflex | None:
     for pattern, action in ((_TEST_OFF_RE, "test_off"), (_TEST_REPORT_RE, "test_report"), (_TEST_ON_RE, "test_on")):
         if pattern.fullmatch(plain):
             return Reflex(action=action)
+    trade = _trading_command(plain)
+    if trade:
+        return trade
     video = reels.find_url(text)
     if video:  # a YouTube link -> reels (or analysis / playing, if sir said so)
         return _youtube_link(video, reels.YOUTUBE_RE.sub(" ", plain).lower())
