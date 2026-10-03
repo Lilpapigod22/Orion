@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pytest
 
-from orion.trading import backtest, data, exchange, journal, market, risk, settings, signals, watcher
+from orion.trading import backtest, data, demo, exchange, journal, lab, market, practice, risk, settings, signals, watcher
 from orion.trading.signals import Signal
 
 GOOD = {"trades": 40, "win_rate": 0.5, "win_low": 0.35, "win_high": 0.65, "avg_r": 0.3, "profit_factor": 1.6,
@@ -23,6 +23,10 @@ class Clock:
 def world(monkeypatch, tmp_path):
     monkeypatch.setattr(journal, "JOURNAL", tmp_path / "journal.json")
     monkeypatch.setattr(settings, "SETTINGS_FILE", tmp_path / "settings.json")
+    monkeypatch.setattr(demo, "DEMO_FILE", tmp_path / "demo.json")
+    monkeypatch.setattr(practice, "PRACTICE", tmp_path / "practice.json")
+    monkeypatch.setattr(lab, "LAB", tmp_path / "lab.json")
+    settings.set_enabled(True)                       # REAL TRADE on — the real alerts are tested here
     monkeypatch.setattr(market, "live", lambda coin, params=None: coin)
     found = {"BTC": [], "ETH": [], "SOL": []}
     monkeypatch.setattr(signals, "latest", lambda coin: found[coin])
@@ -50,9 +54,9 @@ def test_a_strong_checked_signal_is_announced_once(world):
     w.scan()
     assert len(said) == 1 and "ЛОНГ на биткойн" in said[0]
     assert ("addLog", ("trading", said[0])) in hud
-    w.scan()                                         # the same candle again
+    w.scan()
     world["BTC"] = [sig(2)]
-    w.scan()                                         # a new candle, same coin and side, within 6 h
+    w.scan()
     assert len(said) == 1
     w.clock.now += 6 * 3600
     world["BTC"] = [sig(3)]
@@ -65,7 +69,7 @@ def test_weak_or_unchecked_signals_stay_quiet(world):
     world["BTC"] = [sig(1, strength=3), sig(2, strategy="breakout")]
     w.scan()
     assert said == [] and not [h for h in hud if h[0] == "addLog"]
-    assert journal.record(days=1)["open"] == 2       # still recorded for the honest record
+    assert journal.record(days=1)["open"] == 2
 
 
 def test_at_night_only_the_journal(world):
@@ -73,6 +77,14 @@ def test_at_night_only_the_journal(world):
     world["BTC"] = [sig(1)]
     w.scan()
     assert said == [] and hud[0][0] == "addLog"
+
+
+def test_real_alerts_need_real_trade(world):
+    settings.set_enabled(False)
+    w, said, hud = make()
+    world["BTC"] = [sig(1)]
+    w.scan()
+    assert said == [] and hud == [] and journal.record(days=1)["open"] == 1
 
 
 def test_positions_chip_fills_and_time_stop(world, monkeypatch):
@@ -93,18 +105,40 @@ def test_positions_chip_fills_and_time_stop(world, monkeypatch):
     w.clock.now += 49 * 3600
     w.positions()
     assert ("setTrading", ({"network": "testnet", "positions": [
-        {"coin": "BTC", "side": "long", "pnl_usd": 5.0, "pnl_pct": 1.0}]},)) in hud
+        {"coin": "BTC", "side": "long", "pnl_usd": 5.0, "pnl_pct": 1.0}], "demo": []},)) in hud
     assert [s for s in said if "Етериум" in s] == ["Сър, позицията в Етериум се затвори на 1 901 — +5.00 долара."]
     assert sum("48 часа" in s for s in said) == 1
     w.positions()
-    assert sum("48 часа" in s for s in said) == 1     # told once
-    assert sum("Етериум" in s for s in said) == 1     # fills are not repeated
+    assert sum("48 часа" in s for s in said) == 1
+    assert sum("Етериум" in s for s in said) == 1
 
 
-def test_no_key_hides_the_chip(world):
+def test_no_key_and_no_demo_hides_the_chip(world):
     w, said, hud = make()
     w.positions()
     assert hud == [("setTrading", (None,))]
+
+
+def test_the_chip_shows_the_demo_accounts_without_a_key(world):
+    settings.set_demo(True)
+    demo.create("", 1000)
+    w, said, hud = make()
+    w.positions()
+    assert hud == [("setTrading", ({"network": None, "positions": [], "demo": [{"name": "демо 1", "pct": 0.0}]},))]
+
+
+def test_demo_and_practice_run_only_with_demo_test_on(world, monkeypatch):
+    calls = []
+    monkeypatch.setattr(demo, "step", lambda book, prepared, report: (
+        calls.append(("demo", sorted(prepared))), ["DEMO демо 1: отворих лонг на биткойн."])[1])
+    monkeypatch.setattr(practice, "step", lambda prepared: calls.append(("practice", sorted(prepared))))
+    w, said, hud = make()
+    w.scan()
+    assert calls == []
+    settings.set_demo(True)
+    w.scan()
+    assert calls == [("demo", ["BTC", "ETH", "SOL"]), ("practice", ["BTC", "ETH", "SOL"])]
+    assert ("addLog", ("trading", "DEMO демо 1: отворих лонг на биткойн.")) in hud and said == []
 
 
 def test_tick_runs_each_job_on_its_own_schedule(world, monkeypatch):
@@ -118,7 +152,29 @@ def test_tick_runs_each_job_on_its_own_schedule(world, monkeypatch):
     calls.clear()
     w.clock.now += 120
     w.tick()
-    assert calls == []                               # no positions: every 5 minutes
+    assert calls == []
     w.clock.now += 15 * 60
     w.tick()
     assert calls == ["scan", "positions"]
+
+
+def test_the_lab_search_and_the_testnet_check_run_without_the_lock(world, monkeypatch):
+    settings.set_demo(True)
+    w, said, hud = make()
+    monkeypatch.setattr(w, "scan", lambda: None)
+    monkeypatch.setattr(w, "positions", lambda: None)
+    monkeypatch.setattr(journal, "resolve", lambda bars_for=None: None)
+    held, marked = [], []
+    monkeypatch.setattr(lab, "due", lambda: "breakout")
+    monkeypatch.setattr(market, "history", lambda coin, params=None: coin)
+    monkeypatch.setattr(lab, "search", lambda strategy, markets: (held.append(("search", w.lock.locked())), None)[1])
+    monkeypatch.setattr(lab, "start", lambda strategy, found, log=print: (
+        held.append(("start", w.lock.locked())), "пробвам нови числа")[1])
+    monkeypatch.setattr(practice, "testnet_due", lambda: True)
+    monkeypatch.setattr(practice, "mark_testnet", lambda: marked.append(w.lock.locked()))
+    monkeypatch.setattr(exchange, "testnet_check", lambda: (held.append(("testnet", w.lock.locked())),
+                                                            "Проверката мина.")[1])
+    w.tick()
+    assert held == [("search", False), ("start", True), ("testnet", False)] and marked == [True]
+    assert ("addLog", ("trading", "Лаборатория: пробвам нови числа.")) in hud
+    assert ("addLog", ("trading", "Проверката мина.")) in hud

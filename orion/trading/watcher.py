@@ -1,26 +1,28 @@
 """
-The background watch (own thread, started by app.py). Every 15 minutes it checks the three coins: each
-new signal goes into the journal, and a strong one (strength ≥ 4, from a strategy that passed the honest
-check) is announced — by voice 08:00–23:00, otherwise only in the journal. With a key connected it checks
-the account (every minute while positions are open, else every 5): the top-bar chip, closed trades, and
-the 48-hour time stop (announced; sir closes it with one command and the approval dialog). It holds test
-mode's sandbox lock while it works, so it never touches the sandbox's temporary files.
+The background watch (own thread, started by app.py). Every 15 minutes it fetches the three coins once and
+uses them for everything: each new signal goes into the journal; with REAL TRADE on, a strong signal of a
+checked strategy is announced (voice 08:00–23:00, journal always); with DEMO TEST on, the demo accounts and
+the practice account trade by themselves (journal only). With a key connected it checks the real account
+(every minute while positions are open, else every 5): closed trades and the 48-hour time stop. The top-bar
+chip shows the real positions and the demo accounts. It holds test mode's sandbox lock while it touches
+files; the lab's minutes of CPU and the testnet order check run without it.
 """
 import time
 from datetime import datetime
 
-from . import COINS, NAMES, backtest, data, exchange, journal, market, settings, signals, texts
+from . import COINS, NAMES, backtest, data, demo, exchange, journal, lab, market, practice, settings, signals, texts
 
 SCAN_EVERY = 15 * 60
 RESOLVE_EVERY = 60 * 60
 REFRESH_RETRY = 30 * 60
+LAB_EVERY = 60 * 60
 REPEAT_HOURS = 6
 
 
 class Watcher:
     def __init__(self, say, hud, lock, clock=time.time):
         self.say, self.hud, self.lock, self.clock = say, hud, lock, clock
-        self.last_scan = self.last_positions = self.last_resolve = self.last_refresh = -1e18
+        self.last_scan = self.last_positions = self.last_resolve = self.last_refresh = self.last_lab = -1e18
         self.announced: dict[tuple[str, str], float] = {}
         self.fills_from = int(clock() * 1000)
         self.time_stop_told: set[str] = set()
@@ -30,14 +32,16 @@ class Watcher:
             self.tick()
             time.sleep(5)
 
-    def _safe(self, job) -> None:
+    def _safe(self, job, *args):
         try:
-            job()
+            return job(*args)
         except Exception as e:  # noqa: BLE001 — the watch must never stop Orion
             print(f"[Trading] {getattr(job, '__name__', 'job')}: {type(e).__name__}: {e}")
+            return None
 
     def tick(self) -> None:
         now = self.clock()
+        strategy, testnet = None, False
         with self.lock:
             if now - self.last_scan >= SCAN_EVERY:
                 self.last_scan = now
@@ -48,18 +52,32 @@ class Watcher:
             if now - self.last_resolve >= RESOLVE_EVERY:
                 self.last_resolve = now
                 self._safe(journal.resolve)
+            if now - self.last_lab >= LAB_EVERY and self._safe(settings.demo_on):
+                self.last_lab = now
+                strategy = self._safe(lab.due)
+                if self._safe(practice.testnet_due):
+                    self._safe(practice.mark_testnet)
+                    testnet = True
+        if strategy:
+            self._safe(self.lab_search, strategy)
+        if testnet:
+            self._safe(self.testnet)
         if now - self.last_refresh >= REFRESH_RETRY and backtest.stale():
             self.last_refresh = now
             backtest.refresh_async(self.lock)
 
-    # --- Signals ---------------------------------------------------------------------------------
+    # --- Signals, real alerts, demo trades --------------------------------------------------------
     def scan(self) -> None:
         report = backtest.load()
-        strength = settings.load()["announce_strength"]
-        for coin in COINS:
-            for s in signals.latest(market.live(coin)):
-                if journal.add_signal(s, "watch") and self._worth(s, report, strength):
+        options = settings.load()
+        prepared = {coin: market.live(coin) for coin in COINS}
+        for p in prepared.values():
+            for s in signals.latest(p):
+                if (journal.add_signal(s, "watch") and options["enabled"]
+                        and self._worth(s, report, options["announce_strength"])):
                     self.announce(texts.signal_alert(s, report))
+        if options["demo"]:
+            self.demo_step(prepared, report)
         data.record_open_interest(data.assets())
 
     def _worth(self, s, report, strength: int) -> bool:
@@ -77,17 +95,45 @@ class Watcher:
         if start <= datetime.fromtimestamp(self.clock()).hour < end:
             self.say(text)
 
-    # --- The account ------------------------------------------------------------------------------
+    def demo_step(self, prepared: dict, report: dict | None) -> None:
+        """DEMO TEST: the demo accounts and the practice account trade by themselves — journal only."""
+        with demo._lock:
+            book = demo.load()
+            lines = demo.step(book, prepared, report)
+            demo.save(book)
+        for line in lines:
+            self.hud("addLog", "trading", line)
+        practice.step(prepared)
+
+    def lab_search(self, strategy: str) -> None:
+        found = lab.search(strategy, {coin: market.history(coin) for coin in COINS})   # minutes of CPU, no lock
+        with self.lock:
+            note = lab.start(strategy, found)
+        if note:
+            self.hud("addLog", "trading", f"Лаборатория: {note}.")
+
+    def testnet(self) -> None:
+        self.hud("addLog", "trading", exchange.testnet_check())
+
+    # --- The real account and the chip -----------------------------------------------------------
+    def chip(self, network: str | None, state) -> None:
+        payload = {"network": network, "positions": [], "demo": []}
+        if state:
+            payload["positions"] = [
+                {"coin": coin, "side": p["side"], "pnl_usd": round(p["pnl"], 2),
+                 "pnl_pct": round(p["pnl"] / p["value"] * 100, 2) if p["value"] else 0.0}
+                for coin, p in state.positions.items()]
+        if settings.demo_on():
+            payload["demo"] = [{"name": name, "pct": round((a["balance"] / a["start"] - 1) * 100, 2)}
+                               for name, a in demo.load()["accounts"].items()]
+        self.hud("setTrading", payload if network or payload["demo"] else None)
+
     def positions(self) -> None:
         network = settings.network()
-        if not settings.account(network):
-            self.hud("setTrading", None)
+        state = exchange.account_state(network)[0] if settings.account(network) else None
+        self.chip(network if state else None, state)
+        if state is None:
             return
-        state, _ = exchange.account_state(network)
-        self.hud("setTrading", {"network": network, "positions": [
-            {"coin": coin, "side": p["side"], "pnl_usd": round(p["pnl"], 2),
-             "pnl_pct": round(p["pnl"] / p["value"] * 100, 2) if p["value"] else 0.0}
-            for coin, p in state.positions.items()]})
         closed: dict[str, list[float]] = {}  # coin -> [last price, P/L] — a stop filled in parts is told once
         for fill in exchange.fills_since(network, self.fills_from):
             self.fills_from = max(self.fills_from, int(fill["time"]) + 1)

@@ -79,6 +79,7 @@ from orion import trading  # noqa: E402
 from orion.trading import backtest as trading_backtest  # noqa: E402
 from orion.trading import exchange as trading_exchange  # noqa: E402
 from orion.trading import settings as trading_settings  # noqa: E402
+from orion.trading import modes as trading_modes  # noqa: E402
 from orion.trading import watcher as trading_watcher  # noqa: E402
 from orion.memory import tool_steps  # noqa: E402
 from orion.reminders import book as reminder_book  # noqa: E402
@@ -228,6 +229,7 @@ class Orion:
                                                  lambda: self.window is not None and not self._was_minimized)
             self.telemetry.start()
         return {"muted": self.muted, "alwaysListen": self.always_listen, "testMode": self.tester.running,
+                "demoMode": trading_settings.demo_on(), "realTrading": trading_settings.enabled(),
                 "wakeWord": config.WAKE_WORDS[0], "maximized": self.start_maximized}
 
     def _boot(self) -> None:
@@ -277,6 +279,7 @@ class Orion:
         confirm.handler = self.request_confirmation  # emails, deleting — only with a button press from sir
         # Trading: the key dialog, and the backtest report is written only outside test mode's sandbox.
         trading.show_key_dialog = lambda network: self.hud("showKeyDialog", {"network": network})
+        trading.on_switch = lambda name, on: self.hud("setSwitch", name, on)
         trading_backtest.save_lock = self_test.sandbox_lock
         # YouTube reels are made in the background: progress in the journal, the end out loud.
         reels.notify = lambda text: (print(f"[Reels] {text}"), self.say(text))
@@ -970,6 +973,14 @@ class HudApi:
             message += f" Не успях да проверя връзката: {e}"
         self._app.say(message)
         return {"ok": True, "message": message}
+
+    def set_demo_mode(self, enabled: bool):
+        """DEMO TEST — Orion trades the demo accounts by itself."""
+        self._app.say(trading_modes.set_demo(bool(enabled)))
+
+    def set_real_trading(self, enabled: bool):
+        """REAL TRADE — the real Hyperliquid account (every trade with approval)."""
+        self._app.say(trading_modes.set_real(bool(enabled)))
 
     def listen(self):
         self._app.listen_once()

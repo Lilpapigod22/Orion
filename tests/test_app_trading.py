@@ -37,3 +37,15 @@ def test_save_trading_key_reports_the_result(monkeypatch):
     result = api.save_trading_key("testnet", "0x" + "a" * 40, "b" * 64)
     assert result == {"ok": True, "message": "Запазих API ключа. Свързах се."}
     assert said == ["Запазих API ключа. Свързах се."]
+
+
+def test_the_two_trading_buttons(monkeypatch, tmp_path):
+    from orion.trading import demo
+    monkeypatch.setattr(settings, "SETTINGS_FILE", tmp_path / "s.json")
+    monkeypatch.setattr(demo, "DEMO_FILE", tmp_path / "d.json")
+    said = []
+    api = app.HudApi(bare_app(said, []))
+    api.set_demo_mode(True)
+    assert settings.demo_on() and "„демо 1“" in said[-1]
+    api.set_real_trading(False)
+    assert not settings.enabled() and "Спрях истинската търговия" in said[-1]
