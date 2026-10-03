@@ -396,7 +396,7 @@ def check_connection(network: str) -> str:
 
 
 def testnet_check() -> str:
-    """Test mode's daily check - always the testnet, even while the sandbox blocks everything else."""
+    """Test mode's daily check — always the testnet, even while the sandbox blocks everything else."""
     return smallest_check("testnet")
 
 
