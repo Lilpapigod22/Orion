@@ -1,7 +1,10 @@
 import queue
 import threading
 
+import pytest
+
 import app
+from orion import confirm
 from orion.trading import exchange, settings
 
 
@@ -49,3 +52,7 @@ def test_the_two_trading_buttons(monkeypatch, tmp_path):
     assert settings.demo_on() and "„демо 1“" in said[-1]
     api.set_real_trading(False)
     assert not settings.enabled() and "Спрях истинската търговия" in said[-1]
+    monkeypatch.setattr(confirm, "handler", lambda *args: pytest.fail("the button does not ask"))
+    api.set_real_trading(True)
+    assert settings.enabled() and "Включих REAL TRADE" in said[-1]
+    api.set_real_trading(False)

@@ -1,7 +1,8 @@
 """
 Крипто прогнози и търговия: биткойн, етериум и солана на Hyperliquid — и демо сметки с измислени пари.
 Числата идват от кода (три стратегии с честна проверка върху историята). На демо сметките Орион търгува сам
-(DEMO TEST); всяка истинска сделка чака „Одобри“ от сър (REAL TRADE).
+(DEMO TEST); с REAL TRADE търгува сам и истинската сметка (Phantom Perps) по проверените стратегии, а сделките,
+които сър поиска, чакат „Одобри“.
 """
 from datetime import datetime
 
@@ -14,8 +15,8 @@ last_chart: dict | None = None
 REFUSALS = (risk.RiskError, exchange.TradingError, ValueError)
 MAINNET_WORDS = ("mainnet", "истински", "истински пари", "реални", "реални пари", "истинска", "истинската мрежа",
                  "за истински пари")
-NEITHER = ("Включете DEMO TEST за демо сделки (без истински пари) или REAL TRADE за истински — с Вашето „Одобри“ "
-           "за всяка сделка.")
+NEITHER = ("Включете DEMO TEST за демо сделки (без истински пари) или REAL TRADE за истински — сделките, които "
+           "поискате, пак чакат Вашето „Одобри“.")
 NO_DEMO = "Нямате демо сметка — кажете „направи демо сметка с 1000 долара“."
 RATE_DOWN = "Не мога да взема курса в момента — кажете сумата в долари."
 _DEMO_WORDS = ("демо", "демото", "demo", "в демото")
@@ -297,7 +298,7 @@ def move_stop_to_entry(coin: str) -> str:
 
 @orion_tool
 def connect_hyperliquid(network: str = "testnet") -> str:
-    """Свързва Орион с Hyperliquid (където Trust Wallet търгува Perps): отваря прозореца за API ключа.
+    """Свързва Орион с Hyperliquid (където Phantom търгува Perps): отваря прозореца за API ключа.
 
     Args:
         network: "testnet" (тестова мрежа, по подразбиране) или "mainnet" (истински пари).
@@ -315,7 +316,8 @@ def pause_trading() -> str:
 
 @orion_tool
 def resume_trading() -> str:
-    """Пуска истинската търговия (бутона REAL TRADE) — всяка сделка пак чака „Одобри“."""
+    """Пуска истинската търговия (бутона REAL TRADE): Орион търгува сам по проверените стратегии — първо пита в
+    прозорец."""
     return modes.set_real(True)
 
 
@@ -333,7 +335,7 @@ def switch_trading_network(network: str) -> str:
         settings.set_network("mainnet")
         extra = "" if settings.account("mainnet") else \
             " Свържете ключа за истинската мрежа: кажете „свържи Hyperliquid за истински пари“."
-        return "Минах на истински пари. Всяка сделка пак чака Вашето „Одобри“." + extra
+        return "Минах на истински пари. С включен REAL TRADE търгувам сам по проверените стратегии." + extra
     settings.set_network("testnet")
     return "Минах на тестовата мрежа — сделките са с тестови пари."
 
@@ -460,7 +462,8 @@ def set_demo_test(on: bool) -> str:
 
 @orion_tool
 def set_real_trading(on: bool) -> str:
-    """Включва или спира REAL TRADE — истинската сметка в Hyperliquid (всяка сделка с „Одобри“).
+    """Включва или спира REAL TRADE — Орион търгува сам истинската сметка в Hyperliquid (Phantom Perps) по
+    проверените стратегии; включването първо пита в прозорец.
 
     Args:
         on: True — включи, False — спри.

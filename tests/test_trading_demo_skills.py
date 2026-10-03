@@ -4,7 +4,7 @@ import sys
 import pytest
 
 import config
-from orion import trading
+from orion import confirm, trading
 from orion.tools import registry
 from orion.trading import data, signals, simulate
 from test_trading_signals import random_walk
@@ -78,6 +78,7 @@ def test_delete_reset_choose(cts):
 def test_buttons_by_voice(cts, monkeypatch):
     switched = []
     monkeypatch.setattr(trading, "on_switch", lambda name, on: switched.append((name, on)))
+    monkeypatch.setattr(confirm, "handler", lambda *args: True)    # „включи реал трейд“ asks first
     assert "Включих демо теста" in cts.set_demo_test(True)
     assert "Спрях истинската търговия" in cts.pause_trading()
     assert "Включих REAL TRADE" in cts.set_real_trading(True)

@@ -1,9 +1,10 @@
 """
 Crypto forecasts and trading on Hyperliquid — Bitcoin, Ethereum and Solana.
 
-Design: docs/superpowers/specs/2026-10-03-crypto-trading-design.md. Every number (signals, backtest,
-risk) is computed in code; the language model only explains it. Every real order needs sir's „Одобри“,
-enforced in orion/trading/exchange.py.
+Design: docs/superpowers/specs/2026-10-03-crypto-trading-design.md and 2026-10-03-autonomous-trading-design.md.
+Every number (signals, backtest, risk) is computed in code; the language model only explains it. A real order
+a skill asks for needs sir's „Одобри“ (orion/trading/exchange.py); while REAL TRADE is on, the autopilot
+(orion/trading/autopilot.py) trades the checked strategies by itself within the hard limits.
 """
 import re
 from typing import Callable

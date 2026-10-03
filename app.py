@@ -979,8 +979,8 @@ class HudApi:
         self._app.say(trading_modes.set_demo(bool(enabled)))
 
     def set_real_trading(self, enabled: bool):
-        """REAL TRADE — the real Hyperliquid account (every trade with approval)."""
-        self._app.say(trading_modes.set_real(bool(enabled)))
+        """REAL TRADE — Orion trades the real Hyperliquid account by itself; the click is sir's decision."""
+        self._app.say(trading_modes.set_real(bool(enabled), by_button=True))
 
     def listen(self):
         self._app.listen_once()

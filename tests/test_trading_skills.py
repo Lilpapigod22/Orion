@@ -127,8 +127,9 @@ def test_close_all(cts, monkeypatch):
 def test_connect_opens_the_key_dialog(cts, monkeypatch):
     shown = []
     monkeypatch.setattr(trading, "show_key_dialog", shown.append)
-    assert "app.hyperliquid-testnet.xyz" in cts.connect_hyperliquid()
-    assert "ИСТИНСКИ" in cts.connect_hyperliquid("истински пари")
+    testnet, mainnet = cts.connect_hyperliquid(), cts.connect_hyperliquid("истински пари")
+    assert "app.hyperliquid-testnet.xyz" in testnet and "Phantom" in testnet
+    assert "ИСТИНСКИ" in mainnet and "Phantom" in mainnet and "Trust" not in testnet + mainnet
     assert shown == ["testnet", "mainnet"]
 
 

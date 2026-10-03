@@ -2,8 +2,8 @@
 The two trading buttons — DEMO TEST and REAL TRADE: the setting, the button in the window (trading.on_switch)
 and what Orion says. The skills, the reflexes and the window all go through here.
 """
-from .. import trading
-from . import demo, settings
+from .. import confirm, trading
+from . import autopilot, demo, settings, texts
 
 
 def set_demo(on: bool) -> str:
@@ -21,14 +21,26 @@ def set_demo(on: bool) -> str:
     return f"Включих демо теста — търгувам сам на демо сметките {names}, без истински пари."
 
 
-def set_real(on: bool) -> str:
+def set_real(on: bool, by_button: bool = False) -> str:
+    """REAL TRADE: while it is on, the autopilot trades the real account by itself. The window button switches
+    it at once (the click is sir's decision); by voice or chat a dialog asks first — the microphone hears the
+    TV. Switching off never asks. Each switch from off to on starts the account stop's count again."""
+    network = settings.network()
+    where = "тестовата мрежа" if network == "testnet" else "ИСТИНСКИ пари"
+    was_on = settings.enabled()
+    if on and not was_on and not by_button:
+        title = f"Автономна търговия · {'ТЕСТОВА МРЕЖА' if network == 'testnet' else 'РЕАЛНИ ПАРИ'}"
+        if not confirm.ask(title, f"Орион търгува сам ({where})", texts.autopilot_terms(settings.limits()),
+                           "Включи"):
+            return "Добре, сър — REAL TRADE остава спрян."
     settings.set_enabled(on)
     trading.on_switch("real", bool(on))
     if not on:
         return ("Спрях истинската търговия — няма да отварям истински сделки. Отворените позиции остават със "
                 "стоповете си.")
-    network = settings.network()
-    where = "тестовата мрежа" if network == "testnet" else "ИСТИНСКИ пари"
+    if not was_on:
+        autopilot.reset_peak()
     if not settings.account(network):
         return f"Включих REAL TRADE ({where}), но Hyperliquid не е свързан — кажете „свържи Hyperliquid“."
-    return f"Включих REAL TRADE ({where}). Давам прогнози, когато питате, и всяка сделка чака Вашето „Одобри“."
+    return (f"Включих REAL TRADE ({where}). Търгувам сам по проверените стратегии — "
+            f"{settings.limits().risk_pct:g} % риск на сделка, стоп и цел в борсата. Ще Ви казвам за всяка сделка.")
