@@ -1,7 +1,7 @@
 import pytest
 
 from orion import confirm
-from orion.trading import exchange, risk
+from orion.trading import exchange, risk, settings
 
 
 class FakeInfo:
@@ -10,6 +10,7 @@ class FakeInfo:
         self.positions: list[dict] = []
         self.orders: list[dict] = []
         self.fills: list[dict] = []
+        self.ledger: list[dict] = []
 
     def all_mids(self):
         return {"BTC": str(self.mid), "ETH": "2000", "SOL": "100"}
@@ -26,6 +27,9 @@ class FakeInfo:
 
     def user_funding_history(self, address, since):
         return [{"delta": {"usdc": "-0.5"}}]
+
+    def user_non_funding_ledger_updates(self, address, since):
+        return [entry for entry in self.ledger if entry["time"] >= since]
 
     def meta(self):
         return {"universe": [{"name": "BTC", "szDecimals": 5, "maxLeverage": 40},
@@ -252,3 +256,105 @@ def test_check_connection_knows_the_agent(fake):
     assert "1000.00 долара" in exchange.check_connection("testnet")
     info.extra_agents = lambda address: []
     assert "не го познава" in exchange.check_connection("testnet")
+
+
+# --- The autopilot's orders: no dialog, only while REAL TRADE is on --------------------------------
+@pytest.fixture
+def real_trade(monkeypatch):
+    monkeypatch.setattr(settings, "enabled", lambda: True)
+
+
+def test_auto_place_opens_with_stop_and_target_without_a_dialog(fake, approve, real_trade):
+    info, ex = fake
+    asked = approve(False)
+    answer = exchange.auto_place(plan())
+    assert answer.startswith("Отворих лонг на Биткойн") and asked == []
+    kind, orders, grouping = ex.calls[1]
+    assert (kind, grouping) == ("bulk", "normalTpsl") and orders[2]["order_type"]["trigger"]["tpsl"] == "sl"
+    assert exchange.last_open == {"BTC"}
+
+
+def test_the_autopilot_cannot_trade_while_real_trade_is_off(fake, monkeypatch):
+    info, ex = fake
+    monkeypatch.setattr(settings, "enabled", lambda: False)
+    with pytest.raises(exchange.TradingError, match="REAL TRADE е спрян"):
+        exchange.auto_place(plan())
+    with pytest.raises(exchange.TradingError, match="REAL TRADE е спрян"):
+        exchange.auto_close(["BTC"], "testnet")
+    assert ex.used == [] and ex.calls == []
+
+
+def test_the_autopilot_cannot_trade_in_test_mode(fake, real_trade, monkeypatch):
+    info, ex = fake
+    monkeypatch.setattr(exchange, "blocked", True)
+    with pytest.raises(exchange.TradingError, match="тест режим"):
+        exchange.auto_place(plan())
+    assert ex.calls == []
+
+
+def test_auto_place_skips_when_the_price_moved(fake, real_trade):
+    info, ex = fake
+    info.mid = 100.5
+    with pytest.raises(exchange.TradingError, match="помести"):
+        exchange.auto_place(plan())
+    assert ex.calls == []
+
+
+def test_auto_close_closes_and_cancels_without_a_dialog(fake, approve, real_trade):
+    info, ex = fake
+    info.positions = [{"coin": "BTC", "szi": "0.5", "entryPx": "100", "unrealizedPnl": "3.2"}]
+    info.orders = [{"coin": "BTC", "isTrigger": True, "reduceOnly": True, "triggerPx": "99", "oid": 7}]
+    asked = approve(False)
+    assert exchange.auto_close(["BTC", "ETH"], "testnet") == "Затворих: Биткойн."
+    assert ("close", "BTC") in ex.calls and ("cancel", "BTC", 7) in ex.calls and asked == []
+    assert exchange.auto_close(["BTC"], "testnet") == "Няма какво да затварям."
+
+
+def test_ensure_stop_leaves_a_stop_that_is_there(fake):
+    info, ex = fake
+    info.positions = [{"coin": "BTC", "szi": "0.5", "entryPx": "100", "unrealizedPnl": "0"}]
+    info.orders = [{"coin": "BTC", "isTrigger": True, "reduceOnly": True, "triggerPx": "98", "oid": 3}]
+    assert exchange.ensure_stop("BTC", "testnet", 98.0) is None and ex.calls == []
+    assert exchange.ensure_stop("ETH", "testnet", 1900.0) is None
+
+
+def test_ensure_stop_puts_back_a_missing_stop(fake):
+    info, ex = fake
+    info.positions = [{"coin": "BTC", "szi": "-0.5", "entryPx": "100", "unrealizedPnl": "0"}]
+    assert exchange.ensure_stop("BTC", "testnet", 102.0) == "Позицията в биткойн беше без стоп — поставих го на 102.00."
+    kind, order = ex.calls[0]
+    assert kind == "order" and order["is_buy"] and order["order_type"]["trigger"]["tpsl"] == "sl"
+
+
+def test_ensure_stop_closes_when_the_stop_cannot_be_placed(fake):
+    info, ex = fake
+    ex.place_stop = False
+    info.positions = [{"coin": "BTC", "szi": "0.5", "entryPx": "100", "unrealizedPnl": "0"}]
+    assert "затворих я веднага" in exchange.ensure_stop("BTC", "testnet", 98.0)
+    assert ("close", "BTC") in ex.calls and info.positions == []
+
+
+def test_transfers_count_only_money_moved_into_or_out_of_perps(fake):
+    info, ex = fake
+    info.ledger = [
+        {"time": 10, "delta": {"type": "deposit", "usdc": "100"}},
+        {"time": 11, "delta": {"type": "withdraw", "usdc": "30", "fee": "1"}},
+        {"time": 12, "delta": {"type": "accountClassTransfer", "usdc": "50", "toPerp": True}},
+        {"time": 13, "delta": {"type": "accountClassTransfer", "usdc": "20", "toPerp": False}},
+        {"time": 14, "delta": {"type": "internalTransfer", "usdc": "10", "user": "0xother", "destination": "0xME"}},
+        {"time": 15, "delta": {"type": "subAccountTransfer", "usdc": "5", "user": "0xme", "destination": "0xsub"}},
+        {"time": 16, "delta": {"type": "send", "token": "USDC", "usdcValue": "7", "user": "0xme",
+                               "destination": "0xme", "sourceDex": "spot", "destinationDex": ""}},
+        {"time": 17, "delta": {"type": "spotTransfer", "token": "USDC", "amount": "9", "user": "0xme"}},
+        {"time": 18, "delta": {"type": "liquidation", "accountValue": "0"}},
+    ]
+    assert exchange.transfers_since("testnet", 0) == (pytest.approx(112.0), 18)
+    assert exchange.transfers_since("testnet", 15) == (pytest.approx(2.0), 18)
+    assert exchange.transfers_since("testnet", 19) == (0.0, 0)
+
+
+def test_the_smallest_check_on_the_real_account(fake):
+    info, ex = fake
+    answer = exchange.smallest_check("mainnet")
+    assert ex.used == ["mainnet"] and answer.startswith("Проверката в истинската сметка мина")
+    assert info.positions == [] and info.orders == []

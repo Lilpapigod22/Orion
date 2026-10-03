@@ -208,15 +208,8 @@ def confirmation(plan: risk.OrderPlan, note: str = "") -> tuple[str, str, str]:
             "\n".join(lines))
 
 
-def place(plan: risk.OrderPlan, note: str = "") -> str:
-    """Asks sir; on „Одобри“ opens the position with its stop and target. Returns what Orion says."""
-    info, client, address = _client(plan.network)
-    title, summary, body = confirmation(plan, note)
-    if not confirm.ask(title, summary, body, "Одобри сделката"):
-        return "Добре, сър — сделката не е отворена."
-    mid = float(info.all_mids()[plan.coin])
-    if abs(mid / plan.entry - 1) > MOVE_LIMIT:
-        raise PriceMoved(mid)
+def _open(info, client, address: str, plan: risk.OrderPlan, mid: float) -> str:
+    """Sends the entry with its target and stop and makes sure the stop exists. Returns what Orion says."""
     position = _send(info, client, address, plan, mid)
     if not position:
         return "Входът не се изпълни — цената избяга. Нищо не е отворено."
@@ -230,6 +223,33 @@ def place(plan: risk.OrderPlan, note: str = "") -> str:
     last_open.add(plan.coin)
     return (f"Отворих {'лонг' if plan.side == 'long' else 'шорт'} на {NAMES[plan.coin]}: {position['size']:g} на "
             f"{_fmt(position['entry'])}. Стоп {_fmt(plan.stop)}, цел {_fmt(plan.target)} — и двата са в борсата.")
+
+
+def place(plan: risk.OrderPlan, note: str = "") -> str:
+    """Asks sir; on „Одобри" opens the position with its stop and target. Returns what Orion says."""
+    info, client, address = _client(plan.network)
+    title, summary, body = confirmation(plan, note)
+    if not confirm.ask(title, summary, body, "Одобри сделката"):
+        return "Добре, сър — сделката не е отворена."
+    mid = float(info.all_mids()[plan.coin])
+    if abs(mid / plan.entry - 1) > MOVE_LIMIT:
+        raise PriceMoved(mid)
+    return _open(info, client, address, plan, mid)
+
+
+def _autopilot_client(network: str):
+    if not settings.enabled():
+        raise TradingError("REAL TRADE е спрян — автопилотът не търгува.")
+    return _client(network)
+
+
+def auto_place(plan: risk.OrderPlan) -> str:
+    """The autopilot's open — no dialog: only while REAL TRADE is on. Returns what Orion says."""
+    info, client, address = _autopilot_client(plan.network)
+    mid = float(info.all_mids()[plan.coin])
+    if abs(mid / plan.entry - 1) > MOVE_LIMIT:
+        raise TradingError("Цената се помести, докато смятах сделката — пропускам я.")
+    return _open(info, client, address, plan, mid)
 
 
 def close(coins: list[str], network: str, reason: str = "") -> str:
@@ -248,13 +268,50 @@ def close(coins: list[str], network: str, reason: str = "") -> str:
         return "Добре, сър — позициите остават отворени."
     done = []
     for coin in wanted:
-        _ok(client.market_close(coin, slippage=CLOSE_SLIPPAGE), f"Затварянето на {NAMES[coin]}")
-        for order in info.frontend_open_orders(address):
-            if order.get("coin") == coin and order.get("reduceOnly"):
-                client.cancel(coin, order["oid"])
-        last_open.discard(coin)
+        _close(info, client, address, coin)
         done.append(f"{NAMES[coin]} ({pnl[coin]:+.2f} $)")
     return "Затворих: " + ", ".join(done) + "."
+
+
+def _close(info, client, address: str, coin: str) -> None:
+    """Closes one position at market and cancels its stop and target."""
+    _ok(client.market_close(coin, slippage=CLOSE_SLIPPAGE), f"Затварянето на {NAMES[coin]}")
+    for order in info.frontend_open_orders(address):
+        if order.get("coin") == coin and order.get("reduceOnly"):
+            client.cancel(coin, order["oid"])
+    last_open.discard(coin)
+
+
+def auto_close(coins: list[str], network: str) -> str:
+    """The autopilot's close (the 48-hour time stop) — no dialog: only while REAL TRADE is on."""
+    info, client, address = _autopilot_client(network)
+    open_now = {item["position"]["coin"] for item in info.user_state(address).get("assetPositions", [])
+                if float(item["position"]["szi"])}
+    closed = [coin for coin in coins if coin in open_now]
+    for coin in closed:
+        _close(info, client, address, coin)
+    return ("Затворих: " + ", ".join(NAMES[c] for c in closed) + ".") if closed else "Няма какво да затварям."
+
+
+def ensure_stop(coin: str, network: str, stop: float) -> str | None:
+    """The autopilot's stop guard: a position without a stop on the exchange gets one at `stop`; if even that
+    fails, it is closed at once. Returns what Orion says, or None when the stop is there."""
+    info, client, address = _client(network)
+    position = _position(info, address, coin)
+    if not position:
+        return None
+    stops, _ = _protection(info, address, coin, position["side"], position["entry"])
+    if stops:
+        return None
+    decimals = next(int(u["szDecimals"]) for u in info.meta()["universe"] if u["name"] == coin)
+    _place_trigger(client, coin, position["side"] == "short", position["size"], stop, "sl", decimals)
+    time.sleep(SETTLE)
+    stops, _ = _protection(info, address, coin, position["side"], position["entry"])
+    name = NAMES[coin].lower()
+    if stops:
+        return f"Позицията в {name} беше без стоп — поставих го на {_fmt(stop)}."
+    _close(info, client, address, coin)
+    return f"Позицията в {name} беше без стоп и не успях да го поставя — затворих я веднага."
 
 
 def move_stop_to_entry(coin: str, network: str) -> str:
@@ -284,6 +341,46 @@ def fills_since(network: str, since_ms: int) -> list[dict]:
     return info.user_fills_by_time(address, since_ms)
 
 
+
+def perp_flow(delta: dict, address: str) -> float:
+    """USDC one ledger entry moved into (+) or out of (-) the perps account; 0 for anything else.
+    Fees are left out: the account stop then errs on the early side, never the late one."""
+    kind = delta.get("type")
+    usdc = float(delta.get("usdc") or 0)
+    me = address.lower()
+    to_me = str(delta.get("destination", "")).lower() == me
+    from_me = str(delta.get("user", "")).lower() == me
+    if kind == "deposit":
+        return usdc
+    if kind == "withdraw":
+        return -usdc
+    if kind == "accountClassTransfer":
+        return usdc if delta.get("toPerp") else -usdc
+    if kind in ("internalTransfer", "subAccountTransfer"):
+        return usdc if to_me else -usdc if from_me else 0.0
+    if kind == "vaultDeposit":
+        return -usdc
+    if kind == "vaultWithdraw":
+        return float(delta.get("netWithdrawnUsd") or 0)
+    if kind == "send" and delta.get("token") == "USDC":
+        value = float(delta.get("usdcValue") or delta.get("amount") or 0)
+        into = to_me and delta.get("destinationDex", "") == ""
+        out = from_me and delta.get("sourceDex", "") == ""
+        return value * (into - out)
+    return 0.0
+
+
+def transfers_since(network: str, since_ms: int) -> tuple[float, int]:
+    """(USDC moved into (+) / out of (-) the perps account since since_ms, time of the newest ledger entry or 0) -
+    so the account stop never takes a deposit or a withdrawal for profit or loss."""
+    info, _, address = _client(network)
+    total, last = 0.0, 0
+    for entry in info.user_non_funding_ledger_updates(address, since_ms):
+        total += perp_flow(entry.get("delta") or {}, address)
+        last = max(last, int(entry.get("time") or 0))
+    return total, last
+
+
 def check_connection(network: str) -> str:
     """After a key is saved: is it an approved agent of this address, and how much is in the account."""
     info, client, address = _client(network)
@@ -301,22 +398,28 @@ def check_connection(network: str) -> str:
 
 
 def testnet_check() -> str:
-    """Test mode's daily check: the smallest BTC long on the TESTNET, its stop and target verified, then
-    closed. Always the testnet (the network is fixed here), even while the sandbox blocks everything else."""
-    info, client, address = client_factory("testnet")
+    """Test mode's daily check - always the testnet, even while the sandbox blocks everything else."""
+    return smallest_check("testnet")
+
+
+def smallest_check(network: str) -> str:
+    """The smallest BTC long (about 11 $), its stop and target verified, then closed at once. The testnet daily
+    (testnet_check); the real account once, on sir's word, before the autopilot's first real trade."""
+    info, client, address = client_factory(network)
+    where = "в тестовата мрежа" if network == "testnet" else "в истинската сметка"
     if _position(info, address, "BTC"):
-        return "Проверката в тестовата мрежа е пропусната — там вече има позиция в биткойн."
+        return f"Проверката {where} е пропусната — там вече има позиция в биткойн."
     decimals = next(int(u["szDecimals"]) for u in info.meta()["universe"] if u["name"] == "BTC")
     mid = float(info.all_mids()["BTC"])
     size = math.ceil(11 / mid * 10 ** decimals) / 10 ** decimals
     plan = risk.OrderPlan("BTC", "long", size, mid, risk.round_price(mid * 0.98, decimals),
                           risk.round_price(mid * 1.02, decimals), 1, size * mid, size * mid, 0.0, 0.0, 0.0, 0.0,
-                          "testnet", sz_decimals=decimals)
+                          network, sz_decimals=decimals)
     ok = False
     try:
         position = _send(info, client, address, plan, mid)
         if not position:
-            return "Проверката в тестовата мрежа: входът не се изпълни."
+            return f"Проверката {where}: входът не се изпълни."
         stops, targets = _protection(info, address, "BTC", "long", position["entry"])
         ok = bool(stops) and bool(targets)
     finally:
@@ -326,5 +429,5 @@ def testnet_check() -> str:
             if order.get("coin") == "BTC" and order.get("reduceOnly"):
                 client.cancel("BTC", order["oid"])
     if ok:
-        return "Проверката в тестовата мрежа мина: входът, стопът и целта се поставиха и позицията се затвори."
-    return "Проверката в тестовата мрежа НЕ мина: стопът или целта липсваха. Позицията е затворена."
+        return f"Проверката {where} мина: входът, стопът и целта се поставиха и позицията се затвори."
+    return f"Проверката {where} НЕ мина: стопът или целта липсваха. Позицията е затворена."
