@@ -52,6 +52,7 @@ READ_ONLY_TOOLS = {
     "system_status", "read_clipboard", "find_files", "look_at_screen", "look_at_image", "wikipedia",
     "convert_currency", "convert_units",
     "crypto_forecast", "crypto_signals", "strategy_report", "forecast_record", "trading_positions", "trading_account",
+    "demo_status", "simulate_history",
 }
 DEEP_RE = re.compile(
     r"\bзащо\b|обясни|как да\b|как мога|сравни|разлик|план|анализ|реши |докажи|помогни ми|предложи|"
@@ -72,6 +73,9 @@ INTENT_TOOLS = [
                 r"(?:биткойн|биткоин|bitcoin|btc|етериум|етер|ethereum|eth|солан|solana)\w*.*?"
                 r"(?:прогноз|сигнал|какво ще прави|накъде|лонг|шорт)", re.IGNORECASE),
      "crypto_forecast, crypto_signals, open_trade или close_trade", ("crypto_forecast", {"coin": USER_TEXT})),
+    # Demo accounts and the simulation — the model used to say it cannot manage any account.
+    (re.compile(r"демо|симулаци|симулир|тренировъчн\w*\s+сметк|виртуалн\w*\s+сметк|тренира\w*.*сметк", re.IGNORECASE),
+     "create_demo_account, demo_status, simulate_history или set_demo_test", ("demo_status", {})),
     # The words are narrow on purpose: „пощенски код“ (postcode) and „математическа задача“ (maths problem) are not about mail and tasks.
     (re.compile(r"писм|\bпоща(?:та)?\b|имейл|\bмейл|gmail", re.IGNORECASE),
      "check_email, read_email, send_email или reply_email", ("check_email", {})),

@@ -81,6 +81,7 @@ SKILL_CASES = [
     C("portfolio_show", {}, r"(?i)биткойн|bitcoin|btc"), C("portfolio_remove", {"asset": "биткойн"}),
     C("strategy_report"), C("forecast_record", {"days": 7}, r"За последните"),
     C("crypto_forecast", {"coin": "биткойн"}, r"(?i)биткойн"), C("crypto_signals", {}, r"(?i)етериум"),
+    C("demo_status", {}, r"демо сметка"), C("simulate_history", {"balance": 1000, "days": 30}, r"(?i)проверката|симулац"),
     C("list_games"),
     # Dates and time
     C("date_after_days", {"days": 100}), C("days_between", {"first_date": "1.1.2026"}, r"\d"),
@@ -181,6 +182,10 @@ ASKS = [
     A("Отвори шорт на етериум", ("open_trade",)),
     A("Затвори позицията на биткойна", ("close_trade",)),
     A("Какви позиции имам?", ("trading_positions", "trading_account")),
+    A("Направи демо сметка с 1000 долара", ("create_demo_account",)),
+    A("Как върви демото?", ("demo_status",)),
+    A("Симулирай 1000 долара за последната година", ("simulate_history",)),
+    A("Включи демо теста", ("set_demo_test",)),
     A("Какви са последните новини?", ("search_web",)),
     A("Добави мляко и хляб в пазарския списък", ("add_to_list",)),
     A("Какво имам в пазарския списък?", ("show_list", "all_lists")),

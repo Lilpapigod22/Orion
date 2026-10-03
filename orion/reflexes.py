@@ -213,9 +213,85 @@ _TRADE_NETWORK_RE = re.compile(
     r"мини на (?P<net>истински пари|реални пари|тестовата мрежа|тестнет|тест мрежата)", re.IGNORECASE)
 
 
+# Demo accounts, the history simulation and the DEMO TEST / REAL TRADE buttons.
+_AMOUNT_RE = re.compile(r"(?P<amount>\d{1,3}(?:[  ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)\s*"
+                        r"(?P<cur>долара|долар|\$|usd|лева|лв\.?|лев|евро|eur|€)", re.IGNORECASE)
+_RISK_RE = re.compile(r"(?P<risk>\d+(?:[.,]\d+)?)\s*%\s*риск|риск\w*\s+(?:от\s+)?(?P<risk2>\d+(?:[.,]\d+)?)\s*%",
+                      re.IGNORECASE)
+_DAYS_RE = re.compile(r"(?P<n>\d+)\s*(?P<unit>дни|ден|месеца|месец|години|година)|"
+                      r"(?P<word>годината|година|месеца|месец|седмицата|седмица)", re.IGNORECASE)
+_QUOTED_RE = re.compile(r"[„\"“](?P<name>[^„“\"]+)[“\"]")
+_DEMO_WORDS_RE = re.compile(r"демо|симулацион|тренировъчн|виртуалн|тренир", re.IGNORECASE)
+_CREATE_WORDS_RE = re.compile(r"\b(?:направи|създай|отвори|започни|искам|тренирай|тренираш|заведи)\b", re.IGNORECASE)
+_SWITCH_RE = re.compile(r"(?P<verb>включи|пусни|стартирай|изключи|спри)\s+(?P<what>демо\s*теста|демо\s*тест|"
+                        r"демо\s*режима|демо\s*търговията|демото|реал\s*трейд\w*|real\s*trade|истинската търговия|"
+                        r"реалната търговия)", re.IGNORECASE)
+_DEMO_DELETE_RE = re.compile(r"(?:изтрий|махни|премахни)\s+(?:демо\s+)?сметк\w*\s*(?P<name>.*)", re.IGNORECASE)
+_DEMO_RESET_RE = re.compile(r"(?:започни|рестартирай|нулирай|почни)\s+(?:демо\s+сметк\w*|демото|демо)(?P<name>.*?)\s*"
+                            r"(?:отначало|наново|от нулата)", re.IGNORECASE)
+_DEMO_CHOOSE_RE = re.compile(r"(?:избери|ползвай|използвай)\s+(?:демо\s+)?сметк\w*\s*(?P<name>.+)", re.IGNORECASE)
+_DEMO_STATUS_RE = re.compile(r"как\s+(?:върв\w*|е|са|се справя\w*|стои|стоят)|какво става|покажи|резултат|баланс",
+                             re.IGNORECASE)
+
+
+def _money(match: re.Match) -> float:
+    return float(match["amount"].replace(" ", "").replace(" ", "").replace(",", "."))
+
+
+def _days(text: str) -> int:
+    match = _DAYS_RE.search(text)
+    if not match:
+        return 365
+    if match["n"]:
+        unit = match["unit"].lower()
+        return int(match["n"]) * (365 if unit.startswith("годин") else 30 if unit.startswith("месец") else 1)
+    word = match["word"].lower()
+    return 365 if word.startswith("годин") else 30 if word.startswith("месец") else 7
+
+
+def _demo_command(plain: str) -> Reflex | None:
+    """Demo accounts, the simulation and the two trading buttons — Orion never answers „не мога“ to these."""
+    lower = plain.lower()
+    match = _SWITCH_RE.search(plain)
+    if match:
+        on = match["verb"].lower() in ("включи", "пусни", "стартирай")
+        tool = "set_demo_test" if "демо" in match["what"].lower() else "set_real_trading"
+        return Reflex(tool=tool, arguments={"on": on})
+    amount = _AMOUNT_RE.search(plain)
+    extra = {}
+    risk = _RISK_RE.search(plain)
+    if risk:
+        extra["risk_pct"] = float((risk["risk"] or risk["risk2"]).replace(",", "."))
+    if "всички сигнали" in lower:
+        extra["all_signals"] = True
+    if amount and "сметк" in lower and _DEMO_WORDS_RE.search(plain) and _CREATE_WORDS_RE.search(plain):
+        name = _QUOTED_RE.search(plain)
+        if name:
+            extra["name"] = name["name"].strip()
+        return Reflex(tool="create_demo_account", arguments={"balance": _money(amount), "currency": amount["cur"], **extra})
+    if amount and re.search(r"симулир|симулаци", lower):
+        return Reflex(tool="simulate_history", arguments={"balance": _money(amount), "currency": amount["cur"],
+                                                          "days": _days(plain[amount.end():]), **extra})
+    if "демо" not in lower:
+        return None
+    for pattern, tool in ((_DEMO_DELETE_RE, "delete_demo_account"), (_DEMO_CHOOSE_RE, "choose_demo_account")):
+        match = pattern.fullmatch(plain)
+        if match and match["name"].strip():
+            return Reflex(tool=tool, arguments={"name": match["name"].strip().strip("„“\"")})
+    match = _DEMO_RESET_RE.fullmatch(plain)
+    if match:
+        return Reflex(tool="reset_demo_account", arguments={"name": match["name"].strip().strip("„“\"")})
+    if _DEMO_STATUS_RE.search(plain):
+        return Reflex(tool="demo_status", arguments={})
+    return None
+
+
 def _trading_command(plain: str) -> Reflex | None:
     """Trading commands: always the same skill, never the model's guess (it has bluffed actions before)."""
     from .trading import coins_in, exchange
+    demo = _demo_command(plain)
+    if demo:
+        return demo
     for pattern, tool in ((_TRADE_PAUSE_RE, "pause_trading"), (_TRADE_RESUME_RE, "resume_trading"),
                           (_TRADE_POSITIONS_RE, "trading_positions")):
         if pattern.fullmatch(plain):
@@ -233,10 +309,16 @@ def _trading_command(plain: str) -> Reflex | None:
     match = _TRADE_OPEN_RE.fullmatch(plain)
     if match and coins_in(match["coin"]):
         side = "long" if match["side"].lower() in ("лонг", "лонк", "long") else "short"
-        return Reflex(tool="open_trade", arguments={"coin": match["coin"].strip(), "side": side})
+        arguments = {"coin": match["coin"].strip(), "side": side}
+        if "демо" in match["coin"].lower():
+            arguments["account"] = "демо"
+        return Reflex(tool="open_trade", arguments=arguments)
     match = _TRADE_CLOSE_RE.fullmatch(plain)
     if match and coins_in(match["coin"]):
-        return Reflex(tool="close_trade", arguments={"coin": match["coin"].strip()})
+        arguments = {"coin": match["coin"].strip()}
+        if "демо" in match["coin"].lower():
+            arguments["account"] = "демо"
+        return Reflex(tool="close_trade", arguments=arguments)
     return None
 
 
