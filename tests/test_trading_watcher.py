@@ -3,7 +3,8 @@ from datetime import datetime
 
 import pytest
 
-from orion.trading import backtest, data, demo, exchange, journal, lab, market, practice, risk, settings, signals, watcher
+from orion.trading import (autopilot, backtest, data, demo, exchange, journal, lab, market, practice, risk, settings,
+                           signals, watcher)
 from orion.trading.signals import Signal
 
 GOOD = {"trades": 40, "win_rate": 0.5, "win_low": 0.35, "win_high": 0.65, "avg_r": 0.3, "profit_factor": 1.6,
@@ -90,6 +91,7 @@ def test_real_alerts_need_real_trade(world):
 def test_positions_chip_fills_and_time_stop(world, monkeypatch):
     w, said, hud = make()
     monkeypatch.setattr(settings, "account", lambda network: ("0xme", "0xkey"))
+    monkeypatch.setattr(autopilot, "guard", lambda network, account: [])
     state = risk.AccountState(1000.0, {"BTC": {"side": "long", "size": 0.01, "entry": 84000.0, "pnl": 5.0,
                                                "liq": 0.0, "value": 500.0}})
     monkeypatch.setattr(exchange, "account_state", lambda network: (state, {}))
@@ -178,3 +180,62 @@ def test_the_lab_search_and_the_testnet_check_run_without_the_lock(world, monkey
     assert held == [("search", False), ("start", True), ("testnet", False)] and marked == [True]
     assert ("addLog", ("trading", "Лаборатория: пробвам нови числа.")) in hud
     assert ("addLog", ("trading", "Проверката мина.")) in hud
+
+
+# --- The autopilot (REAL TRADE with a key) ---------------------------------------------------------
+def test_with_a_key_the_autopilot_trades_instead_of_the_alert(world, monkeypatch):
+    monkeypatch.setattr(settings, "account", lambda network: ("0xme", "0xkey"))
+    calls = []
+    monkeypatch.setattr(autopilot, "step", lambda prepared, report, network: (
+        calls.append((sorted(prepared), report, network)),
+        [("Отворих лонг на биткойн — пробив.", True), ("Пропуснах сигнал за шорт на етериум.", False)])[1])
+    w, said, hud = make()
+    world["BTC"] = [sig(1)]
+    w.scan()
+    assert calls == [(["BTC", "ETH", "SOL"], REPORT, "testnet")]
+    assert said == ["Отворих лонг на биткойн — пробив."]
+    assert ("addLog", ("trading", "Пропуснах сигнал за шорт на етериум.")) in hud
+    assert journal.record(days=1)["open"] == 1                 # the signal is still in the journal
+
+
+def test_no_autopilot_while_real_trade_is_off_or_in_test_mode(world, monkeypatch):
+    monkeypatch.setattr(settings, "account", lambda network: ("0xme", "0xkey"))
+    monkeypatch.setattr(autopilot, "step", lambda *args: pytest.fail("no autopilot"))
+    monkeypatch.setattr(exchange, "blocked", True)
+    make()[0].scan()
+    monkeypatch.setattr(exchange, "blocked", False)
+    settings.set_enabled(False)
+    make()[0].scan()
+
+
+def test_the_guard_runs_at_every_position_check_while_real_trade_is_on(world, monkeypatch):
+    monkeypatch.setattr(settings, "account", lambda network: ("0xme", "0xkey"))
+    state = risk.AccountState(1000.0)
+    monkeypatch.setattr(exchange, "account_state", lambda network: (state, {}))
+    monkeypatch.setattr(exchange, "fills_since", lambda network, since: [])
+    seen = []
+    monkeypatch.setattr(autopilot, "guard", lambda network, account: (
+        seen.append((network, account)), [("Затварям лонг на биткойн — изтекоха 48 часа.", True)])[1])
+    w, said, hud = make()
+    w.positions()
+    assert seen == [("testnet", state)] and said == ["Затварям лонг на биткойн — изтекоха 48 часа."]
+    settings.set_enabled(False)
+    w.positions()
+    assert len(seen) == 1
+
+
+def test_the_48_hour_reminder_is_only_for_sirs_own_trades(world, monkeypatch):
+    monkeypatch.setattr(settings, "account", lambda network: ("0xme", "0xkey"))
+    monkeypatch.setattr(autopilot, "guard", lambda network, account: [])
+    state = risk.AccountState(1000.0, {"BTC": {"side": "long", "size": 0.01, "entry": 84000.0, "pnl": 0.0,
+                                               "liq": 0.0, "value": 840.0}})
+    monkeypatch.setattr(exchange, "account_state", lambda network: (state, {}))
+    monkeypatch.setattr(exchange, "fills_since", lambda network, since: [])
+    w, said, hud = make()
+    monkeypatch.setattr(journal, "_now", lambda: int(w.clock.now * 1000))
+    plan = risk.OrderPlan("BTC", "long", 0.01, 84000.0, 83000.0, 86000.0, 2, 840.0, 420.0, 10.0, 20.0, 0.0, 0.8,
+                          "testnet")
+    journal.add_trade(plan, "пробив", auto=True)
+    w.clock.now += 49 * 3600
+    w.positions()
+    assert not any("48 часа" in s for s in said)

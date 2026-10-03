@@ -1,16 +1,19 @@
 """
 The background watch (own thread, started by app.py). Every 15 minutes it fetches the three coins once and
-uses them for everything: each new signal goes into the journal; with REAL TRADE on, a strong signal of a
-checked strategy is announced (voice 08:00–23:00, journal always); with DEMO TEST on, the demo accounts and
-the practice account trade by themselves (journal only). With a key connected it checks the real account
-(every minute while positions are open, else every 5): closed trades and the 48-hour time stop. The top-bar
-chip shows the real positions and the demo accounts. It holds test mode's sandbox lock while it touches
+uses them for everything: each new signal goes into the journal; with REAL TRADE on and a key connected, the
+autopilot trades the checked strategies by itself (autopilot.step — voice 08:00–23:00, journal always);
+REAL TRADE on without a key announces a strong signal of a checked strategy instead; with DEMO TEST on, the
+demo accounts and the practice account trade by themselves (journal only). With a key connected it checks
+the real account (every minute while positions are open, else every 5): closed trades, the autopilot's
+guard (account stop, stops, its 48-hour time stop) and the 48-hour reminder for sir's own trades. The
+top-bar chip shows the real positions and the demo accounts. It holds test mode's sandbox lock while it touches
 files; the lab's minutes of CPU and the testnet order check run without it.
 """
 import time
 from datetime import datetime
 
-from . import COINS, NAMES, backtest, data, demo, exchange, journal, lab, market, practice, settings, signals, texts
+from . import (COINS, NAMES, autopilot, backtest, data, demo, exchange, journal, lab, market, practice, settings,
+               signals, texts)
 
 SCAN_EVERY = 15 * 60
 RESOLVE_EVERY = 60 * 60
@@ -70,12 +73,16 @@ class Watcher:
     def scan(self) -> None:
         report = backtest.load()
         options = settings.load()
+        network = settings.network()
+        auto = bool(options["enabled"] and settings.account(network)) and not exchange.blocked
         prepared = {coin: market.live(coin) for coin in COINS}
         for p in prepared.values():
             for s in signals.latest(p):
-                if (journal.add_signal(s, "watch") and options["enabled"]
+                if (journal.add_signal(s, "watch") and options["enabled"] and not auto
                         and self._worth(s, report, options["announce_strength"])):
                     self.announce(texts.signal_alert(s, report))
+        if auto:
+            self.tell(autopilot.step(prepared, report, network))
         if options["demo"]:
             self.demo_step(prepared, report)
         data.record_open_interest(data.assets())
@@ -88,6 +95,14 @@ class Watcher:
             return False
         self.announced[key] = self.clock()
         return True
+
+    def tell(self, lines: list[tuple[str, bool]]) -> None:
+        """The autopilot's lines: (text, say it out loud) — the rest go into the journal only."""
+        for text, loud in lines:
+            if loud:
+                self.announce(text)
+            else:
+                self.hud("addLog", "trading", text)
 
     def announce(self, text: str) -> None:
         self.hud("addLog", "trading", text)
@@ -145,10 +160,14 @@ class Watcher:
             self.announce(texts.fill_text({"coin": coin, "px": price, "closedPnl": pnl}))
             journal.close_trade(coin, price, pnl)
         now_ms = self.clock() * 1000
+        newest = {t["coin"]: t for t in journal.open_trades()}   # the autopilot closes its own trades itself
         for coin in state.positions:
-            opened = journal.open_trade_time(coin)
-            if opened and coin not in self.time_stop_told and now_ms - opened >= signals.TIME_STOP_HOURS * data.HOUR:
+            trade = newest.get(coin)
+            if (trade and not trade.get("auto") and coin not in self.time_stop_told
+                    and now_ms - trade["time"] >= signals.TIME_STOP_HOURS * data.HOUR):
                 self.time_stop_told.add(coin)
                 name = NAMES.get(coin, coin).lower()
                 self.announce(f"Сър, сделката в {name} е отворена от 48 часа — времето ѝ изтече. Кажете "
                               f"„затвори {name}“ и ще я затворя след Вашето одобрение.")
+        if settings.enabled() and not exchange.blocked:
+            self.tell(autopilot.guard(network, state))
