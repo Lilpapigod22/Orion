@@ -65,3 +65,11 @@ def test_autopilot_trades_are_marked_and_listed_while_open():
     assert [(e["coin"], e["auto"], e["stop"]) for e in found] == [("BTC", True, 99.0), ("ETH", False, 2050.0)]
     journal.close_trade("BTC", 102.0, 2.0)
     assert [e["coin"] for e in journal.open_trades()] == ["ETH"]
+
+
+def test_close_trade_can_be_limited_to_one_network():
+    plan = SimpleNamespace(coin="BTC", side="long", entry=100.0, stop=98.0, target=104.0, size=1.0)
+    journal.add_trade(SimpleNamespace(network="mainnet", **vars(plan)), "breakout")
+    journal.add_trade(SimpleNamespace(network="testnet", **vars(plan)), "breakout")
+    journal.close_trade("BTC", source="testnet")
+    assert [e["source"] for e in journal.open_trades()] == ["mainnet"]

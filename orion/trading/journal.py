@@ -60,11 +60,14 @@ def open_trades() -> list[dict]:
         return [e for e in _load() if e.get("kind") == "trade" and e["status"] == "open"]
 
 
-def close_trade(coin: str, exit_price: float | None = None, pnl: float | None = None) -> None:
+def close_trade(coin: str, exit_price: float | None = None, pnl: float | None = None,
+                source: str | None = None) -> None:
+    """Closes the open real trades in `coin` — only those of the network `source`, when it is given."""
     with _lock:
         items = _load()
         for e in items:
-            if e.get("kind") == "trade" and e["coin"] == coin and e["status"] == "open":
+            if (e.get("kind") == "trade" and e["coin"] == coin and e["status"] == "open"
+                    and (source is None or e.get("source") == source)):
                 e.update(status="closed", exit=exit_price, pnl=pnl, exit_time=_now())
         _save(items)
 

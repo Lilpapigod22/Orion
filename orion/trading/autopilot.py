@@ -10,6 +10,7 @@ deposit/withdrawal count stopped, whether the last check was already below the f
 decided, and when each error was last told.
 """
 import json
+import os
 import time
 
 from .. import trading
@@ -31,7 +32,7 @@ def load() -> dict:
     except (OSError, ValueError):
         saved = {}
     return {"peak": saved.get("peak"), "network": saved.get("network"), "flows_from": saved.get("flows_from", _now()),
-            "below": saved.get("below", False), "traded": saved.get("traded", []), "told": saved.get("told", {})}
+            "below": saved.get("below", False), "equity": saved.get("equity"), "traded": saved.get("traded", []), "told": saved.get("told", {})}
 
 
 def save(state: dict) -> None:
@@ -39,13 +40,15 @@ def save(state: dict) -> None:
     state["traded"] = state["traded"][-KEEP:]
     state["told"] = {key: at for key, at in state["told"].items() if now - at < TELL_EVERY_MS}
     AUTO_FILE.parent.mkdir(parents=True, exist_ok=True)
-    AUTO_FILE.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    tmp = AUTO_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, AUTO_FILE)
 
 
 def reset_peak() -> None:
     """REAL TRADE was switched on: the account stop counts from now."""
     state = load()
-    state.update(peak=None, flows_from=_now(), below=False)
+    state.update(peak=None, equity=None, flows_from=_now(), below=False)
     save(state)
 
 
@@ -67,6 +70,7 @@ def _due(state: dict, key: str) -> bool:
 
 
 def _trouble(state: dict, e: Exception) -> list[tuple[str, bool]]:
+    print(f"[Autopilot] {type(e).__name__}: {e}")
     text = str(e) if isinstance(e, exchange.TradingError) else texts.AUTO_NO_CONNECTION
     return [(text, True)] if _due(state, text) else []
 
@@ -113,18 +117,27 @@ def _trade(state: dict, s, account: risk.AccountState, details: dict, network: s
     try:
         answer = exchange.auto_place(plan)
     except exchange.TradingError as e:
+        if str(e) == exchange.PRICE_MOVED:
+            return [(texts.auto_skipped(s, str(e)), False)]
         if str(e) != exchange.SENT_UNCHECKED:
             return [(texts.auto_skipped(s, str(e)), _due(state, str(e)))]
         answer = None
     except Exception:  # noqa: BLE001 — the order may be out: the guard finds the position or reconciles it
         answer = None
     if answer is None:
-        journal.add_trade(plan, s.strategy, auto=True)
+        _record(plan, s.strategy)
         return [(texts.auto_unchecked(s.coin), True)]
     if not answer.startswith("Отворих"):
         return [(texts.auto_skipped(s, answer), False)]
-    journal.add_trade(plan, s.strategy, auto=True)
+    _record(plan, s.strategy)
     return [(texts.auto_opened(plan, s.strategy), True)]
+
+
+def _record(plan: risk.OrderPlan, strategy: str) -> None:
+    """risk.plan has just seen no position in the coin, so an open journal trade there is stale (it closed while
+    Orion was off) — closed first, or the guard would treat the new position with the old trade's numbers."""
+    journal.close_trade(plan.coin, source=plan.network)
+    journal.add_trade(plan, strategy, auto=True)
 
 
 # --- Guarding -----------------------------------------------------------------------------------
@@ -135,36 +148,60 @@ def guard(network: str, account: risk.AccountState) -> list[tuple[str, bool]]:
     lines: list[tuple[str, bool]] = []
     try:
         lines += _account_stop(state, account, network)
-        now = _now()
-        for t in [t for t in journal.open_trades() if t.get("auto")]:
-            coin = t["coin"]
-            if coin not in account.positions:   # not filled, or closed — the fills tell the result
-                journal.close_trade(coin)
-                continue
-            said = exchange.ensure_stop(coin, network, t["stop"])
-            if said:
-                lines.append((said, True))
-            if now - t["time"] >= signals.TIME_STOP_HOURS * data.HOUR and settings.enabled():
-                if _due(state, "48h " + coin):
-                    lines.append((texts.auto_time_stop(coin, t["side"]), True))
-                exchange.auto_close([coin], network)
     except Exception as e:  # noqa: BLE001 — the autopilot must never stop the watch
         lines += _trouble(state, e)
+    now = _now()
+    try:
+        trades = [t for t in journal.open_trades() if t.get("auto") and t.get("source") == network]
+    except Exception as e:  # noqa: BLE001
+        trades = []
+        lines += _trouble(state, e)
+    for t in trades:
+        try:
+            lines += _guard_trade(state, t, account, network, now)
+        except Exception as e:  # noqa: BLE001 — one trade failing must not stop the guard of the others
+            lines += _trouble(state, e)
     save(state)
+    return lines
+
+
+def _guard_trade(state: dict, t: dict, account: risk.AccountState, network: str,
+                 now: int) -> list[tuple[str, bool]]:
+    """One trade the autopilot opened: reconcile it, check its stop, close it after 48 hours."""
+    coin = t["coin"]
+    position = account.positions.get(coin)
+    if not position or position.get("side") != t["side"]:   # not filled, closed, or sir's own position
+        journal.close_trade(coin, source=network)
+        return []
+    lines: list[tuple[str, bool]] = []
+    said = exchange.ensure_stop(coin, network, t["stop"])
+    if said:
+        lines.append((said, True))
+    if now - t["time"] >= signals.TIME_STOP_HOURS * data.HOUR and settings.enabled():
+        if _due(state, "48h " + coin):
+            lines.append((texts.auto_time_stop(coin, t["side"]), True))
+        exchange.auto_close([coin], network)
     return lines
 
 
 def _account_stop(state: dict, account: risk.AccountState, network: str) -> list[tuple[str, bool]]:
     """REAL TRADE switches itself off when the account is max_drawdown_pct below its high on two checks in a
-    row (a deposit can reach the ledger a moment before the balance). Deposits and withdrawals move the
-    high with them, so they are never taken for profit or loss."""
+    row. The balance and the ledger are read a moment apart, so one check can see a deposit or a withdrawal in
+    one of them only: the stop needs two checks in a row to fire, and the high rises only to an equity two
+    checks agree on. Deposits and withdrawals move the high with them, so they are never taken for profit or
+    loss."""
     if state["network"] != network:   # the other network is another account, with its own high
-        state.update(peak=None, network=network, flows_from=_now(), below=False)
+        state.update(peak=None, equity=None, network=network, flows_from=_now(), below=False)
     flows, last = exchange.transfers_since(network, state["flows_from"])
     if last:
         state["flows_from"] = last + 1
-    peak = account.equity if state["peak"] is None else max(state["peak"] + flows, account.equity)
-    state["peak"] = peak
+    if state["peak"] is None:
+        peak = account.equity
+    else:   # the balance and the ledger are read a moment apart: one check can see a deposit or a withdrawal in
+            # one of them only, so the high rises only to an equity two checks agree on
+        seen = account.equity if state["equity"] is None else min(account.equity, state["equity"] + flows)
+        peak = max(state["peak"] + flows, seen)
+    state["peak"], state["equity"] = peak, account.equity
     below = peak > 0 and account.equity <= peak * (1 - settings.limits().max_drawdown_pct / 100)
     fire = below and state["below"]
     state["below"] = below and not fire

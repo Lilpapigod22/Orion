@@ -25,6 +25,7 @@ CLOSE_SLIPPAGE = 0.01
 SETTLE = 1.0                # seconds for the exchange to show new orders
 blocked = False             # test mode's sandbox sets it: no exchange calls at all
 last_open: set[str] = set()  # coins with open positions at the last check (reflexes, watcher)
+PRICE_MOVED = "Цената се помести, докато смятах сделката — пропускам я."
 SENT_UNCHECKED = ("Поръчката е изпратена, но връзката с борсата прекъсна преди проверката на стопа. Кажете "
                   "„какви позиции имам“ — ако позицията е там без стоп, затворете я с „затвори …“.")
 
@@ -250,7 +251,7 @@ def auto_place(plan: risk.OrderPlan) -> str:
     info, client, address = _autopilot_client(plan.network)
     mid = float(info.all_mids()[plan.coin])
     if abs(mid / plan.entry - 1) > MOVE_LIMIT:
-        raise TradingError("Цената се помести, докато смятах сделката — пропускам я.")
+        raise TradingError(PRICE_MOVED)
     return _open(info, client, address, plan, mid)
 
 

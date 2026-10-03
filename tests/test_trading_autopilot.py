@@ -22,6 +22,7 @@ class Exchange:
         self.down = False      # account_state raises OSError
         self.fail = None       # auto_place raises this
         self.stop_said = None  # what ensure_stop returns
+        self.answer = None     # auto_place answers this without placing
 
     def account_state(self, network):
         if self.down:
@@ -32,6 +33,8 @@ class Exchange:
     def auto_place(self, plan):
         if self.fail:
             raise self.fail
+        if self.answer:
+            return self.answer
         self.placed.append(plan)
         self.positions[plan.coin] = {"side": plan.side, "size": plan.size, "entry": plan.entry, "pnl": 0.0,
                                      "liq": 0.0, "value": plan.notional}
@@ -184,6 +187,7 @@ def test_the_account_stop_fires_on_the_second_check_below_the_floor(ex):
     assert guard(ex) == []
     ex.equity = 1200.0
     assert guard(ex) == []
+    assert guard(ex) == []                             # the high rises one check later
     ex.equity = 719.0                                  # floor = 1200 × 0.6 = 720
     assert guard(ex) == [] and settings.enabled()
     (text, loud), = guard(ex)
@@ -205,7 +209,9 @@ def test_a_withdrawal_is_not_a_loss(ex):
     autopilot.reset_peak()
     guard(ex)
     ex.flows, ex.equity = (-500.0, T0 + 5), 500.0
-    assert guard(ex) == [] and guard(ex) == []
+    assert guard(ex) == []
+    ex.flows = (0.0, 0)
+    assert guard(ex) == []
     assert settings.enabled() and autopilot.load()["peak"] == 500.0
     ex.flows, ex.equity = (0.0, 0), 299.0              # 40 % below the 500 left
     guard(ex)
@@ -236,7 +242,7 @@ def plan_for(coin, side="long", stop=98.0):
 def test_the_stop_guard_checks_only_the_autopilots_trades(ex):
     journal.add_trade(plan_for("BTC"), "breakout", auto=True)
     journal.add_trade(plan_for("ETH", stop=1900.0), "без сигнал")
-    ex.positions = {"BTC": {}, "ETH": {}}
+    ex.positions = {"BTC": {"side": "long"}, "ETH": {"side": "long"}}
     ex.stop_said = "Позицията в биткойн беше без стоп — поставих го на 98.00."
     assert guard(ex) == [(ex.stop_said, True)]
     assert ex.checked == [("BTC", 98.0)]
@@ -245,7 +251,7 @@ def test_the_stop_guard_checks_only_the_autopilots_trades(ex):
 def test_the_time_stop_closes_only_the_autopilots_trades_after_48_hours(ex):
     journal.add_trade(plan_for("BTC"), "breakout", auto=True)
     journal.add_trade(plan_for("ETH", stop=1900.0), "без сигнал")
-    ex.positions = {"BTC": {}, "ETH": {}}
+    ex.positions = {"BTC": {"side": "long"}, "ETH": {"side": "long"}}
     ex.clock["now"] += 47 * data.HOUR
     assert guard(ex) == [] and ex.closed == []
     ex.clock["now"] += 1 * data.HOUR
@@ -255,7 +261,7 @@ def test_the_time_stop_closes_only_the_autopilots_trades_after_48_hours(ex):
 
 def test_a_time_stop_that_fails_is_retried_but_said_once(ex, monkeypatch):
     journal.add_trade(plan_for("BTC"), "breakout", auto=True)
-    ex.positions = {"BTC": {}}
+    ex.positions = {"BTC": {"side": "long"}}
     tries = []
     monkeypatch.setattr(exchange, "auto_close", lambda coins, network: tries.append(coins) or "Няма какво да затварям.")
     ex.clock["now"] += 49 * data.HOUR
@@ -265,7 +271,7 @@ def test_a_time_stop_that_fails_is_retried_but_said_once(ex, monkeypatch):
 
 def test_no_time_stop_after_real_trade_went_off(ex):
     journal.add_trade(plan_for("BTC"), "breakout", auto=True)
-    ex.positions = {"BTC": {}}
+    ex.positions = {"BTC": {"side": "long"}}
     settings.set_enabled(False)
     ex.clock["now"] += 49 * data.HOUR
     assert guard(ex) == [] and ex.closed == [] and ex.checked == [("BTC", 98.0)]
@@ -286,7 +292,7 @@ def test_the_guard_says_a_lost_connection_once_per_6_hours(ex, monkeypatch):
 
 
 # --- Review focus ---------------------------------------------------------------------------------
-def test_another_network_has_its_own_high(ex):
+def test_another_network_starts_its_own_high(ex):
     autopilot.reset_peak()
     autopilot.guard("testnet", risk.AccountState(10000.0))
     assert autopilot.guard("mainnet", risk.AccountState(200.0)) == []
@@ -317,3 +323,78 @@ def test_an_empty_perps_account_is_said_once_per_6_hours(ex):
     assert step(ex) == [(texts.AUTO_EMPTY, True)]
     ex.found["BTC"] = [sig(time=2)]
     assert step(ex) == [(texts.AUTO_EMPTY, False)] and ex.placed == []
+
+
+# --- Fix round 1 ----------------------------------------------------------------------------------
+def test_a_withdrawal_seen_in_the_ledger_before_the_balance_does_not_fire(ex):
+    autopilot.reset_peak()
+    guard(ex)
+    ex.flows = (-500.0, T0 + 5)                        # the balance still shows the money
+    assert guard(ex) == []
+    ex.flows, ex.equity = (0.0, 0), 500.0
+    assert guard(ex) == [] and guard(ex) == []
+    assert settings.enabled() and autopilot.load()["peak"] == 500.0
+
+
+def test_a_deposit_seen_in_the_balance_before_the_ledger_is_not_counted_twice(ex):
+    autopilot.reset_peak()
+    guard(ex)
+    ex.equity = 2000.0                                 # the ledger does not show the deposit yet
+    guard(ex)
+    ex.flows = (1000.0, T0 + 5)
+    guard(ex)
+    assert autopilot.load()["peak"] == 2000.0
+    ex.flows, ex.equity = (0.0, 0), 1250.0             # floor 1200
+    assert guard(ex) == [] and guard(ex) == [] and settings.enabled()
+
+
+def test_the_guard_leaves_the_other_networks_trades_alone(ex):
+    journal.add_trade(plan_for("BTC"), "breakout", auto=True)          # a mainnet trade
+    assert autopilot.guard("testnet", risk.AccountState(1000.0)) == []
+    assert [t["coin"] for t in journal.open_trades()] == ["BTC"] and ex.checked == []
+
+
+def test_a_stale_trade_is_closed_before_a_new_one_in_the_same_coin(ex):
+    journal.add_trade(plan_for("BTC"), "breakout", auto=True)          # closed while Orion was off
+    ex.clock["now"] += 47 * data.HOUR
+    ex.found["BTC"] = [sig(time=2)]
+    step(ex)
+    assert [t["time"] for t in journal.open_trades()] == [ex.clock["now"]]
+    ex.clock["now"] += 1 * data.HOUR
+    assert guard(ex) == [] and ex.closed == []
+
+
+def test_a_position_on_the_other_side_is_never_touched(ex):
+    journal.add_trade(plan_for("BTC"), "breakout", auto=True)          # long in the journal
+    ex.positions = {"BTC": {"side": "short"}}                          # sir's own short in Phantom
+    ex.clock["now"] += 49 * data.HOUR
+    assert guard(ex) == [] and ex.checked == [] and ex.closed == []
+    assert journal.open_trades() == []
+
+
+def test_one_failing_trade_does_not_stop_the_guard_of_the_others(ex, monkeypatch, capsys):
+    journal.add_trade(plan_for("BTC"), "breakout", auto=True)
+    journal.add_trade(plan_for("ETH", stop=1900.0), "breakout", auto=True)
+    ex.positions = {"BTC": {"side": "long"}, "ETH": {"side": "long"}}
+    checked = []
+
+    def ensure(coin, network, stop):
+        checked.append(coin)
+        if coin == "BTC":
+            raise OSError("connection reset")
+    monkeypatch.setattr(exchange, "ensure_stop", ensure)
+    assert guard(ex) == [(texts.AUTO_NO_CONNECTION, True)]
+    assert checked == ["BTC", "ETH"] and "[Autopilot] OSError: connection reset" in capsys.readouterr().out
+
+
+def test_a_price_that_moved_is_a_journal_only_skip(ex):
+    ex.fail = exchange.TradingError(exchange.PRICE_MOVED)
+    ex.found["BTC"] = [sig()]
+    assert step(ex) == [(texts.auto_skipped(sig(), exchange.PRICE_MOVED), False)]
+
+
+def test_an_order_that_did_not_fill_is_a_journal_only_skip(ex):
+    ex.answer = "Входът не се изпълни — цената избяга. Нищо не е отворено."
+    ex.found["BTC"] = [sig()]
+    assert step(ex) == [(texts.auto_skipped(sig(), ex.answer), False)]
+    assert journal.open_trades() == []
