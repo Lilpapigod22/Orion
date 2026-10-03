@@ -17,6 +17,7 @@ def test_defaults_are_the_testnet_and_the_aggressive_limits():
     assert settings.network() == "testnet" and not settings.enabled() and not settings.demo_on()
     limits = settings.limits()
     assert (limits.risk_pct, limits.max_leverage, limits.daily_loss_pct, limits.max_positions) == (2.0, 10, 6.0, 3)
+    assert limits.max_drawdown_pct == 40.0
     assert settings.account("testnet") is None
 
 
@@ -60,3 +61,9 @@ def test_network_and_switch_are_saved():
     assert not settings.enabled()
     settings.set_network("anything else")
     assert settings.network() == "testnet"
+
+
+def test_a_settings_file_from_before_gets_the_account_stop():
+    settings.SETTINGS_FILE.write_text('{"limits": {"risk_pct": 1.0}}', encoding="utf-8")
+    limits = settings.limits()
+    assert (limits.risk_pct, limits.max_drawdown_pct) == (1.0, 40.0)

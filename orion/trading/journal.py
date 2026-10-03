@@ -44,14 +44,20 @@ def add_signal(signal: signals.Signal, source: str) -> bool:
         return True
 
 
-def add_trade(plan, strategy: str) -> None:
-    """A real trade sir approved (the network is its source)."""
+def add_trade(plan, strategy: str, auto: bool = False) -> None:
+    """A real trade (the network is its source): sir approved it, or the autopilot opened it (auto)."""
     with _lock:
         items = _load()
         items.append({"kind": "trade", "source": plan.network, "status": "open", "coin": plan.coin,
                       "side": plan.side, "strategy": strategy, "entry": plan.entry, "stop": plan.stop,
-                      "target": plan.target, "size": plan.size, "time": _now()})
+                      "target": plan.target, "size": plan.size, "time": _now(), "auto": bool(auto)})
         _save(items)
+
+
+def open_trades() -> list[dict]:
+    """The real trades still open, oldest first."""
+    with _lock:
+        return [e for e in _load() if e.get("kind") == "trade" and e["status"] == "open"]
 
 
 def close_trade(coin: str, exit_price: float | None = None, pnl: float | None = None) -> None:

@@ -53,3 +53,15 @@ def test_trades_are_tracked_for_the_time_stop():
     assert journal.open_trade_time("ETH") is not None
     journal.close_trade("ETH", 1925.0, 37.5)
     assert journal.open_trade_time("ETH") is None
+
+
+def test_autopilot_trades_are_marked_and_listed_while_open():
+    from orion.trading import risk
+    plan = risk.OrderPlan("BTC", "long", 0.01, 100.0, 99.0, 102.0, 2, 1.0, 0.5, 0.01, 0.02, 50.0, 0.001, "mainnet")
+    journal.add_trade(plan, "breakout", auto=True)
+    journal.add_trade(risk.OrderPlan("ETH", "short", 0.1, 2000.0, 2050.0, 1900.0, 2, 200.0, 100.0, 5.0, 10.0,
+                                     2500.0, 0.2, "mainnet"), "без сигнал")
+    found = journal.open_trades()
+    assert [(e["coin"], e["auto"], e["stop"]) for e in found] == [("BTC", True, 99.0), ("ETH", False, 2050.0)]
+    journal.close_trade("BTC", 102.0, 2.0)
+    assert [e["coin"] for e in journal.open_trades()] == ["ETH"]

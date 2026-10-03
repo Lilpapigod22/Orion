@@ -2,6 +2,7 @@
 Hard limits for every real trade — pure functions, no network. The exchange never gets an order that did
 not pass plan(). Defaults (sir chose „агресивен“): ≤2 % of the account lost at the stop, leverage ≤10x,
 ≤6 % lost per day, ≤3 open positions. Isolated margin; the liquidation must be ≥1.5× further than the stop.
+max_drawdown_pct is the autopilot's account stop: REAL TRADE switches itself off 40 % below the account's high.
 """
 import math
 from dataclasses import dataclass, field
@@ -22,6 +23,7 @@ class Limits:
     max_leverage: int = 10
     daily_loss_pct: float = 6.0
     max_positions: int = 3
+    max_drawdown_pct: float = 40.0
 
 
 @dataclass

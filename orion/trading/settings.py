@@ -16,10 +16,11 @@ from .risk import Limits
 SETTINGS_FILE = config.BASE_DIR / "trading_settings.json"
 DEFAULTS = {
     "network": "testnet",
-    "enabled": False,      # REAL TRADE button — real orders only while it is on
+    "enabled": False,      # REAL TRADE button — Orion trades the real account by itself while it is on
     "demo": False,         # DEMO TEST button — Orion trades the demo accounts by itself
     "accounts": {},
-    "limits": {"risk_pct": 2.0, "max_leverage": 10, "daily_loss_pct": 6.0, "max_positions": 3},
+    "limits": {"risk_pct": 2.0, "max_leverage": 10, "daily_loss_pct": 6.0, "max_positions": 3,
+               "max_drawdown_pct": 40.0},
     "voice_hours": [8, 23],
     "announce_strength": 4,
 }
