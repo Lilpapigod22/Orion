@@ -80,7 +80,7 @@ function Chart({ data }) {
       <span className="chart-box">
         <canvas
           ref={canvas} role="img" onPointerMove={move} onPointerLeave={() => setHover(null)}
-          aria-label={`${data.name}: price ${fmtPrice(last)}, support ${fmtPrice(data.support)}, resistance ${fmtPrice(data.resistance)}`}
+          aria-label={`${data.name}: price ${fmtPrice(last)}, support ${fmtPrice(data.support)}, resistance ${fmtPrice(data.resistance)}${data.stop != null ? `, entry ${fmtPrice(data.entry)}, stop ${fmtPrice(data.stop)}, target ${fmtPrice(data.target)}` : ''}`}
         />
         {hover != null && (
           <span className="chart-tip" ref={tip}>

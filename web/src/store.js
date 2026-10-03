@@ -11,6 +11,8 @@ let state = {
   telemetry: 'core · —',
   test: null,                      // chip text while test mode works
   reels: null,                     // chip text while reels are being made
+  trading: null,                   // chip text: the network and open positions (orion/trading/watcher.py)
+  keyDialog: null,                 // { network } while the Hyperliquid key dialog is open
   approval: null,                  // code for approval or an action to confirm
   switches: { wake: false, voice: true, test: false },
   maximized: false,

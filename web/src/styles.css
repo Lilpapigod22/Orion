@@ -460,6 +460,18 @@ button { cursor: pointer; }
   letter-spacing: 0.1em;
 }
 .tele-chip--reels { color: var(--holo); border-color: var(--line-strong); }
+.tele-chip--trading { color: var(--glow); border-color: var(--line-strong); }
+
+/* The Hyperliquid key dialog — the approval card with two fields. */
+.key-dialog { gap: 12px; }
+.key-warning { margin: 0; color: #FFB3AC; font-size: 13.5px; line-height: 1.5; }
+.key-field { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12.5px; }
+.key-field input {
+  font: 400 14px/1.4 var(--f-mono); color: var(--text); background: rgba(7, 18, 28, 0.85);
+  border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px 11px;
+}
+.key-field input:focus { outline: 2px solid var(--glow); outline-offset: 1px; }
+.key-message { margin: 0; color: #FFB3AC; font-size: 13.5px; }
 
 /* --- Console ---------------------------------------------------------------------------- */
 .console {

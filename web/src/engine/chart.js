@@ -3,6 +3,8 @@
    SMA50 is also dashed because it is close to the price colour under deuteranopia. */
 export const CHART = {
   price: '#2C9CCB', sma20: '#C2801F', sma50: '#9068D6',
+  // A forecast's levels: the label carries the meaning; colour and dash pattern only help.
+  entry: '#BCD9E8', stop: '#E06C5F', target: '#4FB286',
   surface: '#07121C', grid: 'rgba(127,219,255,0.08)', text: '#BCD9E8', muted: '#5B8196',
 };
 
@@ -33,7 +35,8 @@ export function drawChart(canvas, data, hoverIndex = null) {
   ctx.clearRect(0, 0, w, h);
 
   const pad = { l: 4, r: 58, t: 8, b: 20 };
-  const values = [...data.close, ...data.sma20, ...data.sma50, data.support, data.resistance]
+  const values = [...data.close, ...data.sma20, ...data.sma50, data.support, data.resistance, data.entry, data.stop,
+    data.target]
     .filter((v) => v != null);
   let lo = Math.min(...values), hi = Math.max(...values);
   const margin = (hi - lo) * 0.06 || hi * 0.01;
@@ -80,6 +83,27 @@ export function drawChart(canvas, data, hoverIndex = null) {
     ctx.fillStyle = CHART.text;
     ctx.textAlign = 'right';
     ctx.fillText(text, w - pad.r - 13, ty);
+  }
+
+  // A forecast's entry, stop and target — dashed, labelled on the left (support/resistance are on the right).
+  for (const [label, level, color, dash] of [['entry', data.entry, CHART.entry, [2, 3]],
+    ['stop', data.stop, CHART.stop, [6, 4]], ['target', data.target, CHART.target, [10, 4]]]) {
+    if (level == null) continue;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y(level));
+    ctx.lineTo(w - pad.r, y(level));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const text = `${label} ${fmtPrice(level)}`;
+    const tw = ctx.measureText(text).width;
+    ctx.fillStyle = 'rgba(7,18,28,0.85)';
+    ctx.fillRect(pad.l + 4, y(level) - 14, tw + 6, 12);
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left';
+    ctx.fillText(text, pad.l + 7, y(level) - 5);
   }
 
   // A light wash under the price, then the lines.

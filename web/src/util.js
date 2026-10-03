@@ -25,5 +25,5 @@ export const STATUS_TEXT = {
 
 export const WHO = {
   user: 'Sir', orion: 'Orion', tool: '▸ skill', evolve: '▸ evolution', system: 'System', guide: '▸ tip',
-  claude: '▸ Claude', chart: '▸ market', test: '▸ test', reels: '▸ reels',
+  claude: '▸ Claude', chart: '▸ market', test: '▸ test', reels: '▸ reels', trading: '▸ trading',
 };

@@ -3,6 +3,7 @@ import { decide, talk } from '../actions.js';
 import { Eyes } from './Eyes.jsx';
 import { mind } from '../engine/mind.js';
 import { Pipeline } from './Pipeline.jsx';
+import { KeyDialog } from './KeyDialog.jsx';
 import { useStore } from '../store.js';
 import { reduceMotion, STATE_LABELS } from '../util.js';
 
@@ -105,6 +106,7 @@ export function Stage() {
       <Subtitle />
       <BootList />
       <Approval />
+      <KeyDialog />
     </section>
   );
 }

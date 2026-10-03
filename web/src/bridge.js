@@ -150,6 +150,22 @@ export const hud = {
   setReels({ active, text }) {
     store.set({ reels: active ? `reels · ${text || 'starting'}` : null });
   },
+
+  // Trading (orion/trading/watcher.py): open positions with live P/L; TESTNET while on the test network.
+  setTrading(data) {
+    if (!data) {
+      store.set({ trading: null });
+      return;
+    }
+    const parts = data.positions.map((p) => `${p.coin} ${p.side.toUpperCase()} ${p.pnl_pct >= 0 ? '+' : ''}${p.pnl_pct.toFixed(1)}%`);
+    if (data.network === 'testnet') parts.unshift('TESTNET');
+    store.set({ trading: parts.length ? `trading · ${parts.join(' · ')}` : null });
+  },
+
+  // The Hyperliquid API key — typed in its own dialog, never in the chat.
+  showKeyDialog({ network }) {
+    store.set({ keyDialog: { network } });
+  },
 };
 window.hud = hud;
 
