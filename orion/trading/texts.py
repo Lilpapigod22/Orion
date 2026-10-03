@@ -5,7 +5,7 @@ only from numbers the code computed (the language model just reads it out).
 from datetime import datetime
 
 from ..markets import _fmt
-from . import NAMES, backtest
+from . import NAMES, backtest, demo
 from .signals import LABELS
 
 SIDE = {"long": "ЛОНГ", "short": "ШОРТ"}
@@ -190,3 +190,66 @@ def fill_text(fill: dict) -> str:
     coin = fill.get("coin", "")
     pnl = float(fill.get("closedPnl") or 0)
     return f"Сър, позицията в {NAMES.get(coin, coin)} се затвори на {_fmt(float(fill['px']))} — {pnl:+.2f} долара."
+
+
+# --- Demo accounts and the simulation -----------------------------------------------------------
+_DOLLAR_WORDS = ("", "usd", "$", "долар", "долара", "dollar", "dollars")
+
+
+def _usd(value: float) -> str:
+    return f"{value:,.2f}".replace(",", " ") + " $"
+
+
+def demo_created(name: str, usd: float, risk_pct: float, all_signals: bool, amount: float, currency: str) -> str:
+    money = _usd(usd)
+    if currency.strip().lower().rstrip(".") not in _DOLLAR_WORDS:
+        money += f" ({amount:,.0f} {currency})".replace(",", " ")
+    which = "всички сигнали" if all_signals else "само проверените стратегии"
+    return (f"Направих демо сметка „{name}“ с {money} и {risk_pct:g} % риск — {which}. Парите са измислени, "
+            f"цените — истински.")
+
+
+def demo_status(book: dict, mids: dict, on: bool) -> str:
+    lines = ["Демо сметките (DEMO TEST е включен — търгувам сам):" if on
+             else "Демо сметките (DEMO TEST е изключен — включете го, за да търгувам):"]
+    for name, account in book["accounts"].items():
+        value = demo.equity(account, mids)
+        closed = [t for t in account["closed"] if t.get("status") == "closed"]
+        wins = sum(1 for t in closed if t["pnl"] > 0)
+        line = (f"„{name}“: {_usd(value)} ({(value / account['start'] - 1) * 100:+.1f} % от {_usd(account['start'])}), "
+                f"{len(closed)} приключени сделки, {wins} на печалба")
+        if account["open"]:
+            line += ", отворени: " + ", ".join(f"{NAMES[t['coin']].lower()} {'лонг' if t['side'] == 'long' else 'шорт'}"
+                                               for t in account["open"])
+        if name == demo.active(book):
+            line += " (избрана)"
+        lines.append(line + ".")
+    return "\n".join(lines)
+
+
+def demo_opened(name: str, trade: dict) -> str:
+    side = "лонг" if trade["side"] == "long" else "шорт"
+    return (f"DEMO „{name}“: отворих {side} на {NAMES[trade['coin']].lower()} на {_fmt(trade['entry'])}, стоп "
+            f"{_fmt(trade['stop'])}, цел {_fmt(trade['target'])}, размер {trade['size']:.4g}. Без истински пари.")
+
+
+def demo_closed(name: str, trades: list[dict], account: dict) -> str:
+    parts = ", ".join(f"{NAMES[t['coin']].lower()} ({t['pnl']:+.2f} $)" for t in trades)
+    return f"DEMO „{name}“: затворих {parts}. Балансът е {_usd(account['balance'])}."
+
+
+def simulation(result, risk_pct: float, all_signals: bool) -> str:
+    used = [f"{LABELS[s]} на {NAMES[c].lower()}" for c, names in result.strategies.items() for s in names]
+    if not used:
+        return ("Нито една стратегия не мина проверката, затова няма какво да симулирам. Кажете „симулирай … с "
+                "всички сигнали“, за да видите и непроверените.")
+    which = "всички стратегии" if all_signals else "проверените стратегии (" + ", ".join(used) + ")"
+    text = (f"Симулация за последните {result.days} дни с {_usd(result.start)} и {risk_pct:g} % риск, {which}: "
+            f"накрая {_usd(result.final)} ({result.return_pct:+.1f} %). {result.trades} сделки, {result.wins} на "
+            f"печалба. Най-голямо падане {result.max_drawdown_pct:.1f} %.")
+    if result.months:
+        best_month = max(result.months.items(), key=lambda kv: kv[1])
+        worst_month = min(result.months.items(), key=lambda kv: kv[1])
+        text += (f" Най-добър месец {best_month[0]} ({best_month[1]:+.1f} %), най-лош {worst_month[0]} "
+                 f"({worst_month[1]:+.1f} %).")
+    return text + " Миналото не гарантира бъдещето."
