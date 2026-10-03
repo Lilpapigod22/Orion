@@ -224,14 +224,15 @@ larger) and a title in the first seconds.
 
 ## Crypto forecasts and trading (Hyperliquid)
 
-Orion forecasts and trades **Bitcoin, Ethereum and Solana** on Hyperliquid — the exchange behind Trust
-Wallet's "Perps" tab. Every number comes from code (`orion/trading/`); the language model only reads it out.
+Orion forecasts and trades **Bitcoin, Ethereum and Solana** on Hyperliquid — the exchange behind Phantom's
+"Perps" tab (the perps account of Phantom's Ethereum address). Every number comes from code
+(`orion/trading/`); the language model only reads it out.
 
 - „Какво ще прави биткойнът?“ / „Прогноза за солана“ — direction (or "no signal"), entry, stop, target,
   strength 1–5, and how often that strategy won in the honest check.
 - „Сигнали“ — all three coins. „Колко добри са стратегиите?“ — the check, per strategy and coin.
   „Колко позна тази седмица?“ — the real outcomes of Orion's own signals.
-- „Отвори лонг на биткойн“, „Затвори етериума“, „Затвори всички позиции“ — every open and close shows an
+- „Отвори лонг на биткойн“, „Затвори етериума“, „Затвори всички позиции“ — a trade you ask for shows an
   approval dialog with every number; nothing happens without „Одобри“.
 - „Спри търговията“ / „Пусни търговията“, „Мини на истински пари“ / „Мини на тестовата мрежа“.
 
@@ -245,16 +246,24 @@ positive result after costs and a profit factor ≥1.1. If none passes, Orion sa
 without a stop is closed at once. The API key can trade but **cannot withdraw**; it is stored encrypted
 (Windows DPAPI) and typed only in its own dialog. Orion never asks for the recovery phrase.
 
-**Connecting (once).** Say „Свържи Hyperliquid“ → open app.hyperliquid-testnet.xyz, connect Trust Wallet, page
-API → Generate → approve in Trust Wallet → paste the wallet address and the API key into Orion's dialog.
-Start on the testnet; switch to real money only with „Мини на истински пари“ and its warning dialog.
+**Connecting (once).** In Phantom, deposit into the Perps balance (from SOL or USDC). Say „Свържи
+Hyperliquid за истински пари“ → open app.hyperliquid.xyz, Connect → Phantom, More → API → Generate → approve in
+Phantom → paste Phantom's Ethereum address (0x…) and the API key into Orion's dialog. The key trades but cannot
+withdraw and is valid up to 180 days. „Мини на истински пари“ (with its warning dialog) moves from the testnet
+to real money.
 
 **Three buttons** in the bottom bar. **Test mode** checks Orion's own skills and understanding. **Demo test**
 lets Orion trade the demo accounts by itself — virtual money on live prices („направи демо сметка с 1000
 долара“, „как върви демото“, „започни демото отначало“) — and runs the strategy lab (other numbers promoted
 only after beating the current ones on unseen history AND in 20 practice trades) and a daily minimum-size
-testnet order check. **Real trade** is the real Hyperliquid account: forecasts and advice when you ask, every
-trade only after „Одобри“; off means no real orders. „Симулирай 1000 долара за последната година“ replays the
+testnet order check. **Real trade** is the real account, and Orion trades it **by itself**: every 15 minutes
+a fresh signal of a checked strategy is opened with its stop and target on the exchange (2 % risk, the limits
+above), closed after 48 hours at the latest, and each trade is announced (voice 08:00–23:00, journal always).
+A signal it skips (a limit, the price already moved) goes into the journal. If the account falls 40 % below its
+high (deposits and withdrawals do not count), Real trade switches itself off. The button switches it on at
+once; „включи реал трейд“ by voice asks first; off is always immediate. Trades you ask for still need
+„Одобри“, code Orion writes itself cannot reach the trading modules, and with Orion closed no new trades are
+opened (the stops on the exchange still work). „Симулирай 1000 долара за последната година“ replays the
 checked strategies on history with compounding (final balance, worst drawdown, best and worst month).
 
 ## Test mode — Orion checks and fixes itself

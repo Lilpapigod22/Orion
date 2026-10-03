@@ -41,7 +41,7 @@ export function KeyDialog() {
         {testnet ? 'app.hyperliquid-testnet.xyz/API' : 'app.hyperliquid.xyz/API'}: той търгува, но не може да тегли.
       </p>
       <label className="key-field">
-        Wallet address (Trust Wallet)
+        Wallet address (Phantom — Ethereum, 0x…)
         <input ref={first} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="0x…"
           spellCheck={false} autoComplete="off" />
       </label>

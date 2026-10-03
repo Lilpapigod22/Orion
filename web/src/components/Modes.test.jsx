@@ -19,6 +19,11 @@ describe('the trading buttons', () => {
     expect(getByLabelText('Real trade')).toBeTruthy();
   });
 
+  it('Real trade says that Orion trades by itself', () => {
+    const { getByLabelText } = render(<Console />);
+    expect(getByLabelText('Real trade').closest('label').title).toMatch(/Phantom Perps\): Orion trades by itself/);
+  });
+
   it('switching them tells Python', () => {
     const demo = vi.fn();
     const real = vi.fn();

@@ -35,6 +35,7 @@ describe('trading in the window', () => {
     hud.showKeyDialog({ network: 'testnet' });
     const { getByLabelText, getByText } = render(<KeyDialog />);
     expect(getByText('Hyperliquid · TESTNET')).toBeTruthy();
+    expect(getByLabelText(/Wallet address \(Phantom — Ethereum/)).toBeTruthy();
     fireEvent.change(getByLabelText(/Wallet address/), { target: { value: '0xabc' } });
     fireEvent.change(getByLabelText(/API wallet private key/), { target: { value: 'f'.repeat(64) } });
     fireEvent.click(getByText('Save key'));

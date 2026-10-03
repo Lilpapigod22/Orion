@@ -11,7 +11,7 @@ const SWITCHES = [
   { name: 'demo', label: 'Demo test', className: 'switch switch--demo',
     title: 'Orion trades the demo accounts by itself — virtual money on live prices, never a real order' },
   { name: 'real', label: 'Real trade', className: 'switch switch--real',
-    title: 'The real Hyperliquid account: forecasts when you ask, every trade only after you approve it' },
+    title: 'The real Hyperliquid account (Phantom Perps): Orion trades by itself within the limits' },
 ];
 
 export function Console() {
