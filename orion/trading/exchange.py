@@ -393,9 +393,8 @@ def fills_since(network: str, since_ms: int) -> list[dict]:
     return info.user_fills_by_time(address, since_ms)
 
 
-
 def perp_flow(delta: dict, address: str) -> float:
-    """USDC one ledger entry moved into (+) or out of (-) the perps account; 0 for anything else.
+    """USDC one ledger entry moved into (+) or out of (−) the perps account; 0 for anything else.
     Fees are left out: the account stop then errs on the early side, never the late one."""
     kind = delta.get("type")
     usdc = float(delta.get("usdc") or 0)
@@ -423,7 +422,7 @@ def perp_flow(delta: dict, address: str) -> float:
 
 
 def transfers_since(network: str, since_ms: int) -> tuple[float, int]:
-    """(USDC moved into (+) / out of (-) the perps account since since_ms, time of the newest ledger entry or 0) -
+    """(USDC moved into (+) / out of (−) the perps account since since_ms, time of the newest ledger entry or 0) —
     so the account stop never takes a deposit or a withdrawal for profit or loss."""
     info, _, address = _client(network)
     total, last = 0.0, 0
@@ -455,7 +454,7 @@ def testnet_check() -> str:
 
 
 def smallest_check(network: str) -> str:
-    """The smallest BTC long (about 11 $), its stop and target verified, then closed at once. The testnet daily
+    """The smallest BTC long (≈11 $), its stop and target verified, then closed at once. The testnet daily
     (testnet_check); the real account once, on sir's word, before the autopilot's first real trade."""
     info, client, address = client_factory(network)
     where = "в тестовата мрежа" if network == "testnet" else "в истинската сметка"
