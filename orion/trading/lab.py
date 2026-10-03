@@ -1,8 +1,11 @@
 """
-The strategy lab (test mode): tries other numbers for one strategy at a time. A variant replaces the
-current numbers only through two gates — (a) on the history it beats them on the 30 % no tuning saw and
-passes the enable rule, then (b) it also beats them over its first 20 practice trades, run side by side.
-Only numbers change; code changes still need „Одобри и включи“.
+The strategy lab (DEMO TEST): tries other numbers for one strategy at a time. A variant replaces the current
+numbers only through two gates — (a) on the history it beats them on the 30 % no tuning saw and passes the
+enable rule, then (b) it also beats them over its first 20 practice trades, run side by side. Only numbers
+change; code changes still need „Одобри и включи“.
+
+The watch runs the steps separately: judge / due / start touch files (under test mode's sandbox lock);
+search is minutes of CPU on the candle cache and runs without the lock.
 """
 import itertools
 import json
@@ -21,6 +24,10 @@ GRIDS = {
     "breakout": {"channel": [20, 48], "volume": [1.3, 1.5, 2.0], "stop_atr": [1.5, 2.0], "reward": [2.0, 2.5]},
     "reversal": {"funding_pct": [0.9, 0.95, 0.98], "rsi": [70, 75, 80], "stop_atr": [1.5, 2.0]},
 }
+
+
+def _now() -> int:
+    return int(time.time() * 1000)
 
 
 def load() -> dict:
@@ -85,11 +92,11 @@ def _mean_r(trades: list[dict]) -> float:
     return sum(t["r"] for t in trades) / len(trades) if trades else 0.0
 
 
-def step(practice_state: dict, log=print, markets_by_coin: dict | None = None) -> str:
-    """Judges finished trials (gate b), then starts one new search (gate a). Returns what changed."""
+def judge(practice_state: dict) -> str:
+    """Gate (b): every trial with 20 practice trades is promoted or dropped. Returns what changed."""
     state = load()
     notes = []
-    now = int(time.time() * 1000)
+    now = _now()
     for strategy, trial in list(state["candidates"].items()):
         def mine(variant):
             return [t for t in practice_state["closed"] if t.get("status") == "closed" and t["strategy"] == strategy
@@ -108,19 +115,41 @@ def step(practice_state: dict, log=print, markets_by_coin: dict | None = None) -
         state["log"].append({"time": now, "strategy": strategy, "params": trial["params"], "promoted": promoted,
                              "new_r": new_r, "old_r": old_r})
         del state["candidates"][strategy]
-    week = SEARCH_EVERY_DAYS * 24 * 3_600_000
-    free = [s for s in STRATEGIES if s not in state["candidates"] and now - state["searched"].get(s, 0) >= week]
-    if free:  # the strategy searched longest ago goes first (STRATEGIES order on the first run)
-        strategy = min(free, key=lambda s: state["searched"].get(s, 0))
-        state["searched"][strategy] = now
-        if markets_by_coin is None:
-            markets_by_coin = {coin: market.history(coin) for coin in COINS}
-        found = search(strategy, markets_by_coin)
-        if found:
-            numbers, new, old = found
-            if new.enabled and better(new.avg_r, old.avg_r):
-                state["candidates"][strategy] = {"params": numbers, "since": now, "oos": asdict(new)}
-                notes.append(f"пробвам нови числа за „{LABELS[strategy]}“ в тренировката")
-                log(f"Лаборатория: {LABELS[strategy]} {numbers} — {new.avg_r:+.2f}R срещу {old.avg_r:+.2f}R")
     save(state)
     return "; ".join(notes)
+
+
+def due() -> str | None:
+    """The strategy to search next: not on trial and not searched for a week — the oldest first."""
+    state = load()
+    week = SEARCH_EVERY_DAYS * 24 * 3_600_000
+    now = _now()
+    free = [s for s in STRATEGIES if s not in state["candidates"] and now - state["searched"].get(s, 0) >= week]
+    return min(free, key=lambda s: state["searched"].get(s, 0)) if free else None
+
+
+def start(strategy: str, found, log=print) -> str:
+    """Gate (a)'s verdict: records the search and starts a trial if the variant passed. Returns what changed."""
+    state = load()
+    now = _now()
+    state["searched"][strategy] = now
+    note = ""
+    if found:
+        numbers, new, old = found
+        if new.enabled and better(new.avg_r, old.avg_r):
+            state["candidates"][strategy] = {"params": numbers, "since": now, "oos": asdict(new)}
+            note = f"пробвам нови числа за „{LABELS[strategy]}“ в тренировката"
+            log(f"Лаборатория: {LABELS[strategy]} {numbers} — {new.avg_r:+.2f}R срещу {old.avg_r:+.2f}R")
+    save(state)
+    return note
+
+
+def step(practice_state: dict, log=print, markets_by_coin: dict | None = None) -> str:
+    """judge + one search, all at once (the watch runs the search outside the lock instead)."""
+    notes = [judge(practice_state)]
+    strategy = due()
+    if strategy:
+        if markets_by_coin is None:
+            markets_by_coin = {coin: market.history(coin) for coin in COINS}
+        notes.append(start(strategy, search(strategy, markets_by_coin), log))
+    return "; ".join(note for note in notes if note)

@@ -1,17 +1,16 @@
 """
-The practice account — test mode's main exercise. $10 000 of virtual money: every signal of every strategy
-(and of the lab's candidate numbers) is opened without asking, sized like a real trade (2 % risk, leverage
-cap), on live Hyperliquid prices, and settled from the candles with the backtest's costs. The position-count
-limit is not applied, so every signal is measured. Nothing here touches the exchange — except the daily
-minimum-size order check on the TESTNET.
+The practice account — the strategy lab's exercise (DEMO TEST). $10 000 of virtual money: every signal of
+every strategy (and of the lab's candidate numbers) is opened without asking on the demo engine — one
+position per coin, strategy and variant, so every signal is measured — and settled from the candles with
+the backtest's costs. Nothing here touches the exchange; the watch runs the daily minimum-size TESTNET order
+check when testnet_due() says so.
 """
 import json
 import threading
 import time
-from bisect import bisect_left
 from dataclasses import dataclass, field
 
-from . import COINS, MEMORY, backtest, data, exchange, journal, lab, market, risk, settings, signals
+from . import MEMORY, demo, journal, lab, settings, signals
 
 PRACTICE = MEMORY / "trading_practice.json"
 START = 10_000.0
@@ -35,61 +34,13 @@ def save(state: dict) -> None:
     PRACTICE.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
 
 
-def open_signals(state: dict, found: list, variant: str, limits: risk.Limits) -> int:
+def open_signals(state: dict, found: list, variant: str, limits) -> int:
     """A virtual trade for every new signal — one per coin, strategy and variant at a time."""
-    opened = 0
-    for s in found:
-        key = (s.coin, s.strategy, variant)
-        if any((t["coin"], t["strategy"], t["variant"]) == key for t in state["open"]):
-            continue
-        if any((t["coin"], t["strategy"], t["variant"], t["time"]) == (*key, s.time) for t in state["closed"][-300:]):
-            continue
-        size = min(risk.size_for(state["balance"], s.entry, s.stop, limits),
-                   state["balance"] * limits.max_leverage / s.entry)
-        state["open"].append({**s.to_dict(), "variant": variant, "size": size})
-        opened += 1
-    return opened
+    return len(demo.open_signals(state, found, variant, limits, per_coin=False))
 
 
-def settle(state: dict, bars_by_coin: dict, funding_by_coin: dict) -> list[dict]:
-    """Closes virtual trades at their stop, target or 48 h; trades older than the candles expire."""
-    closed = []
-    for t in list(state["open"]):
-        bars = bars_by_coin.get(t["coin"])
-        if bars is None or not len(bars):
-            continue
-        if t["time"] < bars.t[0]:  # Orion was off for longer than the candle window
-            state["open"].remove(t)
-            t["status"] = "expired"
-            state["closed"].append(t)
-            continue
-        done = backtest.exit_walk(t["side"], t["stop"], t["target"], bars, bisect_left(bars.t, t["time"]),
-                                  t["time"] + signals.TIME_STOP_HOURS * data.HOUR)
-        if not done:
-            continue
-        k, price, why = done
-        times, rates = funding_by_coin.get(t["coin"], ([], []))
-        paid = backtest.funding_cost(t["side"], times, rates, t["time"], bars.end(k))
-        r = backtest.result_r(t["coin"], t["side"], t["entry"], price, t["stop"], paid)
-        pnl = r * t["size"] * abs(t["entry"] - t["stop"])
-        state["balance"] += pnl
-        t.update(status="closed", exit=price, exit_time=bars.end(k), why=why, r=round(r, 3), pnl=round(pnl, 2))
-        state["open"].remove(t)
-        state["closed"].append(t)
-        closed.append(t)
-    return closed
-
-
-def by_strategy(state: dict, variant: str = "current") -> dict:
-    out: dict[str, dict] = {}
-    for t in state["closed"]:
-        if t.get("status") != "closed" or t["variant"] != variant:
-            continue
-        entry = out.setdefault(t["strategy"], {"n": 0, "wins": 0, "r": 0.0})
-        entry["n"] += 1
-        entry["wins"] += t["r"] > 0
-        entry["r"] += t["r"]
-    return out
+settle = demo.settle
+by_strategy = demo.by_strategy
 
 
 @dataclass
@@ -115,18 +66,17 @@ class Round:
         return text
 
 
-def run(log=print) -> Round:
-    """One test-mode trading stage: settle, open the new signals (current + lab candidates), one lab step,
-    and the daily testnet order check."""
+def step(prepared_by_coin: dict) -> Round:
+    """Settles, opens the new signals (current + lab candidates) and judges finished trials. Quick: files and
+    the candles the watch already fetched."""
     with _lock:
         state = load()
         limits = settings.limits()
-        prepared = {coin: market.live(coin) for coin in COINS}
-        closed = settle(state, {c: p.h1 for c, p in prepared.items()},
-                        {c: (p.funding_t, p.funding_v) for c, p in prepared.items()})
+        closed = settle(state, {c: p.h1 for c, p in prepared_by_coin.items()},
+                        {c: (p.funding_t, p.funding_v) for c, p in prepared_by_coin.items()})
         opened = 0
         on_trial = lab.candidates()
-        for coin, p in prepared.items():
+        for p in prepared_by_coin.values():
             found = signals.latest(p)
             for s in found:
                 journal.add_signal(s, "practice")
@@ -135,13 +85,18 @@ def run(log=print) -> Round:
                 trial = signals.with_params(p, {**p.params, strategy: numbers})
                 opened += open_signals(state, signals.signals_at(trial, len(trial.h1) - 1, only=strategy),
                                        "candidate", limits)
-        lab_note = lab.step(state, log)
-        testnet_note = ""
-        if time.time() - state["testnet_check"] >= TESTNET_EVERY_HOURS * 3600 and settings.account("testnet"):
-            state["testnet_check"] = time.time()
-            try:
-                testnet_note = exchange.testnet_check()
-            except Exception as e:  # noqa: BLE001 — reported, never fatal
-                testnet_note = f"Проверката в тестовата мрежа не мина: {e}"
+        note = lab.judge(state)
         save(state)
-        return Round(state["balance"], state["start"], opened, closed, by_strategy(state), lab_note, testnet_note)
+        return Round(state["balance"], state["start"], opened, closed, by_strategy(state), note)
+
+
+def testnet_due() -> bool:
+    """The daily minimum-size order check on the TESTNET — only with a testnet key."""
+    return time.time() - load()["testnet_check"] >= TESTNET_EVERY_HOURS * 3600 and bool(settings.account("testnet"))
+
+
+def mark_testnet() -> None:
+    with _lock:
+        state = load()
+        state["testnet_check"] = time.time()
+        save(state)

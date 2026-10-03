@@ -59,21 +59,20 @@ def fake_prepared():
                            copy.deepcopy(signals.DEFAULTS))
 
 
-def test_a_round_opens_settles_and_checks_the_testnet_once_a_day(monkeypatch):
+def test_a_step_opens_and_settles_and_the_testnet_check_is_due_once_a_day(monkeypatch):
     p = fake_prepared()
-    monkeypatch.setattr(market, "live", lambda coin, params=None: p)
     monkeypatch.setattr(signals, "latest", lambda p_: [Signal("BTC", "pullback", "long", p.h1.end(len(p.h1) - 1),
                                                               p.h1.c[-1], p.h1.c[-1] * 0.99, p.h1.c[-1] * 1.02, 4, [])])
-    monkeypatch.setattr(lab, "step", lambda state, log=print: "")
-    monkeypatch.setattr(settings, "account", lambda network: ("0xme", "0xkey"))
-    checks = []
-    monkeypatch.setattr(exchange, "testnet_check", lambda: (checks.append(1), "Проверката мина.")[1])
-    first = practice.run()
-    assert first.opened == 1 and first.testnet_note == "Проверката мина." and first.balance == 10_000.0
-    second = practice.run()
-    assert second.opened == 0 and second.testnet_note == "" and checks == [1]
+    prepared = {"BTC": p, "ETH": p, "SOL": p}
+    first = practice.step(prepared)
+    assert first.opened == 1 and first.balance == 10_000.0
+    assert practice.step(prepared).opened == 0
     assert practice.load()["open"][0]["variant"] == "current"
     assert "тренировъчната сметка е 10 000 $ (+0.0 %)" in first.summary()
+    monkeypatch.setattr(settings, "account", lambda network: ("0xme", "0xkey"))
+    assert practice.testnet_due()
+    practice.mark_testnet()
+    assert not practice.testnet_due()
 
 
 def test_lab_variants_and_the_margin():
