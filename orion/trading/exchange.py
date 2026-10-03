@@ -44,7 +44,8 @@ def _make_client(network: str):
     from hyperliquid.utils import constants
     found = settings.account(network)
     if not found:
-        raise TradingError("Hyperliquid не е свързан. Кажете „свържи Hyperliquid“.")
+        raise TradingError("Hyperliquid не е свързан. За истински пари кажете „свържи Hyperliquid“ и включете REAL "
+                           "TRADE. Мога да търгувам на демо сметка — кажете „направи демо сметка с 1000 долара“.")
     address, key = found
     url = constants.MAINNET_API_URL if network == "mainnet" else constants.TESTNET_API_URL
     client = Exchange(eth_account.Account.from_key(key), url, account_address=address)

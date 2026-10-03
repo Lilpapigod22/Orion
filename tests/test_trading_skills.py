@@ -111,7 +111,7 @@ def test_refusals_and_the_switch(cts, monkeypatch):
     assert "Вече имате позиция в Биткойн" in cts.open_trade("BTC", "long")
     assert "лонг" in cts.open_trade("BTC", "нагоре-надолу")
     cts.pause_trading()
-    assert "спряна" in cts.open_trade("BTC", "long")
+    assert "DEMO TEST" in cts.open_trade("BTC", "long")       # REAL TRADE off, DEMO TEST off
     cts.resume_trading()
 
 
