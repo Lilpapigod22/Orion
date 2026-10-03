@@ -221,7 +221,9 @@ _RISK_RE = re.compile(r"(?P<risk>\d+(?:[.,]\d+)?)\s*%\s*риск|риск\w*\s+(
 _DAYS_RE = re.compile(r"(?P<n>\d+)\s*(?P<unit>дни|ден|месеца|месец|години|година)|"
                       r"(?P<word>годината|година|месеца|месец|седмицата|седмица)", re.IGNORECASE)
 _QUOTED_RE = re.compile(r"[„\"“](?P<name>[^„“\"]+)[“\"]")
-_DEMO_WORDS_RE = re.compile(r"демо|симулацион|тренировъчн|виртуалн|тренир", re.IGNORECASE)
+# „демо“ as a word of its own — not inside „демократ“ or „демонстрация“.
+_DEMO_RE = re.compile(r"\bдемо(?:то|та)?\b", re.IGNORECASE)
+_DEMO_WORDS_RE = re.compile(r"\bдемо(?:то|та)?\b|симулацион|тренировъчн|виртуалн|тренир", re.IGNORECASE)
 _CREATE_WORDS_RE = re.compile(r"\b(?:направи|създай|отвори|започни|искам|тренирай|тренираш|заведи)\b", re.IGNORECASE)
 _SWITCH_RE = re.compile(r"(?P<verb>включи|пусни|стартирай|изключи|спри)\s+(?P<what>демо\s*теста|демо\s*тест|"
                         r"демо\s*режима|демо\s*търговията|демото|реал\s*трейд\w*|real\s*trade|истинската търговия|"
@@ -272,7 +274,7 @@ def _demo_command(plain: str) -> Reflex | None:
     if amount and re.search(r"симулир|симулаци", lower):
         return Reflex(tool="simulate_history", arguments={"balance": _money(amount), "currency": amount["cur"],
                                                           "days": _days(plain[amount.end():]), **extra})
-    if "демо" not in lower:
+    if not _DEMO_RE.search(plain):
         return None
     for pattern, tool in ((_DEMO_DELETE_RE, "delete_demo_account"), (_DEMO_CHOOSE_RE, "choose_demo_account")):
         match = pattern.fullmatch(plain)
@@ -310,13 +312,13 @@ def _trading_command(plain: str) -> Reflex | None:
     if match and coins_in(match["coin"]):
         side = "long" if match["side"].lower() in ("лонг", "лонк", "long") else "short"
         arguments = {"coin": match["coin"].strip(), "side": side}
-        if "демо" in match["coin"].lower():
+        if _DEMO_RE.search(match["coin"]):
             arguments["account"] = "демо"
         return Reflex(tool="open_trade", arguments=arguments)
     match = _TRADE_CLOSE_RE.fullmatch(plain)
     if match and coins_in(match["coin"]):
         arguments = {"coin": match["coin"].strip()}
-        if "демо" in match["coin"].lower():
+        if _DEMO_RE.search(match["coin"]):
             arguments["account"] = "демо"
         return Reflex(tool="close_trade", arguments=arguments)
     return None

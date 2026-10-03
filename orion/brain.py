@@ -74,7 +74,7 @@ INTENT_TOOLS = [
                 r"(?:прогноз|сигнал|какво ще прави|накъде|лонг|шорт)", re.IGNORECASE),
      "crypto_forecast, crypto_signals, open_trade или close_trade", ("crypto_forecast", {"coin": USER_TEXT})),
     # Demo accounts and the simulation — the model used to say it cannot manage any account.
-    (re.compile(r"демо|симулаци|симулир|тренировъчн\w*\s+сметк|виртуалн\w*\s+сметк|тренира\w*.*сметк", re.IGNORECASE),
+    (re.compile(r"\bдемо(?:то|та)?\b|симулаци|симулир|тренировъчн\w*\s+сметк|виртуалн\w*\s+сметк|тренира\w*.*сметк", re.IGNORECASE),
      "create_demo_account, demo_status, simulate_history или set_demo_test", ("demo_status", {})),
     # The words are narrow on purpose: „пощенски код“ (postcode) and „математическа задача“ (maths problem) are not about mail and tasks.
     (re.compile(r"писм|\bпоща(?:та)?\b|имейл|\bмейл|gmail", re.IGNORECASE),

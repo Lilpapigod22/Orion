@@ -33,6 +33,15 @@ def test_demo_phrases_are_reflexes(text, tool, args):
     assert reflex is not None and reflex.tool == tool and reflex.arguments == args
 
 
+@pytest.mark.parametrize("text", ["Как е демократичната партия?", "Покажи ми демонстрацията",
+                                  "Разкажи ми за демократите"])
+def test_words_that_only_contain_demo_are_not_about_the_demo(text):
+    reflex = reflexes.respond(text)
+    assert reflex is None or reflex.tool != "demo_status"
+    default = brain.Brain._default_call(text)
+    assert default is None or default[0] != "demo_status"
+
+
 def test_plain_trading_phrases_are_unchanged():
     assert reflexes.respond("Отвори лонг на биткойн").arguments == {"coin": "биткойн", "side": "long"}
 
