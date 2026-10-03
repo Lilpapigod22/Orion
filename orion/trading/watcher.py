@@ -20,7 +20,6 @@ RESOLVE_EVERY = 60 * 60
 REFRESH_RETRY = 30 * 60
 LAB_EVERY = 60 * 60
 REPEAT_HOURS = 6
-FILLS_BACK_DAYS = 7
 
 
 class Watcher:
@@ -28,9 +27,8 @@ class Watcher:
         self.say, self.hud, self.lock, self.clock = say, hud, lock, clock
         self.last_scan = self.last_positions = self.last_resolve = self.last_refresh = self.last_lab = -1e18
         self.announced: dict[tuple[str, str], float] = {}
-        now_ms = int(clock() * 1000)
-        opened = [t["time"] for t in journal.open_trades()]
-        self.fills_from = max(min(opened), now_ms - FILLS_BACK_DAYS * 24 * 3_600_000) if opened else now_ms
+        # from launch: older fills are never replayed — they would close journal trades of coins that are open again
+        self.fills_from = int(clock() * 1000)
         self.time_stop_told: set[str] = set()
 
     def run(self) -> None:

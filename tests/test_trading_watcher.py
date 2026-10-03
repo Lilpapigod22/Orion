@@ -241,18 +241,32 @@ def test_the_48_hour_reminder_is_only_for_sirs_own_trades(world, monkeypatch):
     assert not any("48 часа" in s for s in said)
 
 
-def test_fills_are_read_back_to_the_oldest_open_trade_at_start(world, monkeypatch):
-    clock = Clock(10)
-    start_ms = int(clock.now * 1000)
-    assert watcher.Watcher(print, print, threading.Lock(), clock).fills_from == start_ms
-    plan = risk.OrderPlan("BTC", "long", 0.01, 84000.0, 83000.0, 86000.0, 2, 840.0, 420.0, 10.0, 20.0, 0.0, 0.8,
-                          "testnet")
-    monkeypatch.setattr(journal, "_now", lambda: start_ms - 5 * 3_600_000)
-    journal.add_trade(plan, "пробив", auto=True)
-    assert watcher.Watcher(print, print, threading.Lock(), clock).fills_from == start_ms - 5 * 3_600_000
-    monkeypatch.setattr(journal, "_now", lambda: start_ms - 30 * 24 * 3_600_000)
-    journal.add_trade(plan, "пробив", auto=True)
-    assert watcher.Watcher(print, print, threading.Lock(), clock).fills_from == start_ms - 7 * 24 * 3_600_000
+def test_an_old_close_is_not_replayed_over_a_trade_that_is_open_again(world, monkeypatch):
+    monkeypatch.setattr(settings, "account", lambda network: ("0xme", "0xkey"))
+    monkeypatch.setattr(autopilot, "guard", lambda network, account: [])
+    position = {"side": "long", "size": 0.01, "entry": 100.0, "pnl": 0.0, "liq": 0.0, "value": 1.0}
+    state = risk.AccountState(1000.0, {"BTC": dict(position), "ETH": dict(position)})
+    monkeypatch.setattr(exchange, "account_state", lambda network: (state, {}))
+    start_ms = int(Clock(10).now * 1000)                   # make() below uses the same Clock(10)
+    fills = [{"coin": "BTC", "dir": "Close Long", "px": "95", "closedPnl": "-5", "time": start_ms - 10 * 3_600_000}]
+    monkeypatch.setattr(exchange, "fills_since", lambda network, since: [f for f in fills if f["time"] >= since])
+    for coin, hours_ago in (("ETH", 30), ("BTC", 2)):
+        monkeypatch.setattr(journal, "_now", lambda h=hours_ago: start_ms - h * 3_600_000)
+        journal.add_trade(risk.OrderPlan(coin, "long", 0.01, 100.0, 98.0, 104.0, 2, 1.0, 0.5, 0.02, 0.04, 50.0,
+                                         0.001, "testnet"), "пробив", auto=True)
+    w, said, hud = make()                                  # Orion starts after both trades were opened
+    w.positions()
+    assert not any("се затвори" in s for s in said)
+    assert sorted(t["coin"] for t in journal.open_trades()) == ["BTC", "ETH"]
+
+
+def test_no_guard_in_test_mode(world, monkeypatch):
+    monkeypatch.setattr(settings, "account", lambda network: ("0xme", "0xkey"))
+    monkeypatch.setattr(exchange, "account_state", lambda network: (risk.AccountState(1000.0), {}))
+    monkeypatch.setattr(exchange, "fills_since", lambda network, since: [])
+    monkeypatch.setattr(exchange, "blocked", True)
+    monkeypatch.setattr(autopilot, "guard", lambda *args: pytest.fail("no guard in test mode"))
+    make()[0].positions()
 
 
 def test_the_48_hour_reminder_covers_autopilot_trades_while_real_trade_is_off(world, monkeypatch):

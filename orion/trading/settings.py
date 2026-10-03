@@ -32,10 +32,11 @@ KEY_RE = re.compile(r"(?:0x)?[0-9a-fA-F]{64}")
 
 
 def load() -> dict:
-    try:
-        saved = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        saved = {}
+    with _lock:
+        try:
+            saved = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            saved = {}
     merged = {**DEFAULTS, **saved}
     merged["limits"] = {**DEFAULTS["limits"], **saved.get("limits", {})}
     merged["accounts"] = dict(saved.get("accounts", {}))
