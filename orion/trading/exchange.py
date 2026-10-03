@@ -23,6 +23,8 @@ CLOSE_SLIPPAGE = 0.01
 SETTLE = 1.0                # seconds for the exchange to show new orders
 blocked = False             # test mode's sandbox sets it: no exchange calls at all
 last_open: set[str] = set()  # coins with open positions at the last check (reflexes, watcher)
+SENT_UNCHECKED = ("Поръчката е изпратена, но връзката с борсата прекъсна преди проверката на стопа. Кажете "
+                  "„какви позиции имам“ — ако позицията е там без стоп, затворете я с „затвори …“.")
 
 
 class TradingError(Exception):
@@ -157,7 +159,11 @@ def _send(info, client, address: str, plan: risk.OrderPlan, mid: float) -> dict 
     if isinstance(first, dict) and "error" in first:
         raise TradingError(_human(first["error"]))
     time.sleep(SETTLE)
-    return _position(info, address, plan.coin)
+    try:
+        return _position(info, address, plan.coin)
+    except Exception as e:  # the order is out, but we cannot see the result — never say "nothing happened"
+        last_open.add(plan.coin)
+        raise TradingError(SENT_UNCHECKED) from e
 
 
 def _protect(info, client, address: str, plan: risk.OrderPlan, position: dict) -> None:
@@ -213,7 +219,13 @@ def place(plan: risk.OrderPlan, note: str = "") -> str:
     position = _send(info, client, address, plan, mid)
     if not position:
         return "Входът не се изпълни — цената избяга. Нищо не е отворено."
-    _protect(info, client, address, plan, position)
+    try:
+        _protect(info, client, address, plan, position)
+    except TradingError:
+        raise
+    except Exception as e:  # the position is open; the stop check itself failed
+        last_open.add(plan.coin)
+        raise TradingError(SENT_UNCHECKED) from e
     last_open.add(plan.coin)
     return (f"Отворих {'лонг' if plan.side == 'long' else 'шорт'} на {NAMES[plan.coin]}: {position['size']:g} на "
             f"{_fmt(position['entry'])}. Стоп {_fmt(plan.stop)}, цел {_fmt(plan.target)} — и двата са в борсата.")

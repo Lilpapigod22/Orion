@@ -153,6 +153,37 @@ def test_a_missing_stop_closes_the_position_at_once(fake, approve):
     assert sum(1 for c in ex.calls if c[0] == "order") == 1      # one retry of the stop
 
 
+def test_a_lost_connection_after_sending_says_to_check_the_positions(fake, approve):
+    info, ex = fake
+    approve(True)
+    send = ex.bulk_orders
+
+    def send_then_drop(orders, grouping="na"):
+        result = send(orders, grouping)
+
+        def down(address):
+            raise OSError("connection reset")
+        info.user_state = down
+        return result
+
+    ex.bulk_orders = send_then_drop
+    with pytest.raises(exchange.TradingError, match="изпратена"):
+        exchange.place(plan())
+    assert "BTC" in exchange.last_open
+
+
+def test_a_lost_connection_while_checking_the_stop_says_so_too(fake, approve):
+    info, ex = fake
+    approve(True)
+
+    def down(address):
+        raise OSError("connection reset")
+    info.frontend_open_orders = down
+    with pytest.raises(exchange.TradingError, match="изпратена"):
+        exchange.place(plan())
+    assert "BTC" in exchange.last_open
+
+
 def test_blocked_in_test_mode(fake, monkeypatch):
     info, ex = fake
     monkeypatch.setattr(exchange, "blocked", True)
