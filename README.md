@@ -222,6 +222,37 @@ Default: 3 reels of 45 seconds without text (`REEL_COUNT`, `REEL_SECONDS`, `REEL
 „със субтитри“ ("with subtitles") to get word-by-word subtitles (the current word yellow and slightly
 larger) and a title in the first seconds.
 
+## Crypto forecasts and trading (Hyperliquid)
+
+Orion forecasts and trades **Bitcoin, Ethereum and Solana** on Hyperliquid — the exchange behind Trust
+Wallet's "Perps" tab. Every number comes from code (`orion/trading/`); the language model only reads it out.
+
+- „Какво ще прави биткойнът?“ / „Прогноза за солана“ — direction (or "no signal"), entry, stop, target,
+  strength 1–5, and how often that strategy won in the honest check.
+- „Сигнали“ — all three coins. „Колко добри са стратегиите?“ — the check, per strategy and coin.
+  „Колко позна тази седмица?“ — the real outcomes of Orion's own signals.
+- „Отвори лонг на биткойн“, „Затвори етериума“, „Затвори всички позиции“ — every open and close shows an
+  approval dialog with every number; nothing happens without „Одобри“.
+- „Спри търговията“ / „Пусни търговията“, „Мини на истински пари“ / „Мини на тестовата мрежа“.
+
+**How honest the forecasts are.** Three strategies (trend pullback, breakout, reversal at a crowded extreme)
+are replayed on ≈3.4 years of 1h candles with fees, slippage and funding. Numbers are tuned only on the first
+70 %; what Orion reports comes from the last 30 %. A strategy is used for a coin only with ≥30 trades, a
+positive result after costs and a profit factor ≥1.1. If none passes, Orion says it has no edge.
+
+**Safety.** Hard limits in `trading_settings.json` (default: 2 % of the account at risk per trade, ≤10x,
+≤6 % loss per day, ≤3 positions); isolated margin; the stop and target sit on the exchange; a position
+without a stop is closed at once. The API key can trade but **cannot withdraw**; it is stored encrypted
+(Windows DPAPI) and typed only in its own dialog. Orion never asks for the recovery phrase.
+
+**Connecting (once).** Say „Свържи Hyperliquid“ → open app.hyperliquid-testnet.xyz, connect Trust Wallet, page
+API → Generate → approve in Trust Wallet → paste the wallet address and the API key into Orion's dialog.
+Start on the testnet; switch to real money only with „Мини на истински пари“ and its warning dialog.
+
+**Test mode** practises trading every round: a $10 000 virtual account takes every signal on live prices, the
+strategy lab tries other numbers (promoted only after beating the current ones on unseen history AND in 20
+practice trades), and once a day a minimum-size testnet order checks that stops and targets are placed.
+
 ## Test mode — Orion checks and fixes itself
 
 Turn it on with the **"Test mode"** switch at the bottom right or by voice: „Орион, включи тест режим“
