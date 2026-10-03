@@ -1,6 +1,6 @@
 """
 The only place that talks to Hyperliquid with a key (Phantom's Perps tab is this Hyperliquid account).
-Every open and close a skill asks for (voice, chat) passes through confirm.ask (sir's „Одобри") HERE.
+Every open and close a skill asks for (voice, chat) passes through confirm.ask (sir's „Одобри“) HERE.
 Only the autopilot calls auto_place / auto_close: they work only while REAL TRADE is on, and every order
 they send was made by risk.plan within the hard limits. Code Orion writes itself may not import this
 module (self_improve). The agent (API) key can trade but cannot withdraw.
@@ -226,8 +226,9 @@ def _open(info, client, address: str, plan: risk.OrderPlan, mid: float) -> str:
     return (f"Отворих {'лонг' if plan.side == 'long' else 'шорт'} на {NAMES[plan.coin]}: {position['size']:g} на "
             f"{_fmt(position['entry'])}. Стоп {_fmt(plan.stop)}, цел {_fmt(plan.target)} — и двата са в борсата.")
 
+
 def place(plan: risk.OrderPlan, note: str = "") -> str:
-    """Asks sir; on „Одобри" opens the position with its stop and target. Returns what Orion says."""
+    """Asks sir; on „Одобри“ opens the position with its stop and target. Returns what Orion says."""
     info, client, address = _client(plan.network)
     title, summary, body = confirmation(plan, note)
     if not confirm.ask(title, summary, body, "Одобри сделката"):
@@ -251,6 +252,7 @@ def auto_place(plan: risk.OrderPlan) -> str:
     if abs(mid / plan.entry - 1) > MOVE_LIMIT:
         raise TradingError("Цената се помести, докато смятах сделката — пропускам я.")
     return _open(info, client, address, plan, mid)
+
 
 def close(coins: list[str], network: str, reason: str = "") -> str:
     """Asks sir, then closes the positions at market and cancels their stops and targets."""
@@ -291,6 +293,7 @@ def auto_close(coins: list[str], network: str) -> str:
     for coin in closed:
         _close(info, client, address, coin)
     return ("Затворих: " + ", ".join(NAMES[c] for c in closed) + ".") if closed else "Няма какво да затварям."
+
 
 def ensure_stop(coin: str, network: str, stop: float) -> str | None:
     """The autopilot's stop guard: a position without a stop on the exchange gets one at `stop`; if even that
