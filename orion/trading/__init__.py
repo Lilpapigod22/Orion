@@ -26,6 +26,8 @@ _SEED_LENGTHS = {12, 15, 18, 21, 24}
 
 # app.py replaces it: shows the key dialog in the window ("testnet" or "mainnet").
 show_key_dialog: Callable[[str], None] = lambda network: None
+# app.py replaces it: moves a button in the window ("demo" = DEMO TEST, "real" = REAL TRADE).
+on_switch: Callable[[str, bool], None] = lambda name, on: None
 
 
 def coins_in(text: str) -> list[str]:

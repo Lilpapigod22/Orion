@@ -18,6 +18,7 @@ def cts(monkeypatch, tmp_path):
     module = sys.modules["skills.crypto_trading_skills"]
     monkeypatch.setattr(module.journal, "JOURNAL", tmp_path / "journal.json")
     monkeypatch.setattr(module.settings, "SETTINGS_FILE", tmp_path / "settings.json")
+    module.settings.set_enabled(True)  # REAL TRADE on — these tests are about the real path
     monkeypatch.setattr(module.backtest, "load", lambda: None)
     monkeypatch.setattr(module.backtest, "refresh_async", lambda lock=None: True)
     h1 = random_walk(1200)

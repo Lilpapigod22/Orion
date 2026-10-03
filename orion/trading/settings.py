@@ -16,7 +16,8 @@ from .risk import Limits
 SETTINGS_FILE = config.BASE_DIR / "trading_settings.json"
 DEFAULTS = {
     "network": "testnet",
-    "enabled": True,
+    "enabled": False,      # REAL TRADE button — real orders only while it is on
+    "demo": False,         # DEMO TEST button — Orion trades the demo accounts by itself
     "accounts": {},
     "limits": {"risk_pct": 2.0, "max_leverage": 10, "daily_loss_pct": 6.0, "max_positions": 3},
     "voice_hours": [8, 23],
@@ -62,6 +63,16 @@ def enabled() -> bool:
 def set_enabled(on: bool) -> None:
     settings = load()
     settings["enabled"] = bool(on)
+    save(settings)
+
+
+def demo_on() -> bool:
+    return bool(load()["demo"])
+
+
+def set_demo(on: bool) -> None:
+    settings = load()
+    settings["demo"] = bool(on)
     save(settings)
 
 

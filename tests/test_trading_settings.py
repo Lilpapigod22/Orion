@@ -14,7 +14,7 @@ def temp_settings(monkeypatch, tmp_path):
 
 
 def test_defaults_are_the_testnet_and_the_aggressive_limits():
-    assert settings.network() == "testnet" and settings.enabled()
+    assert settings.network() == "testnet" and not settings.enabled() and not settings.demo_on()
     limits = settings.limits()
     assert (limits.risk_pct, limits.max_leverage, limits.daily_loss_pct, limits.max_positions) == (2.0, 10, 6.0, 3)
     assert settings.account("testnet") is None
@@ -44,6 +44,13 @@ def test_a_saved_key_is_encrypted_on_disk(tmp_path):
 def test_bad_input_is_refused(address, key, words):
     with pytest.raises(ValueError, match=words):
         settings.save_account("testnet", address, key)
+
+
+def test_the_demo_test_switch_is_saved():
+    settings.set_demo(True)
+    assert settings.demo_on()
+    settings.set_demo(False)
+    assert not settings.demo_on()
 
 
 def test_network_and_switch_are_saved():
