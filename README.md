@@ -249,9 +249,13 @@ without a stop is closed at once. The API key can trade but **cannot withdraw**;
 API → Generate → approve in Trust Wallet → paste the wallet address and the API key into Orion's dialog.
 Start on the testnet; switch to real money only with „Мини на истински пари“ and its warning dialog.
 
-**Test mode** practises trading every round: a $10 000 virtual account takes every signal on live prices, the
-strategy lab tries other numbers (promoted only after beating the current ones on unseen history AND in 20
-practice trades), and once a day a minimum-size testnet order checks that stops and targets are placed.
+**Three buttons** in the bottom bar. **Test mode** checks Orion's own skills and understanding. **Demo test**
+lets Orion trade the demo accounts by itself — virtual money on live prices („направи демо сметка с 1000
+долара“, „как върви демото“, „започни демото отначало“) — and runs the strategy lab (other numbers promoted
+only after beating the current ones on unseen history AND in 20 practice trades) and a daily minimum-size
+testnet order check. **Real trade** is the real Hyperliquid account: forecasts and advice when you ask, every
+trade only after „Одобри“; off means no real orders. „Симулирай 1000 долара за последната година“ replays the
+checked strategies on history with compounding (final balance, worst drawdown, best and worst month).
 
 ## Test mode — Orion checks and fixes itself
 
