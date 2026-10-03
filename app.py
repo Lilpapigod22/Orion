@@ -75,6 +75,11 @@ import webview  # noqa: E402
 
 import config  # noqa: E402
 from orion import alerts, apps, confirm, games, google, live, reels, reflexes, self_test, speech, telemetry, vision  # noqa: E402
+from orion import trading  # noqa: E402
+from orion.trading import backtest as trading_backtest  # noqa: E402
+from orion.trading import exchange as trading_exchange  # noqa: E402
+from orion.trading import settings as trading_settings  # noqa: E402
+from orion.trading import watcher as trading_watcher  # noqa: E402
 from orion.memory import tool_steps  # noqa: E402
 from orion.reminders import book as reminder_book  # noqa: E402
 from orion.self_improve import forge, lessons  # noqa: E402
@@ -217,6 +222,7 @@ class Orion:
             threading.Thread(target=self._boot, daemon=True, name="boot").start()
             threading.Thread(target=self._worker, daemon=True, name="worker").start()
             threading.Thread(target=self._reminder_loop, daemon=True, name="reminders").start()
+            threading.Thread(target=self._trading_loop, daemon=True, name="trading").start()
         if self.telemetry is None:  # gauges on the live board — once a second while the window is visible
             self.telemetry = telemetry.Telemetry(lambda gauges: self.hud("setGauges", gauges),
                                                  lambda: self.window is not None and not self._was_minimized)
@@ -269,6 +275,9 @@ class Orion:
         forge.approve = self.request_approval
         forge.progress = lambda message: self.hud("addLog", "evolve", message)
         confirm.handler = self.request_confirmation  # emails, deleting — only with a button press from sir
+        # Trading: the key dialog, and the backtest report is written only outside test mode's sandbox.
+        trading.show_key_dialog = lambda network: self.hud("showKeyDialog", {"network": network})
+        trading_backtest.save_lock = self_test.sandbox_lock
         # YouTube reels are made in the background: progress in the journal, the end out loud.
         reels.notify = lambda text: (print(f"[Reels] {text}"), self.say(text))
         reels.progress = lambda text: (print(f"[Reels] {text}"), self.hud("addLog", "reels", text))
@@ -405,6 +414,13 @@ class Orion:
 
     def ask(self, text: str, source: str = "text") -> None:
         text = (text or "").strip()
+        if text and trading.looks_secret(text):
+            # A private key or a recovery phrase must never reach the model, the journal or the log.
+            self.hud("showKeyDialog", {"network": trading_settings.network()})
+            self.say("Сър, това прилича на таен ключ или на думите за възстановяване на портфейл. Не ги пишете в "
+                     "чата — не съм ги запазил никъде. Ако е API ключът на Hyperliquid, поставете го в прозореца, "
+                     "който отворих.")
+            return
         if text:
             self._submit("ask", text, source)
 
@@ -524,6 +540,12 @@ class Orion:
         return (f"Свързах се с Google акаунта {info.get('email') or ''}, сър. Вече мога да проверявам "
                 f"пощата, календара и задачите Ви.")
 
+    # --- Trading (orion/trading) -----------------------------------------------------------------
+    def _trading_loop(self) -> None:
+        """The trading watch — signals, positions, fills — after the greeting, in its own thread."""
+        self.greeted.wait()
+        trading_watcher.Watcher(say=self.say, hud=self.hud, lock=self_test.sandbox_lock).run()
+
     # --- Reminders -----------------------------------------------------------------------------
     def _reminder_loop(self) -> None:
         """Announces reminders when they are due. Missed ones (while Orion was
@@ -628,8 +650,10 @@ class Orion:
         live.finish("skill", name, {"result": shown[:300]}, ok=ok, key=name)
         # The market analysis chart and Claude's full answer — in the journal.
         skills = sys.modules
-        if ok and name in ("analyze_market", "analyze_price_file"):
-            chart = getattr(skills.get("skills.market_skills"), "last_chart", None)
+        charts = {"analyze_market": "skills.market_skills", "analyze_price_file": "skills.market_skills",
+                  "crypto_forecast": "skills.crypto_trading_skills"}
+        if ok and name in charts:
+            chart = getattr(skills.get(charts[name]), "last_chart", None)
             if chart:
                 self.hud("showChart", chart)
         if ok and name == "ask_claude":
@@ -934,6 +958,18 @@ class HudApi:
 
     def send_text(self, text: str):
         self._app.ask(text, "text")
+    def save_trading_key(self, network: str, address: str, key: str):
+        """The key dialog — never the chat, so the key reaches neither the journal nor the model."""
+        try:
+            message = trading_settings.save_account(network, address, key)
+        except ValueError as e:
+            return {"ok": False, "message": str(e)}
+        try:
+            message += " " + trading_exchange.check_connection(network)
+        except Exception as e:  # noqa: BLE001 — the key is saved; the check can be repeated
+            message += f" Не успях да проверя връзката: {e}"
+        self._app.say(message)
+        return {"ok": True, "message": message}
 
     def listen(self):
         self._app.listen_once()
