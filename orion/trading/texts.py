@@ -192,6 +192,40 @@ def fill_text(fill: dict) -> str:
     return f"Сър, позицията в {NAMES.get(coin, coin)} се затвори на {_fmt(float(fill['px']))} — {pnl:+.2f} долара."
 
 
+# --- The autopilot (REAL TRADE) ------------------------------------------------------------------
+AUTO_NO_CONNECTION = "Нямам връзка с Hyperliquid — автопилотът ще опита пак след малко."
+AUTO_EMPTY = ("Имаше сигнал, но в Perps сметката няма пари — внесете в Perps баланса в Phantom (от SOL или USDC) "
+              "и ще търгувам.")
+
+
+def auto_opened(plan, strategy: str) -> str:
+    side = "лонг" if plan.side == "long" else "шорт"
+    return (f"Отворих {side} на {NAMES[plan.coin].lower()} — {LABELS.get(strategy, strategy)}: {plan.size:g} "
+            f"{plan.coin} (≈ {_fmt(plan.notional)} $), {plan.leverage}x, стоп {_fmt(plan.stop)}, цел "
+            f"{_fmt(plan.target)}. Рискът е {plan.risk_usd:.2f} $.")
+
+
+def auto_skipped(signal, reason: str) -> str:
+    side = "лонг" if signal.side == "long" else "шорт"
+    return (f"Пропуснах сигнал за {side} на {NAMES[signal.coin].lower()} "
+            f"({LABELS.get(signal.strategy, signal.strategy)}): {reason}")
+
+
+def auto_unchecked(coin: str) -> str:
+    return (f"Връзката с борсата прекъсна, докато отварях сделка в {NAMES[coin].lower()}. При следващата проверка "
+            f"ще видя дали позицията е отворена и дали има стоп.")
+
+
+def auto_time_stop(coin: str, side: str) -> str:
+    return f"Затварям {'лонг' if side == 'long' else 'шорт'} на {NAMES[coin].lower()} — изтекоха 48 часа."
+
+
+def account_stop(peak: float, equity: float) -> str:
+    fall = (1 - equity / peak) * 100 if peak else 0.0
+    return (f"Сър, сметката падна с {fall:.0f} % от най-високата си стойност (от {_fmt(peak)} $ на {_fmt(equity)} $). "
+            f"Спрях REAL TRADE — отворените позиции остават със стоповете си. Пуснете бутона пак, когато решите.")
+
+
 # --- Demo accounts and the simulation -----------------------------------------------------------
 _DOLLAR_WORDS = ("", "usd", "$", "долар", "долара", "dollar", "dollars")
 
