@@ -80,6 +80,8 @@ class LessonBook:
 ALLOWED_PARAM_TYPES = {"str", "int", "float", "bool"}
 FORBIDDEN_CALLS = {"eval", "exec", "compile", "__import__", "globals", "locals", "breakpoint"}
 FORBIDDEN_MODULES = {"importlib", "ctypes", "winreg", "pickle", "marshal"}
+# REAL TRADE trades real money by itself — code Orion writes may not reach the trading package at all.
+TRADING_BAN = "Търговията (orion.trading) е забранена за умения, които пиша сам — там се търгува с истински пари."
 # Safe calls allowed at the top level (e.g. PATTERN = re.compile(...)).
 SAFE_TOPLEVEL_CALLS = {"Path", "dict", "list", "set", "tuple", "frozenset", "range", "compile", "join"}
 RISKY = {
@@ -176,8 +178,25 @@ def validate_skill_code(code: str, taken_names: set[str]) -> tuple[list[str], li
         if any(u == key or u.startswith(key + ".") for u in used):
             warnings.append(meaning)
 
+    if _reaches_trading(tree):
+        problems.append(TRADING_BAN)
     problems += _undefined_names(code)
     return list(dict.fromkeys(problems)), sorted(set(warnings)), [fn.name for fn in tools]
+
+
+def _reaches_trading(tree: ast.AST) -> bool:
+    """Any import of orion.trading (also inside functions) or the attribute orion.trading."""
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Import) and any(a.name.split(".")[:2] == ["orion", "trading"] for a in n.names):
+            return True
+        if isinstance(n, ast.ImportFrom) and n.module:
+            parts = n.module.split(".")
+            if parts[:2] == ["orion", "trading"] or (n.module == "orion" and any(a.name == "trading" for a in n.names)):
+                return True
+        if (isinstance(n, ast.Attribute) and n.attr == "trading" and isinstance(n.value, ast.Name)
+                and n.value.id == "orion"):
+            return True
+    return False
 
 
 def _undefined_names(code: str) -> list[str]:
